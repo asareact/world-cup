@@ -1,0 +1,470 @@
+import { supabase } from './supabase'
+
+// Types matching our Supabase schema
+export interface Tournament {
+  id: string
+  name: string
+  description: string | null
+  creator_id: string
+  status: 'draft' | 'active' | 'completed' | 'paused'
+  format: 'single_elimination' | 'double_elimination' | 'round_robin' | 'groups'
+  max_teams: number
+  start_date: string | null
+  end_date: string | null
+  registration_deadline: string | null
+  rules: string | null
+  prize_description: string | null
+  is_public: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Team {
+  id: string
+  name: string
+  description: string | null
+  logo_url: string | null
+  captain_id: string | null
+  created_by: string
+  contact_email: string | null
+  contact_phone: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Player {
+  id: string
+  team_id: string
+  name: string
+  jersey_number: number | null
+  position: 'portero' | 'cierre' | 'ala' | 'pivote' | null
+  birth_date: string | null
+  photo_url: string | null
+  is_captain: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Match {
+  id: string
+  tournament_id: string
+  home_team_id: string | null
+  away_team_id: string | null
+  scheduled_at: string | null
+  venue: string | null
+  round_name: string | null
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+  home_score: number
+  away_score: number
+  winner_team_id: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface TournamentTeam {
+  id: string
+  tournament_id: string
+  team_id: string
+  registered_at: string
+  status: 'registered' | 'confirmed' | 'withdrawn'
+  group_name: string | null
+}
+
+export interface Profile {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+  phone: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Database service class
+export class DatabaseService {
+  private client = supabase
+
+  // Tournament operations
+  async getTournaments(userId: string) {
+    const { data, error } = await this.client
+      .from('tournaments')
+      .select(`
+        *,
+        tournament_teams!inner(
+          team_id,
+          teams(name)
+        ),
+        matches(
+          id,
+          status,
+          home_score,
+          away_score
+        )
+      `)
+      .or(`creator_id.eq.${userId},is_public.eq.true`)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  }
+
+  async getTournament(id: string) {
+    const { data, error } = await this.client
+      .from('tournaments')
+      .select(`
+        *,
+        tournament_teams(
+          *,
+          teams(*)
+        ),
+        matches(
+          *,
+          home_team:teams!matches_home_team_id_fkey(name),
+          away_team:teams!matches_away_team_id_fkey(name)
+        )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async createTournament(tournament: Omit<Tournament, 'id' | 'created_at' | 'updated_at'>) {
+    const { data, error } = await this.client
+      .from('tournaments')
+      .insert(tournament)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async updateTournament(id: string, updates: Partial<Tournament>) {
+    const { data, error } = await this.client
+      .from('tournaments')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async deleteTournament(id: string) {
+    const { error } = await this.client
+      .from('tournaments')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  }
+
+  // Team operations
+  async getTeam(id: string) {
+    const { data, error } = await this.client
+      .from('teams')
+      .select(`
+        *,
+        players(
+          id,
+          name,
+          position,
+          is_active,
+          is_captain
+        )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async getTeams(userId: string) {
+    const { data, error } = await this.client
+      .from('teams')
+      .select(`
+        *,
+        players(
+          id,
+          name,
+          position,
+          is_active
+        )
+      `)
+      .eq('created_by', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  }
+
+  async createTeam(team: Omit<Team, 'id' | 'created_at' | 'updated_at'>) {
+    const { data, error } = await this.client
+      .from('teams')
+      .insert(team)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async updateTeam(id: string, updates: Partial<Team>) {
+    const { data, error } = await this.client
+      .from('teams')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async deleteTeam(id: string) {
+    const { error } = await this.client
+      .from('teams')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  }
+
+  // Player operations
+  async getPlayers(teamId: string) {
+    const { data, error } = await this.client
+      .from('players')
+      .select('*')
+      .eq('team_id', teamId)
+      .order('jersey_number', { ascending: true })
+
+    if (error) throw error
+    return data || []
+  }
+
+  async createPlayer(player: Omit<Player, 'id' | 'created_at' | 'updated_at'>) {
+    const { data, error } = await this.client
+      .from('players')
+      .insert(player)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async updatePlayer(id: string, updates: Partial<Player>) {
+    const { data, error } = await this.client
+      .from('players')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async deletePlayer(id: string) {
+    const { error } = await this.client
+      .from('players')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  }
+
+  // Match operations
+  async getMatches(tournamentId: string) {
+    const { data, error } = await this.client
+      .from('matches')
+      .select(`
+        *,
+        home_team:teams!matches_home_team_id_fkey(name),
+        away_team:teams!matches_away_team_id_fkey(name),
+        winner_team:teams!matches_winner_team_id_fkey(name)
+      `)
+      .eq('tournament_id', tournamentId)
+      .order('scheduled_at', { ascending: true })
+
+    if (error) throw error
+    return data || []
+  }
+
+  async createMatch(match: Omit<Match, 'id' | 'created_at' | 'updated_at'>) {
+    const { data, error } = await this.client
+      .from('matches')
+      .insert(match)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async updateMatch(id: string, updates: Partial<Match>) {
+    const { data, error } = await this.client
+      .from('matches')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  // Tournament team operations
+  async registerTeamForTournament(tournamentId: string, teamId: string) {
+    const { data, error } = await this.client
+      .from('tournament_teams')
+      .insert({
+        tournament_id: tournamentId,
+        team_id: teamId,
+        status: 'registered'
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async unregisterTeamFromTournament(tournamentId: string, teamId: string) {
+    const { error } = await this.client
+      .from('tournament_teams')
+      .delete()
+      .eq('tournament_id', tournamentId)
+      .eq('team_id', teamId)
+
+    if (error) throw error
+  }
+
+  // Dashboard statistics
+  async getDashboardStats(userId: string) {
+    // Get tournaments count
+    const { count: tournamentsCount, error: tournamentsError } = await this.client
+      .from('tournaments')
+      .select('*', { count: 'exact', head: true })
+      .eq('creator_id', userId)
+
+    if (tournamentsError) throw tournamentsError
+
+    // Get active tournaments count
+    const { count: activeTournamentsCount, error: activeError } = await this.client
+      .from('tournaments')
+      .select('*', { count: 'exact', head: true })
+      .eq('creator_id', userId)
+      .eq('status', 'active')
+
+    if (activeError) throw activeError
+
+    // Get teams count
+    const { count: teamsCount, error: teamsError } = await this.client
+      .from('teams')
+      .select('*', { count: 'exact', head: true })
+      .eq('created_by', userId)
+
+    if (teamsError) throw teamsError
+
+    // Get matches count
+    const { count: matchesCount, error: matchesError } = await this.client
+      .from('matches')
+      .select('*, tournaments!inner(*)', { count: 'exact', head: true })
+      .eq('tournaments.creator_id', userId)
+      .eq('status', 'completed')
+
+    if (matchesError) throw matchesError
+
+    return {
+      totalTournaments: tournamentsCount || 0,
+      activeTournaments: activeTournamentsCount || 0,
+      totalTeams: teamsCount || 0,
+      matchesPlayed: matchesCount || 0
+    }
+  }
+
+  async getUpcomingMatches(userId: string, limit = 5) {
+    const { data, error } = await this.client
+      .from('matches')
+      .select(`
+        *,
+        tournaments!inner(name, creator_id),
+        home_team:teams!matches_home_team_id_fkey(name),
+        away_team:teams!matches_away_team_id_fkey(name)
+      `)
+      .eq('tournaments.creator_id', userId)
+      .eq('status', 'scheduled')
+      .gte('scheduled_at', new Date().toISOString())
+      .order('scheduled_at', { ascending: true })
+      .limit(limit)
+
+    if (error) throw error
+    return data || []
+  }
+
+  // Profile operations
+  async getProfile(userId: string) {
+    const { data, error } = await this.client
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async updateProfile(userId: string, updates: Partial<Profile>) {
+    const { data, error } = await this.client
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  // Real-time subscriptions
+  subscribeTournamentChanges(userId: string, callback: (payload: unknown) => void) {
+    return this.client
+      .channel('tournament-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tournaments',
+          filter: `creator_id=eq.${userId}`
+        },
+        callback
+      )
+      .subscribe()
+  }
+
+  subscribeMatchChanges(tournamentId: string, callback: (payload: unknown) => void) {
+    return this.client
+      .channel('match-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'matches',
+          filter: `tournament_id=eq.${tournamentId}`
+        },
+        callback
+      )
+      .subscribe()
+  }
+}
+
+// Export singleton instance
+export const db = new DatabaseService()
