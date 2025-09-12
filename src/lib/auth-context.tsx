@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase } from './supabase'
-import { db, Profile } from './database'
+import { db } from './database'
 
 type AuthContextType = {
   user: User | null
@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         try {
           const profile = await db.getProfile(session.user.id)
-          setRole((profile?.role as any) || 'invitado')
+          setRole((profile?.role as 'superAdmin'|'capitan'|'invitado') || 'invitado')
         } catch {
           setRole('invitado')
         }
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           try {
             const profile = await db.getProfile(session.user.id)
-            setRole((profile?.role as any) || 'invitado')
+            setRole((profile?.role as 'superAdmin'|'capitan'|'invitado') || 'invitado')
           } catch {
             setRole('invitado')
           }
@@ -141,7 +141,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Debug: log user role in development
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
       console.log('[Auth] user role:', role, 'user:', user?.id)
     }
   }, [role, user])

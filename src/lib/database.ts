@@ -412,7 +412,7 @@ export class DatabaseService {
   // Profile operations
   async getProfile(userId: string) {
     // Try user_profiles first (some setups use this name), fallback to profiles
-    let { data, error } = await this.client
+    const { data, error } = await this.client
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
