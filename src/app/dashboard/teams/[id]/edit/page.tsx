@@ -1,18 +1,13 @@
-'use client'
+'use server'
 
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { EditTeamForm } from '@/components/teams/edit-team-form'
 
-interface EditTeamPageProps {
-  params: {
-    id: string
-  }
-}
-
-export default function EditTeamPage({ params }: EditTeamPageProps) {
+export default async function EditTeamPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   return (
     <DashboardLayout>
-      <EditTeamForm teamId={params.id} />
+      <EditTeamForm teamId={id} />
     </DashboardLayout>
   )
 }
