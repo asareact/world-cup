@@ -421,15 +421,78 @@ export class DatabaseService {
   }
 
   async updateProfile(userId: string, updates: Partial<Profile>) {
+    // Primero verificamos si el perfil existe
+    const { data: existingProfile, error: fetchError } = await this.client
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+    
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('Error fetching profile:', fetchError)
+      throw new Error(`Error al verificar el perfil: ${fetchError.message}`)
+    }
+    
+    // Si el perfil no existe, lo creamos primero
+    if (!existingProfile) {
+      const { error: insertError } = await this.client
+        .from('profiles')
+        .insert({
+          id: userId,
+          ...updates
+        })
+      
+      if (insertError) {
+        console.error('Error creating profile:', insertError)
+        throw new Error(`Error al crear el perfil: ${insertError.message}`)
+      }
+      
+      // Obtenemos el perfil recién creado
+      const { data: newProfile, error: selectError } = await this.client
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      
+      if (selectError) {
+        console.error('Error selecting new profile:', selectError)
+        throw new Error(`Error al obtener el perfil creado: ${selectError.message}`)
+      }
+      
+      return newProfile
+    }
+    
+    // Si el perfil existe, lo actualizamos
     const { data, error } = await this.client
       .from('profiles')
       .update(updates)
       .eq('id', userId)
       .select()
-      .single()
-
-    if (error) throw error
-    return data
+      
+    if (error) {
+      console.error('Database update profile error:', error)
+      throw new Error(`Error al actualizar el perfil: ${error.message}`)
+    }
+    
+    // Verificamos que haya datos retornados
+    if (!data || data.length === 0) {
+      // Si no hay datos, obtenemos el perfil actualizado
+      const { data: updatedProfile, error: selectError } = await this.client
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+        
+      if (selectError) {
+        console.error('Error selecting updated profile:', selectError)
+        throw new Error(`Error al obtener el perfil actualizado: ${selectError.message}`)
+      }
+      
+      return updatedProfile
+    }
+    
+    // Si hay datos, los retornamos (puede ser un array o un objeto)
+    return Array.isArray(data) ? data[0] : data
   }
 
   // Real-time subscriptions

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { db } from './database'
 
 type AuthContextType = {
   user: User | null
@@ -12,6 +13,7 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<{ error: AuthError | null }>
   signInWithGoogle: () => Promise<{ error: AuthError | null }>
+  updateProfile: (updates: { full_name?: string }) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -104,6 +106,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error }
   }
 
+  const updateProfile = async (updates: { full_name?: string }) => {
+    if (!user) return
+
+    try {
+      // Actualizar el perfil en la base de datos
+      const profileData = await db.updateProfile(user.id, updates)
+      
+      // También actualizar los metadatos del usuario en Supabase Auth
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          ...(updates.full_name !== undefined && { full_name: updates.full_name })
+        }
+      })
+      
+      if (authError) {
+        console.error('Error updating auth metadata:', authError)
+        // No lanzamos error aquí porque la actualización del perfil ya tuvo éxito
+        // Solo registramos el error en la consola
+      }
+      
+      // Actualizar el estado local del usuario
+      setUser(prevUser => {
+        if (!prevUser) return null
+        return {
+          ...prevUser,
+          user_metadata: {
+            ...prevUser.user_metadata,
+            ...(updates.full_name !== undefined && { full_name: updates.full_name })
+          }
+        }
+      })
+      
+      return profileData
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      throw error
+    }
+  }
+
   const value = {
     user,
     session,
@@ -111,7 +152,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signIn,
     signOut,
-    signInWithGoogle
+    signInWithGoogle,
+    updateProfile
   }
 
   return (
