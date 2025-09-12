@@ -28,7 +28,7 @@ interface PlayerFormData {
 }
 
 export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps) {
-  const { createPlayer, availableNumbers, activePlayers, captain } = usePlayers(teamId)
+  const { createPlayer, availableNumbers, captain } = usePlayers(teamId)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -350,7 +350,12 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
               </button>
               <button
                 type="submit"
-                disabled={loading || !formData.name.trim() || !formData.position || (formData.jersey_number && !availableNumbers.includes(formData.jersey_number as number))}
+                disabled={
+                  loading ||
+                  !formData.name.trim() ||
+                  !formData.position ||
+                  (formData.jersey_number !== '' && !availableNumbers.includes(formData.jersey_number as number))
+                }
                 className="flex-1 flex items-center justify-center space-x-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
