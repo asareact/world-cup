@@ -22,6 +22,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Clean up implicit OAuth hash to avoid exposing tokens in URL
+    if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.search)
+    }
     // Get initial session
     const getInitialSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -38,18 +42,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
+        // After sign-in, if we had an implicit hash, ensure the URL is clean
+        if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+          window.history.replaceState({}, document.title, window.location.pathname + window.location.search)
+        }
       }
     )
 
     return () => subscription.unsubscribe()
   }, [])
 
+  const getBaseUrl = () => {
+    // If running in browser, detect host; force localhost for local/private IPs
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname
+      const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1'
+      const isPrivateIP = /^10\./.test(hostname) || /^192\.168\./.test(hostname) || /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
+      if (isLocalHost || isPrivateIP) return 'http://localhost:3000'
+    }
+    // Production or SSR: prefer env/site vars
+    const envUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+    const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined
+    const browserOrigin = typeof window !== 'undefined' ? window.location.origin : undefined
+    return envUrl || vercelUrl || browserOrigin || 'https://world-cup-weld.vercel.app'
+  }
+
   const signUp = async (email: string, password: string, userData?: Record<string, string>) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: userData
+        data: userData,
+        emailRedirectTo: `${getBaseUrl()}/auth/callback`
       }
     })
     return { error }
@@ -69,10 +93,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithGoogle = async () => {
+    const next = typeof window !== 'undefined' ? window.location.pathname : '/'
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: `${getBaseUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
+        queryParams: { prompt: 'select_account' }
       }
     })
     return { error }
