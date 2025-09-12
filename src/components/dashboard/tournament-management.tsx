@@ -17,7 +17,7 @@ import {
   Eye,
   Loader2
 } from 'lucide-react'
-import { useTournaments, TournamentWithStats } from '@/lib/hooks/use-tournaments'
+import { useTournaments } from '@/lib/hooks/use-tournaments'
 
 const formatLabels = {
   single_elimination: 'Eliminación Simple',
@@ -60,7 +60,7 @@ export function TournamentManagement() {
     try {
       setDeletingId(id)
       await deleteTournament(id)
-    } catch (err) {
+    } catch {
       alert('Error al eliminar el torneo')
     } finally {
       setDeletingId(null)

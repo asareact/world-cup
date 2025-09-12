@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '../auth-context'
-import { db, Tournament } from '../database'
+import { db, Tournament, Match } from '../database'
 
 export interface TournamentWithStats extends Tournament {
   teams: number
@@ -33,7 +33,7 @@ export function useTournaments() {
       const tournamentsWithStats: TournamentWithStats[] = data.map(tournament => {
         const teams = tournament.tournament_teams?.length || 0
         const matches = tournament.matches || []
-        const playedMatches = matches.filter(m => m.status === 'completed').length
+        const playedMatches = matches.filter((m: Match) => m.status === 'completed').length
         const totalMatches = matches.length
         const remainingMatches = totalMatches - playedMatches
         const progress = totalMatches > 0 ? Math.round((playedMatches / totalMatches) * 100) : 0
