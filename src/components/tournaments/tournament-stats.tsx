@@ -9,7 +9,7 @@ export function TournamentStats({ tournamentId }: { tournamentId: string }) {
   const [scorers, setScorers] = useState<ScorerRow[]>([])
 
   useEffect(() => {
-    getTopScorers(tournamentId, 10).then(setScorers)
+    getTopScorers(tournamentId, 10).then((rows) => setScorers(rows as ScorerRow[]))
   }, [tournamentId])
 
   return (
