@@ -5,7 +5,6 @@ import {
   Trophy, 
   Users, 
   Calendar, 
-  TrendingUp, 
   Plus, 
   Play, 
   Award,

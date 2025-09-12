@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Crown, 
-  Hash, 
   User,
   MoreHorizontal,
   Trash2,
