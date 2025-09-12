@@ -18,7 +18,7 @@ export function useProfile() {
 
     try {
       // Permitir que fullName sea una cadena vacía (para borrar el nombre)
-      await updateProfile({ full_name: fullName || null })
+      await updateProfile({ full_name: fullName || undefined })
       return { success: true, error: null }
     } catch (err) {
       let errorMessage = 'Error al actualizar el perfil'
