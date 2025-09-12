@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-export default function AuthCallbackPage() {
+function CallbackHandler() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [message, setMessage] = useState('Procesando inicio de sesión...')
@@ -59,3 +59,16 @@ export default function AuthCallbackPage() {
   )
 }
 
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-gray-800 border border-gray-700 rounded-2xl p-6 text-center">
+          <p className="text-white">Procesando inicio de sesión...</p>
+        </div>
+      </div>
+    }>
+      <CallbackHandler />
+    </Suspense>
+  )
+}
