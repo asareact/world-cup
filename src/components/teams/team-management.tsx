@@ -17,9 +17,11 @@ import {
 } from 'lucide-react'
 import { useTeams } from '@/lib/hooks/use-teams'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
 
 export function TeamManagement() {
   const { teams, loading, error, deleteTeam } = useTeams()
+  const { role } = useAuth()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'incomplete' | 'ready'>('all')
@@ -80,13 +82,15 @@ export function TeamManagement() {
           <h1 className="text-2xl font-bold text-white">Gestión de Equipos</h1>
           <p className="text-gray-400">Administra tus equipos de futsal</p>
         </div>
-        <button
-          onClick={() => router.push('/dashboard/teams/create')}
-          className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg transform hover:scale-105"
-        >
-          <Plus className="h-5 w-5" />
-          <span>Agregar Equipo</span>
-        </button>
+        {(role === 'superAdmin' || (role === 'capitan' && teams.length === 0)) && (
+          <button
+            onClick={() => router.push('/dashboard/teams/create')}
+            className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg transform hover:scale-105"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Agregar Equipo</span>
+          </button>
+        )}
       </div>
 
       {/* Search and Filters */}

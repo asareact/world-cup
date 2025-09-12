@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name TEXT,
   avatar_url TEXT,
   phone TEXT,
+  role TEXT CHECK (role IN ('superAdmin','capitan','invitado')) DEFAULT 'invitado',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (id)
@@ -135,6 +136,15 @@ CREATE POLICY "Users can insert own profile" ON public.profiles
 
 CREATE POLICY "Users can update own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
+
+-- Helper: función para detectar superAdmin
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS BOOLEAN LANGUAGE sql STABLE AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND role = 'superAdmin'
+  );
+$$;
 
 -- Políticas para tournaments
 CREATE POLICY "Public tournaments are viewable by everyone" ON public.tournaments

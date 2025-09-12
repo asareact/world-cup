@@ -77,6 +77,7 @@ export interface Profile {
   full_name: string | null
   avatar_url: string | null
   phone: string | null
+  role: 'superAdmin' | 'capitan' | 'invitado'
   created_at: string
   updated_at: string
 }
@@ -410,13 +411,22 @@ export class DatabaseService {
 
   // Profile operations
   async getProfile(userId: string) {
-    const { data, error } = await this.client
-      .from('profiles')
+    // Try user_profiles first (some setups use this name), fallback to profiles
+    let { data, error } = await this.client
+      .from('user_profiles')
       .select('*')
       .eq('id', userId)
       .single()
 
-    if (error) throw error
+    if (error) {
+      const fallback = await this.client
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      if (fallback.error) throw fallback.error
+      return fallback.data
+    }
     return data
   }
 

@@ -38,7 +38,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
   )
-  const { user, signOut } = useAuth()
+  const { user, signOut, role } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const { stats } = useDashboardStats()
@@ -55,6 +55,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   const activeItem = getActiveItem()
+
+  const filteredSidebarItems = sidebarItems.filter((item) => {
+    if (role === 'superAdmin') return true
+    if (role === 'capitan') {
+      // Capitán: solo Dashboard y Equipos
+      return item.id === 'dashboard' || item.id === 'teams'
+    }
+    // Invitado: solo Dashboard
+    return item.id === 'dashboard'
+  })
 
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 1024px)')
@@ -126,7 +136,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-2">
-            {sidebarItems.map((item) => {
+            {filteredSidebarItems.map((item) => {
               const isActive = activeItem === item.id
               return (
                 <Link
@@ -154,15 +164,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </nav>
 
           {/* Quick Actions */}
-          <div className="p-4 border-t border-gray-700">
-            <button 
-              onClick={() => router.push('/dashboard/tournaments')}
-              className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 px-4 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-lg"
-            >
-              <Plus className="h-5 w-5" />
-              <span>Nuevo Torneo</span>
-            </button>
-          </div>
+          {role === 'superAdmin' && (
+            <div className="p-4 border-t border-gray-700">
+              <button 
+                onClick={() => router.push('/dashboard/tournaments')}
+                className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 px-4 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-lg"
+              >
+                <Plus className="h-5 w-5" />
+                <span>Nuevo Torneo</span>
+              </button>
+            </div>
+          )}
 
           {/* Sign Out */}
           <div className="p-4 border-t border-gray-700">
