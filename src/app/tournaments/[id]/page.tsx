@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import { useTournament } from '@/lib/hooks/use-tournament'
 import { TournamentHeader } from '@/components/tournaments/tournament-header'
+import type { Tournament } from '@/lib/database'
 import { TournamentTabs } from '@/components/tournaments/tournament-tabs'
 import { TournamentOverview } from '@/components/tournaments/tournament-overview'
 import { TournamentMatches } from '@/components/tournaments/tournament-matches'
@@ -97,7 +98,7 @@ export default function TournamentPublicPage() {
     <DashboardLayout>
       <div className="space-y-6">
         <TournamentHeader
-          tournament={tournament}
+          tournament={t as Tournament}
           teamsCount={teamsCount}
           onFollow={handleFollow}
           isFollowing={following}
