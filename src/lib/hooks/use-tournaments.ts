@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../auth-context'
 import { db, Tournament, Match } from '../database'
 
@@ -20,7 +20,7 @@ export function useTournaments() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchTournaments = async () => {
+  const fetchTournaments = useCallback(async () => {
     if (!user) return
 
     try {
@@ -57,7 +57,7 @@ export function useTournaments() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
   const createTournament = async (tournament: Omit<Tournament, 'id' | 'created_at' | 'updated_at' | 'creator_id'>) => {
     if (!user) throw new Error('Usuario no autenticado')
@@ -106,7 +106,7 @@ export function useTournaments() {
 
   useEffect(() => {
     fetchTournaments()
-  }, [user])
+  }, [user, fetchTournaments])
 
   return {
     tournaments,

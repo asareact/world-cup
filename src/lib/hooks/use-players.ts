@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { db, Player } from '../database'
 
 export const FUTSAL_POSITIONS = {
@@ -17,7 +17,7 @@ export function usePlayers(teamId: string | null) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchPlayers = async () => {
+  const fetchPlayers = useCallback(async () => {
     if (!teamId) {
       console.log('usePlayers: No teamId provided, skipping fetch')
       return
@@ -37,7 +37,7 @@ export function usePlayers(teamId: string | null) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [teamId])
 
   const createPlayer = async (player: Omit<Player, 'id' | 'created_at' | 'updated_at'>) => {
     if (!teamId) throw new Error('Team ID requerido')
@@ -168,7 +168,7 @@ export function usePlayers(teamId: string | null) {
 
   useEffect(() => {
     fetchPlayers()
-  }, [teamId])
+  }, [teamId, fetchPlayers])
 
   const captain = players.find(p => p.is_captain)
   const activePlayers = players.filter(p => p.is_active)
