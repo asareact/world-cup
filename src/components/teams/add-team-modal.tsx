@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Users, Mail, Phone, User, Loader2 } from 'lucide-react'
+import { X, Users, Mail, Phone, Loader2 } from 'lucide-react'
 import { useTeams } from '@/lib/hooks/use-teams'
 
 interface AddTeamModalProps {
@@ -47,7 +47,7 @@ export function AddTeamModal({ isOpen, onClose }: AddTeamModalProps) {
         contact_phone: ''
       })
       onClose()
-    } catch (err) {
+    } catch {
       alert('Error al crear el equipo')
     } finally {
       setLoading(false)

@@ -5,10 +5,9 @@ import { motion } from 'framer-motion'
 import { 
   Plus, 
   Search, 
-  Filter, 
   Users, 
-  Mail, 
-  Phone, 
+  Mail,
+  Phone,
   MoreHorizontal,
   Edit,
   Trash2,
@@ -16,7 +15,7 @@ import {
   Eye,
   Loader2
 } from 'lucide-react'
-import { useTeams, TeamWithPlayers } from '@/lib/hooks/use-teams'
+import { useTeams } from '@/lib/hooks/use-teams'
 import { useRouter } from 'next/navigation'
 
 export function TeamManagement() {
@@ -43,7 +42,7 @@ export function TeamManagement() {
     try {
       setDeletingId(id)
       await deleteTeam(id)
-    } catch (err) {
+    } catch {
       alert('Error al eliminar el equipo')
     } finally {
       setDeletingId(null)

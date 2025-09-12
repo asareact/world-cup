@@ -29,7 +29,7 @@ export function CreateTeamForm() {
   const router = useRouter()
   const { createTeam } = useTeams()
   const [currentTeamId, setCurrentTeamId] = useState<string | null>(null)
-  const { players, captain, activePlayers, createPlayer, setCaptain, deletePlayer } = usePlayers(currentTeamId)
+  const { captain, activePlayers, setCaptain, deletePlayer } = usePlayers(currentTeamId)
   
   const [loading, setLoading] = useState(false)
   const [showPlayerForm, setShowPlayerForm] = useState(false)
@@ -63,7 +63,7 @@ export function CreateTeamForm() {
       
       setCurrentTeamId(newTeam.id)
       setTeamCreated(true)
-    } catch (err) {
+    } catch {
       alert('Error al crear el equipo')
     } finally {
       setLoading(false)
