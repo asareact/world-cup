@@ -116,7 +116,7 @@ export default function TournamentPublicPage() {
           </div>
         )}
         {tab === 'teams' && <TournamentTeams tournament={tournament} />}
-        {tab === 'stats' && <TournamentStats tournamentId={tournament.id} />}
+        {tab === 'stats' && <TournamentStats tournamentId={(t as TournamentLite).id!} />}
         {tab === 'rules' && (
           <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4 text-gray-300">
             <h3 className="text-white font-semibold mb-3">Reglamento</h3>
