@@ -28,7 +28,7 @@ export function useTeams() {
       const teamsWithPlayers: TeamWithPlayers[] = data.map(team => ({
         ...team,
         players: team.players || [],
-        playerCount: team.players?.filter(p => p.is_active).length || 0
+        playerCount: team.players?.filter((p: Player) => p.is_active).length || 0
       }))
 
       setTeams(teamsWithPlayers)
