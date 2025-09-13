@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { DashboardOverview } from '@/components/dashboard/dashboard-overview'
+import { PublicTournamentsGrid } from '@/components/tournaments/public-tournaments-grid'
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth()
+  const { user, loading, role } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -15,6 +16,13 @@ export default function DashboardPage() {
       router.push('/')
     }
   }, [user, loading, router])
+
+  // Redirect captains to Teams page for focused experience
+  useEffect(() => {
+    if (!loading && user && role === 'capitan') {
+      router.replace('/dashboard/teams')
+    }
+  }, [loading, user, role, router])
 
   if (loading) {
     return (
@@ -28,9 +36,11 @@ export default function DashboardPage() {
     return null
   }
 
+  if (role === 'capitan') return null
+
   return (
     <DashboardLayout>
-      <DashboardOverview />
+      {role === 'superAdmin' ? <DashboardOverview /> : <PublicTournamentsGrid />}
     </DashboardLayout>
   )
 }

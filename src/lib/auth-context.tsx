@@ -9,6 +9,7 @@ type AuthContextType = {
   user: User | null
   session: Session | null
   loading: boolean
+  role: 'superAdmin' | 'capitan' | 'invitado'
   signUp: (email: string, password: string, userData?: Record<string, string>) => Promise<{ error: AuthError | null }>
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<{ error: AuthError | null }>
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [role, setRole] = useState<'superAdmin' | 'capitan' | 'invitado'>('invitado')
 
   useEffect(() => {
     // Clean up implicit OAuth hash to avoid exposing tokens in URL
@@ -33,6 +35,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession()
       setSession(session)
       setUser(session?.user ?? null)
+      if (session?.user) {
+        try {
+          const profile = await db.getProfile(session.user.id)
+          setRole((profile?.role as 'superAdmin'|'capitan'|'invitado') || 'invitado')
+        } catch {
+          setRole('invitado')
+        }
+      } else {
+        setRole('invitado')
+      }
       setLoading(false)
     }
 
@@ -43,6 +55,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
+        if (session?.user) {
+          try {
+            const profile = await db.getProfile(session.user.id)
+            setRole((profile?.role as 'superAdmin'|'capitan'|'invitado') || 'invitado')
+          } catch {
+            setRole('invitado')
+          }
+        } else {
+          setRole('invitado')
+        }
         setLoading(false)
         // After sign-in, if we had an implicit hash, ensure the URL is clean
         if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
@@ -149,12 +171,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     session,
     loading,
+    role,
     signUp,
     signIn,
     signOut,
     signInWithGoogle,
     updateProfile
   }
+
+  // Debug: log user role in development
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Auth] user role:', role, 'user:', user?.id)
+    }
+  }, [role, user])
 
   return (
     <AuthContext.Provider value={value}>

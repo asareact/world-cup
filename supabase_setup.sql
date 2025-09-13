@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name TEXT,
   avatar_url TEXT,
   phone TEXT,
+  role TEXT CHECK (role IN ('superAdmin','capitan','invitado')) DEFAULT 'invitado',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (id)
@@ -136,6 +137,15 @@ CREATE POLICY "Users can insert own profile" ON public.profiles
 CREATE POLICY "Users can update own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
+-- Helper: función para detectar superAdmin
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS BOOLEAN LANGUAGE sql STABLE AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE id = auth.uid() AND role = 'superAdmin'
+  );
+$$;
+
 -- Políticas para tournaments
 CREATE POLICY "Public tournaments are viewable by everyone" ON public.tournaments
   FOR SELECT USING (is_public = true OR creator_id = auth.uid());
@@ -214,6 +224,86 @@ CREATE POLICY "Tournament creators can manage player stats" ON public.player_sta
   FOR ALL USING (
     tournament_id IN (SELECT id FROM tournaments WHERE creator_id = auth.uid())
   );
+
+-- 9. Crear tabla de solicitudes de participación
+CREATE TABLE IF NOT EXISTS public.tournament_join_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  tournament_id UUID REFERENCES public.tournaments(id) ON DELETE CASCADE,
+  team_id UUID REFERENCES public.teams(id) ON DELETE CASCADE,
+  requester_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  status TEXT CHECK (status IN ('pending','approved','rejected','cancelled')) DEFAULT 'pending',
+  message TEXT,
+  decided_by UUID REFERENCES auth.users(id),
+  decided_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índice único para evitar múltiples pendientes por equipo/torneo
+CREATE UNIQUE INDEX IF NOT EXISTS ux_pending_join_requests
+ON public.tournament_join_requests(tournament_id, team_id)
+WHERE status = 'pending';
+
+-- Habilitar RLS
+ALTER TABLE public.tournament_join_requests ENABLE ROW LEVEL SECURITY;
+
+-- Políticas RLS para solicitudes
+CREATE POLICY IF NOT EXISTS "Join requests are viewable by requester, owner, or superAdmin" ON public.tournament_join_requests
+  FOR SELECT USING (
+    requester_id = auth.uid()
+    OR tournament_id IN (SELECT id FROM public.tournaments WHERE creator_id = auth.uid())
+    OR public.is_super_admin()
+  );
+
+CREATE POLICY IF NOT EXISTS "Captains can create join requests for own team" ON public.tournament_join_requests
+  FOR INSERT WITH CHECK (
+    requester_id = auth.uid()
+    AND team_id IN (SELECT id FROM public.teams WHERE created_by = auth.uid() OR captain_id = auth.uid())
+  );
+
+CREATE POLICY IF NOT EXISTS "Tournament owner approves or rejects requests" ON public.tournament_join_requests
+  FOR UPDATE USING (
+    tournament_id IN (SELECT id FROM public.tournaments WHERE creator_id = auth.uid())
+    OR public.is_super_admin()
+  ) WITH CHECK (
+    tournament_id IN (SELECT id FROM public.tournaments WHERE creator_id = auth.uid())
+    OR public.is_super_admin()
+  );
+
+CREATE POLICY IF NOT EXISTS "Requester can cancel own pending request" ON public.tournament_join_requests
+  FOR UPDATE USING (
+    requester_id = auth.uid() AND status = 'pending'
+  ) WITH CHECK (
+    requester_id = auth.uid()
+  );
+
+-- Trigger updated_at para tournament_join_requests
+CREATE TRIGGER IF NOT EXISTS update_tjr_updated_at BEFORE UPDATE ON public.tournament_join_requests
+FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Trigger para manejar efectos al cambiar estado de solicitud
+CREATE OR REPLACE FUNCTION public.handle_join_request_status()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'approved' AND (OLD.status IS DISTINCT FROM NEW.status) THEN
+    -- Registrar equipo en el torneo si no existe
+    INSERT INTO public.tournament_teams (tournament_id, team_id, status)
+    VALUES (NEW.tournament_id, NEW.team_id, 'registered')
+    ON CONFLICT (tournament_id, team_id) DO NOTHING;
+    NEW.decided_by := COALESCE(NEW.decided_by, auth.uid());
+    NEW.decided_at := COALESCE(NEW.decided_at, NOW());
+  ELSIF NEW.status IN ('rejected','cancelled') AND (OLD.status IS DISTINCT FROM NEW.status) THEN
+    NEW.decided_by := COALESCE(NEW.decided_by, auth.uid());
+    NEW.decided_at := COALESCE(NEW.decided_at, NOW());
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_handle_join_request_status ON public.tournament_join_requests;
+CREATE TRIGGER trg_handle_join_request_status
+  BEFORE UPDATE ON public.tournament_join_requests
+  FOR EACH ROW EXECUTE FUNCTION public.handle_join_request_status();
 
 -- ✅ CONSTRAINTS ADICIONALES
 

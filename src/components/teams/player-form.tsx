@@ -34,6 +34,7 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   
   const [formData, setFormData] = useState<PlayerFormData>({
     name: '',
@@ -66,6 +67,7 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
 
     try {
       setLoading(true)
+      setSubmitError(null)
       console.log('Creating player with data:', {
         team_id: teamId,
         name: formData.name.trim(),
@@ -77,7 +79,7 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
         is_active: true
       })
       
-      const newPlayer = await createPlayer({
+      const createPromise = createPlayer({
         team_id: teamId,
         name: formData.name.trim(),
         position: formData.position,
@@ -87,6 +89,13 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
         birth_date: null,
         is_active: true
       })
+
+      // Timeout fallback to avoid spinner hanging indefinitely
+      const timeout = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Tiempo de espera agotado al crear jugador')), 15000)
+      )
+
+      const newPlayer = await Promise.race([createPromise, timeout])
       
       console.log('Player created successfully:', newPlayer)
       
@@ -103,9 +112,9 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
     } catch (err) {
       console.error('Error creating player:', err)
       if (err instanceof Error) {
-        alert(err.message)
+        setSubmitError(err.message)
       } else {
-        alert('Error al crear el jugador')
+        setSubmitError('Error al crear el jugador')
       }
     } finally {
       setLoading(false)
@@ -342,42 +351,45 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
               </p>
             )}
 
-            {/* Actions */}
-            <div className="flex space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={loading}
-                className="flex-1 px-4 py-3 border border-gray-600 text-gray-300 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={
-                  loading ||
-                  !formData.name.trim() ||
-                  !formData.position ||
-                  (formData.jersey_number !== '' && !availableNumbers.includes(formData.jersey_number as number))
-                }
-                className="flex-1 flex items-center justify-center space-x-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Agregando...</span>
-                  </>
-                ) : (
-                  <>
-                    <User className="h-4 w-4" />
-                    <span>Agregar Jugador</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+          {/* Actions */}
+          <div className="flex space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 px-4 py-3 border border-gray-600 text-gray-300 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={
+                loading ||
+                !formData.name.trim() ||
+                !formData.position ||
+                (formData.jersey_number !== '' && !availableNumbers.includes(formData.jersey_number as number))
+              }
+              className="flex-1 flex items-center justify-center space-x-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Agregando...</span>
+                </>
+              ) : (
+                <>
+                  <User className="h-4 w-4" />
+                  <span>Agregar Jugador</span>
+                </>
+              )}
+            </button>
+          </div>
+          {submitError && (
+            <div className="pt-2 text-sm text-red-400">{submitError}</div>
+          )}
+        </form>
+      </motion.div>
+    </div>
+  </AnimatePresence>
   )
 }

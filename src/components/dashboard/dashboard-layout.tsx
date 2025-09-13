@@ -13,19 +13,23 @@ import {
   LogOut, 
   User,
   Plus,
-  Home
+  Home,
+  MessageSquare
 } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
+import { db } from '@/lib/database'
 import { useRouter, usePathname } from 'next/navigation'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard-stats'
 
 const sidebarItems = [
   { icon: Home, label: 'Dashboard', href: '/dashboard', id: 'dashboard' },
-  { icon: Trophy, label: 'Mis Torneos', href: '/dashboard/tournaments', id: 'tournaments' },
+  { icon: Trophy, label: 'Torneos', href: '/dashboard/tournaments', id: 'tournaments' },
   { icon: Users, label: 'Equipos', href: '/dashboard/teams', id: 'teams' },
   { icon: Calendar, label: 'Partidos', href: '/dashboard/matches', id: 'matches' },
   { icon: BarChart3, label: 'Estadísticas', href: '/dashboard/stats', id: 'stats' },
+  // Visible para superAdmin vía filtrado
+  { icon: MessageSquare, label: 'Solicitudes', href: '/dashboard/requests', id: 'requests' },
   { icon: Settings, label: 'Configuración', href: '/dashboard/settings', id: 'settings' },
 ]
 
@@ -38,10 +42,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
   )
-  const { user, signOut } = useAuth()
+  const { user, signOut, role } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const { stats } = useDashboardStats()
+  const [pendingRequests, setPendingRequests] = useState(0)
 
   const handleSignOut = async () => {
     await signOut()
@@ -56,6 +61,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const activeItem = getActiveItem()
 
+  const filteredSidebarItems = sidebarItems.filter((item) => {
+    if (role === 'superAdmin') return true
+    if (role === 'capitan') {
+      // Capitán: solo Dashboard y Equipos
+      return item.id === 'dashboard' || item.id === 'teams'
+    }
+    // Invitado: solo Dashboard
+    return item.id === 'dashboard'
+  })
+
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 1024px)')
     const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
@@ -64,6 +79,27 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     mql.addEventListener('change', handler)
     return () => mql.removeEventListener('change', handler)
   }, [])
+
+  useEffect(() => {
+    const fetchPending = async () => {
+      if (!user || role !== 'superAdmin') { setPendingRequests(0); return }
+      try {
+        const data = await db.getPendingJoinRequestsForAdmin(user.id)
+        setPendingRequests(data.length || 0)
+      } catch {
+        setPendingRequests(0)
+      }
+    }
+    fetchPending()
+
+    // Realtime updates for pending requests
+    if (user && role === 'superAdmin') {
+      const channel = db.subscribeJoinRequestChanges(() => {
+        fetchPending()
+      })
+      return () => { channel.unsubscribe() }
+    }
+  }, [user, role])
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -126,7 +162,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-2">
-            {sidebarItems.map((item) => {
+            {filteredSidebarItems.map((item) => {
               const isActive = activeItem === item.id
               return (
                 <Link
@@ -141,6 +177,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 >
                   <item.icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-green-400'}`} />
                   <span className="font-medium">{item.label}</span>
+                  {item.id === 'requests' && role === 'superAdmin' && pendingRequests > 0 && (
+                    <span className="ml-auto inline-flex items-center justify-center text-xs font-bold bg-red-600 text-white rounded-full px-2 py-0.5">
+                      {pendingRequests}
+                    </span>
+                  )}
                   {isActive && (
                     <motion.div
                       layoutId="activeTab"
@@ -154,15 +195,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </nav>
 
           {/* Quick Actions */}
-          <div className="p-4 border-t border-gray-700">
-            <button 
-              onClick={() => router.push('/dashboard/tournaments')}
-              className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 px-4 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-lg"
-            >
-              <Plus className="h-5 w-5" />
-              <span>Nuevo Torneo</span>
-            </button>
-          </div>
+          {role === 'superAdmin' && (
+            <div className="p-4 border-t border-gray-700">
+              <button 
+                onClick={() => router.push('/dashboard/tournaments')}
+                className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 px-4 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-lg"
+              >
+                <Plus className="h-5 w-5" />
+                <span>Nuevo Torneo</span>
+              </button>
+            </div>
+          )}
 
           {/* Sign Out */}
           <div className="p-4 border-t border-gray-700">
@@ -201,18 +244,27 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {/* Quick Stats */}
             <div className="hidden md:flex items-center space-x-6">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-green-400">{stats.activeTournaments}</p>
-                <p className="text-xs text-gray-400">Torneos Activos</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-400">{stats.totalTeams}</p>
-                <p className="text-xs text-gray-400">Equipos</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-400">{stats.matchesPlayed}</p>
-                <p className="text-xs text-gray-400">Partidos</p>
-              </div>
+              {role === 'superAdmin' ? (
+                <>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-400">{stats.activeTournaments}</p>
+                    <p className="text-xs text-gray-400">Torneos Activos</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-400">{stats.totalTeams}</p>
+                    <p className="text-xs text-gray-400">Equipos</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-purple-400">{stats.matchesPlayed}</p>
+                    <p className="text-xs text-gray-400">Partidos</p>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-400">{stats.totalTeams}</p>
+                  <p className="text-xs text-gray-400">Equipos</p>
+                </div>
+              )}
             </div>
           </div>
         </header>

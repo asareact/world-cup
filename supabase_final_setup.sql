@@ -8,10 +8,28 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name TEXT,
   avatar_url TEXT,
   phone TEXT,
+  role TEXT CHECK (role IN ('superAdmin','capitan','invitado')) DEFAULT 'invitado',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (id)
 );
+
+-- Ensure role column exists on existing installations
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role TEXT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'profiles_role_check'
+      AND conrelid = 'public.profiles'::regclass
+  ) THEN
+    ALTER TABLE public.profiles
+      ADD CONSTRAINT profiles_role_check CHECK (role IN ('superAdmin','capitan','invitado'));
+  END IF;
+END $$;
+ALTER TABLE public.profiles ALTER COLUMN role SET DEFAULT 'invitado';
+UPDATE public.profiles SET role = 'invitado' WHERE role IS NULL;
 
 -- 2. Crear tabla de torneos (si no existe)
 CREATE TABLE IF NOT EXISTS public.tournaments (
@@ -170,6 +188,220 @@ CREATE POLICY "Users can insert own profile" ON public.profiles
 
 CREATE POLICY "Users can update own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
+
+-- Helper: función para detectar superAdmin
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS BOOLEAN LANGUAGE plpgsql STABLE AS $$
+DECLARE has_user_profiles BOOLEAN;
+BEGIN
+  SELECT to_regclass('public.user_profiles') IS NOT NULL INTO has_user_profiles;
+  IF has_user_profiles THEN
+    RETURN EXISTS (
+      SELECT 1 FROM public.user_profiles
+      WHERE id = auth.uid() AND role = 'superAdmin'
+    );
+  ELSE
+    RETURN EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid() AND role = 'superAdmin'
+    );
+  END IF;
+END;
+$$;
+
+-- Ampliar políticas con superAdmin (bypass)
+DROP POLICY IF EXISTS "Users can insert own tournaments" ON public.tournaments;
+CREATE POLICY "Users can insert own tournaments" ON public.tournaments
+  FOR INSERT WITH CHECK (creator_id = auth.uid() OR public.is_super_admin());
+
+DROP POLICY IF EXISTS "Users can update own tournaments" ON public.tournaments;
+CREATE POLICY "Users can update own tournaments" ON public.tournaments
+  FOR UPDATE USING (creator_id = auth.uid() OR public.is_super_admin());
+
+DROP POLICY IF EXISTS "Users can delete own tournaments" ON public.tournaments;
+CREATE POLICY "Users can delete own tournaments" ON public.tournaments
+  FOR DELETE USING (creator_id = auth.uid() OR public.is_super_admin());
+
+DROP POLICY IF EXISTS "Users can insert own teams" ON public.teams;
+CREATE POLICY "Users can insert own teams" ON public.teams
+  FOR INSERT WITH CHECK (created_by = auth.uid() OR public.is_super_admin());
+
+DROP POLICY IF EXISTS "Users can update own teams" ON public.teams;
+CREATE POLICY "Users can update own teams" ON public.teams
+  FOR UPDATE USING (created_by = auth.uid() OR captain_id = auth.uid() OR public.is_super_admin());
+
+DROP POLICY IF EXISTS "Users can delete own teams" ON public.teams;
+CREATE POLICY "Users can delete own teams" ON public.teams
+  FOR DELETE USING (created_by = auth.uid() OR public.is_super_admin());
+
+DROP POLICY IF EXISTS "Team creators can manage players" ON public.players;
+CREATE POLICY "Team creators can manage players" ON public.players
+  FOR ALL USING (
+    public.is_super_admin() OR
+    team_id IN (
+      SELECT id FROM teams WHERE created_by = auth.uid() OR captain_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Tournament creators and team owners can manage registrations" ON public.tournament_teams;
+CREATE POLICY "Tournament creators and team owners can manage registrations" ON public.tournament_teams
+  FOR ALL USING (
+    public.is_super_admin() OR
+    tournament_id IN (SELECT id FROM tournaments WHERE creator_id = auth.uid())
+    OR team_id IN (SELECT id FROM teams WHERE created_by = auth.uid() OR captain_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Tournament creators can manage matches" ON public.matches;
+CREATE POLICY "Tournament creators can manage matches" ON public.matches
+  FOR ALL USING (
+    public.is_super_admin() OR
+    tournament_id IN (SELECT id FROM tournaments WHERE creator_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Tournament creators can manage match events" ON public.match_events;
+CREATE POLICY "Tournament creators can manage match events" ON public.match_events
+  FOR ALL USING (
+    public.is_super_admin() OR
+    match_id IN (
+      SELECT id FROM matches 
+      WHERE tournament_id IN (
+        SELECT id FROM tournaments WHERE creator_id = auth.uid()
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "Tournament creators can manage player stats" ON public.player_stats;
+CREATE POLICY "Tournament creators can manage player stats" ON public.player_stats
+  FOR ALL USING (
+    public.is_super_admin() OR
+    tournament_id IN (SELECT id FROM tournaments WHERE creator_id = auth.uid())
+  );
+
+-- 9. Solicitudes de participación de equipos a torneos
+CREATE TABLE IF NOT EXISTS public.tournament_join_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  tournament_id UUID REFERENCES public.tournaments(id) ON DELETE CASCADE,
+  team_id UUID REFERENCES public.teams(id) ON DELETE CASCADE,
+  requester_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  status TEXT CHECK (status IN ('pending','approved','rejected','cancelled')) DEFAULT 'pending',
+  message TEXT,
+  decided_by UUID REFERENCES auth.users(id),
+  decided_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índice único para evitar múltiples solicitudes pendientes por equipo/torneo
+CREATE UNIQUE INDEX IF NOT EXISTS ux_pending_join_requests
+ON public.tournament_join_requests(tournament_id, team_id)
+WHERE status = 'pending';
+
+-- RLS para tournament_join_requests
+ALTER TABLE public.tournament_join_requests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Join requests are viewable by requester, owner, or superAdmin" ON public.tournament_join_requests;
+CREATE POLICY "Join requests are viewable by requester, owner, or superAdmin" ON public.tournament_join_requests
+  FOR SELECT USING (
+    requester_id = auth.uid()
+    OR tournament_id IN (SELECT id FROM public.tournaments WHERE creator_id = auth.uid())
+    OR public.is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Captains can create join requests for own team" ON public.tournament_join_requests;
+CREATE POLICY "Captains can create join requests for own team" ON public.tournament_join_requests
+  FOR INSERT WITH CHECK (
+    requester_id = auth.uid()
+    AND team_id IN (SELECT id FROM public.teams WHERE created_by = auth.uid() OR captain_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Tournament owner approves or rejects requests" ON public.tournament_join_requests;
+CREATE POLICY "Tournament owner approves or rejects requests" ON public.tournament_join_requests
+  FOR UPDATE USING (
+    public.is_super_admin() OR
+    tournament_id IN (SELECT id FROM public.tournaments WHERE creator_id = auth.uid())
+  ) WITH CHECK (
+    public.is_super_admin() OR
+    tournament_id IN (SELECT id FROM public.tournaments WHERE creator_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Requester can cancel own pending request" ON public.tournament_join_requests;
+CREATE POLICY "Requester can cancel own pending request" ON public.tournament_join_requests
+  FOR UPDATE USING (
+    requester_id = auth.uid() AND status = 'pending'
+  ) WITH CHECK (
+    requester_id = auth.uid()
+  );
+
+-- updated_at trigger para tournament_join_requests
+DROP TRIGGER IF EXISTS update_tjr_updated_at ON public.tournament_join_requests;
+CREATE TRIGGER update_tjr_updated_at BEFORE UPDATE ON public.tournament_join_requests
+FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Trigger de efectos al cambiar el estado
+CREATE OR REPLACE FUNCTION public.handle_join_request_status()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'approved' AND (OLD.status IS DISTINCT FROM NEW.status) THEN
+    INSERT INTO public.tournament_teams (tournament_id, team_id, status)
+    VALUES (NEW.tournament_id, NEW.team_id, 'registered')
+    ON CONFLICT (tournament_id, team_id) DO NOTHING;
+    NEW.decided_by := COALESCE(NEW.decided_by, auth.uid());
+    NEW.decided_at := COALESCE(NEW.decided_at, NOW());
+  ELSIF NEW.status IN ('rejected','cancelled') AND (OLD.status IS DISTINCT FROM NEW.status) THEN
+    NEW.decided_by := COALESCE(NEW.decided_by, auth.uid());
+    NEW.decided_at := COALESCE(NEW.decided_at, NOW());
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_handle_join_request_status ON public.tournament_join_requests;
+CREATE TRIGGER trg_handle_join_request_status
+  BEFORE UPDATE ON public.tournament_join_requests
+  FOR EACH ROW EXECUTE FUNCTION public.handle_join_request_status();
+
+-- Restricción: capitan solo puede crear un equipo; invitado no puede crear
+CREATE OR REPLACE FUNCTION public.check_team_creation_limit()
+RETURNS TRIGGER AS $$
+DECLARE v_role TEXT; v_count INT;
+BEGIN
+  SELECT role INTO v_role FROM public.profiles WHERE id = auth.uid();
+  IF v_role IS NULL THEN v_role := 'invitado'; END IF;
+
+  IF v_role = 'invitado' THEN
+    RAISE EXCEPTION 'No tienes permisos para crear equipos (rol invitado)';
+  ELSIF v_role = 'capitan' THEN
+    SELECT COUNT(*) INTO v_count FROM public.teams WHERE created_by = auth.uid();
+    IF v_count >= 1 THEN
+      RAISE EXCEPTION 'Los capitanes solo pueden crear un equipo';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_check_team_creation_limit ON public.teams;
+CREATE TRIGGER trg_check_team_creation_limit
+  BEFORE INSERT ON public.teams
+  FOR EACH ROW EXECUTE FUNCTION public.check_team_creation_limit();
+
+-- Restricción: capacidad de torneos
+CREATE OR REPLACE FUNCTION public.check_tournament_capacity()
+RETURNS TRIGGER AS $$
+DECLARE max_slots INT; current_count INT;
+BEGIN
+  SELECT max_teams INTO max_slots FROM public.tournaments WHERE id = NEW.tournament_id;
+  SELECT COUNT(*) INTO current_count FROM public.tournament_teams 
+    WHERE tournament_id = NEW.tournament_id AND status IN ('registered','confirmed');
+  IF max_slots IS NOT NULL AND current_count >= max_slots THEN
+    RAISE EXCEPTION 'Este torneo no tiene cupos disponibles';
+  END IF;
+  RETURN NEW;
+END;$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_check_tournament_capacity ON public.tournament_teams;
+CREATE TRIGGER trg_check_tournament_capacity
+  BEFORE INSERT ON public.tournament_teams
+  FOR EACH ROW EXECUTE FUNCTION public.check_tournament_capacity();
 
 -- Políticas para tournaments
 CREATE POLICY "Public tournaments are viewable by everyone" ON public.tournaments

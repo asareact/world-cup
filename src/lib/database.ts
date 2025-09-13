@@ -77,6 +77,20 @@ export interface Profile {
   full_name: string | null
   avatar_url: string | null
   phone: string | null
+  role: 'superAdmin' | 'capitan' | 'invitado'
+  created_at: string
+  updated_at: string
+}
+
+export interface JoinRequest {
+  id: string
+  tournament_id: string
+  team_id: string
+  requester_id: string
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  message: string | null
+  decided_by: string | null
+  decided_at: string | null
   created_at: string
   updated_at: string
 }
@@ -120,8 +134,8 @@ export class DatabaseService {
         ),
         matches(
           *,
-          home_team:teams!matches_home_team_id_fkey(name),
-          away_team:teams!matches_away_team_id_fkey(name)
+          home_team:teams!matches_home_team_id_fkey(name, logo_url),
+          away_team:teams!matches_away_team_id_fkey(name, logo_url)
         )
       `)
       .eq('id', id)
@@ -235,6 +249,26 @@ export class DatabaseService {
     if (error) throw error
   }
 
+  // Team reference checks (matches that reference a team)
+  async countTeamReferences(teamId: string) {
+    const getCount = async (column: 'home_team_id' | 'away_team_id' | 'winner_team_id') => {
+      const { count, error } = await this.client
+        .from('matches')
+        .select('*', { count: 'exact', head: true })
+        .eq(column, teamId)
+      if (error) throw error
+      return count || 0
+    }
+
+    const [home, away, winner] = await Promise.all([
+      getCount('home_team_id'),
+      getCount('away_team_id'),
+      getCount('winner_team_id')
+    ])
+
+    return { home, away, winner, total: home + away + winner }
+  }
+
   // Player operations
   async getPlayers(teamId: string) {
     const { data, error } = await this.client
@@ -345,6 +379,85 @@ export class DatabaseService {
     if (error) throw error
   }
 
+  // Join Requests (tournament participation)
+  async createJoinRequest(tournamentId: string, teamId: string, requesterId: string, message?: string) {
+    const { data, error } = await this.client
+      .from('tournament_join_requests')
+      .insert({
+        tournament_id: tournamentId,
+        team_id: teamId,
+        requester_id: requesterId,
+        message: message || null
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as JoinRequest
+  }
+
+  async getJoinRequest(tournamentId: string, teamId: string) {
+    const { data, error } = await this.client
+      .from('tournament_join_requests')
+      .select('*')
+      .eq('tournament_id', tournamentId)
+      .eq('team_id', teamId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (error) throw error
+    return (data && data[0]) as JoinRequest | undefined
+  }
+
+  async getPendingJoinRequestsForAdmin(userId: string) {
+    const { data, error } = await this.client
+      .from('tournament_join_requests')
+      .select(`
+        *,
+        team:teams!inner(id,name,logo_url),
+        tournament:tournaments!inner(id,name,creator_id)
+      `)
+      .eq('status', 'pending')
+      .eq('tournaments.creator_id', userId)
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+    return (data || []) as (JoinRequest & { team: { id: string, name: string, logo_url: string | null }, tournament: { id: string, name: string, creator_id: string } })[]
+  }
+
+  async approveJoinRequest(requestId: string, decidedBy: string) {
+    const { data, error } = await this.client
+      .from('tournament_join_requests')
+      .update({ status: 'approved', decided_by: decidedBy, decided_at: new Date().toISOString() })
+      .eq('id', requestId)
+      .select()
+      .single()
+    if (error) throw error
+    return data as JoinRequest
+  }
+
+  async rejectJoinRequest(requestId: string, decidedBy: string) {
+    const { data, error } = await this.client
+      .from('tournament_join_requests')
+      .update({ status: 'rejected', decided_by: decidedBy, decided_at: new Date().toISOString() })
+      .eq('id', requestId)
+      .select()
+      .single()
+    if (error) throw error
+    return data as JoinRequest
+  }
+
+  async cancelJoinRequest(requestId: string) {
+    const { data, error } = await this.client
+      .from('tournament_join_requests')
+      .update({ status: 'cancelled' })
+      .eq('id', requestId)
+      .select()
+      .single()
+    if (error) throw error
+    return data as JoinRequest
+  }
+
   // Dashboard statistics
   async getDashboardStats(userId: string) {
     // Get tournaments count
@@ -389,14 +502,38 @@ export class DatabaseService {
     }
   }
 
+  // Public tournaments listing for browsing (no management)
+  async getPublicTournaments() {
+    const { data, error } = await this.client
+      .from('tournaments')
+      .select(`
+        *,
+        tournament_teams(id),
+        matches(id)
+      `)
+      .eq('is_public', true)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    type PublicTournamentRow = Tournament & {
+      tournament_teams?: { id: string }[] | null
+      matches?: { id: string }[] | null
+    }
+    return (data || []).map((t: PublicTournamentRow) => ({
+      ...t,
+      teamsCount: Array.isArray(t.tournament_teams) ? t.tournament_teams.length : 0,
+      matchesCount: Array.isArray(t.matches) ? t.matches.length : 0,
+    }))
+  }
+
   async getUpcomingMatches(userId: string, limit = 5) {
     const { data, error } = await this.client
       .from('matches')
       .select(`
         *,
         tournaments!inner(name, creator_id),
-        home_team:teams!matches_home_team_id_fkey(name),
-        away_team:teams!matches_away_team_id_fkey(name)
+        home_team:teams!matches_home_team_id_fkey(name, logo_url),
+        away_team:teams!matches_away_team_id_fkey(name, logo_url)
       `)
       .eq('tournaments.creator_id', userId)
       .eq('status', 'scheduled')
@@ -410,13 +547,22 @@ export class DatabaseService {
 
   // Profile operations
   async getProfile(userId: string) {
+    // Try user_profiles first (some setups use this name), fallback to profiles
     const { data, error } = await this.client
-      .from('profiles')
+      .from('user_profiles')
       .select('*')
       .eq('id', userId)
       .single()
 
-    if (error) throw error
+    if (error) {
+      const fallback = await this.client
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      if (fallback.error) throw fallback.error
+      return fallback.data
+    }
     return data
   }
 
@@ -522,6 +668,23 @@ export class DatabaseService {
           schema: 'public',
           table: 'matches',
           filter: `tournament_id=eq.${tournamentId}`
+        },
+        callback
+      )
+      .subscribe()
+  }
+
+  // Realtime: join requests changes (pending only). RLS limita filas visibles por admin.
+  subscribeJoinRequestChanges(callback: (payload: unknown) => void) {
+    return this.client
+      .channel('join-requests-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tournament_join_requests',
+          filter: 'status=eq.pending'
         },
         callback
       )

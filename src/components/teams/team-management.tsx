@@ -16,14 +16,18 @@ import {
   Loader2
 } from 'lucide-react'
 import { useTeams } from '@/lib/hooks/use-teams'
+import { db } from '@/lib/database'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
 
 export function TeamManagement() {
   const { teams, loading, error, deleteTeam } = useTeams()
+  const { role } = useAuth()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'incomplete' | 'ready'>('all')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string, type: 'success'|'error' } | null>(null)
 
   const filteredTeams = teams.filter(team => {
     const matchesSearch = team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -41,9 +45,19 @@ export function TeamManagement() {
     
     try {
       setDeletingId(id)
+      // Prevent deletion if team is referenced by matches
+      const refs = await db.countTeamReferences(id)
+      if (refs.total > 0) {
+        setToast({ message: `No se puede eliminar. Referenciado en ${refs.total} partido(s).`, type: 'error' })
+        setTimeout(() => setToast(null), 2500)
+        return
+      }
       await deleteTeam(id)
+      setToast({ message: 'Equipo eliminado', type: 'success' })
+      setTimeout(() => setToast(null), 2000)
     } catch {
-      alert('Error al eliminar el equipo')
+      setToast({ message: 'Error al eliminar el equipo', type: 'error' })
+      setTimeout(() => setToast(null), 2000)
     } finally {
       setDeletingId(null)
     }
@@ -74,19 +88,26 @@ export function TeamManagement() {
 
   return (
     <div className="space-y-6">
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+          {toast.message}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Gestión de Equipos</h1>
           <p className="text-gray-400">Administra tus equipos de futsal</p>
         </div>
-        <button
-          onClick={() => router.push('/dashboard/teams/create')}
-          className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg transform hover:scale-105"
-        >
-          <Plus className="h-5 w-5" />
-          <span>Agregar Equipo</span>
-        </button>
+        {(role === 'superAdmin' || (role === 'capitan' && teams.length === 0)) && (
+          <button
+            onClick={() => router.push('/dashboard/teams/create')}
+            className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg transform hover:scale-105"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Agregar Equipo</span>
+          </button>
+        )}
       </div>
 
       {/* Search and Filters */}
@@ -194,11 +215,21 @@ export function TeamManagement() {
             >
               {/* Team Header */}
               <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-white mb-1">{team.name}</h3>
-                  {team.description && (
-                    <p className="text-sm text-gray-400 line-clamp-2">{team.description}</p>
-                  )}
+                <div className="flex items-start space-x-3 flex-1">
+                  <div className="w-10 h-10 bg-gray-700 rounded-lg overflow-hidden flex items-center justify-center">
+                    {team.logo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={team.logo_url} alt={team.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Users className="h-5 w-5 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-white mb-1">{team.name}</h3>
+                    {team.description && (
+                      <p className="text-sm text-gray-400 line-clamp-2">{team.description}</p>
+                    )}
+                  </div>
                 </div>
                 <button className="p-1 text-gray-400 hover:text-white">
                   <MoreHorizontal className="h-4 w-4" />
@@ -282,7 +313,9 @@ export function TeamManagement() {
                   <UserPlus className="h-4 w-4" />
                   <span>{team.playerCount < 7 ? 'Completar' : 'Gestionar'}</span>
                 </button>
-                <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
+                <button 
+                  onClick={() => router.push(`/dashboard/teams/${team.id}`)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
                   <Eye className="h-4 w-4" />
                 </button>
                 <button 

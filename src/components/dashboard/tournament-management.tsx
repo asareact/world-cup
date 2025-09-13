@@ -46,6 +46,7 @@ export function TournamentManagement() {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [, setShowCreateModal] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string, type: 'success'|'error' } | null>(null)
 
   const filteredTournaments = tournaments.filter(tournament => {
     const matchesSearch = tournament.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -60,8 +61,11 @@ export function TournamentManagement() {
     try {
       setDeletingId(id)
       await deleteTournament(id)
+      setToast({ message: 'Torneo eliminado', type: 'success' })
+      setTimeout(() => setToast(null), 2000)
     } catch {
-      alert('Error al eliminar el torneo')
+      setToast({ message: 'Error al eliminar el torneo', type: 'error' })
+      setTimeout(() => setToast(null), 2000)
     } finally {
       setDeletingId(null)
     }
@@ -92,6 +96,11 @@ export function TournamentManagement() {
 
   return (
     <div className="space-y-6">
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+          {toast.message}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
