@@ -277,6 +277,89 @@ CREATE POLICY "Tournament creators can manage player stats" ON public.player_sta
     tournament_id IN (SELECT id FROM tournaments WHERE creator_id = auth.uid())
   );
 
+-- 9. Solicitudes de participación de equipos a torneos
+CREATE TABLE IF NOT EXISTS public.tournament_join_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  tournament_id UUID REFERENCES public.tournaments(id) ON DELETE CASCADE,
+  team_id UUID REFERENCES public.teams(id) ON DELETE CASCADE,
+  requester_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  status TEXT CHECK (status IN ('pending','approved','rejected','cancelled')) DEFAULT 'pending',
+  message TEXT,
+  decided_by UUID REFERENCES auth.users(id),
+  decided_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índice único para evitar múltiples solicitudes pendientes por equipo/torneo
+CREATE UNIQUE INDEX IF NOT EXISTS ux_pending_join_requests
+ON public.tournament_join_requests(tournament_id, team_id)
+WHERE status = 'pending';
+
+-- RLS para tournament_join_requests
+ALTER TABLE public.tournament_join_requests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Join requests are viewable by requester, owner, or superAdmin" ON public.tournament_join_requests;
+CREATE POLICY "Join requests are viewable by requester, owner, or superAdmin" ON public.tournament_join_requests
+  FOR SELECT USING (
+    requester_id = auth.uid()
+    OR tournament_id IN (SELECT id FROM public.tournaments WHERE creator_id = auth.uid())
+    OR public.is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Captains can create join requests for own team" ON public.tournament_join_requests;
+CREATE POLICY "Captains can create join requests for own team" ON public.tournament_join_requests
+  FOR INSERT WITH CHECK (
+    requester_id = auth.uid()
+    AND team_id IN (SELECT id FROM public.teams WHERE created_by = auth.uid() OR captain_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Tournament owner approves or rejects requests" ON public.tournament_join_requests;
+CREATE POLICY "Tournament owner approves or rejects requests" ON public.tournament_join_requests
+  FOR UPDATE USING (
+    public.is_super_admin() OR
+    tournament_id IN (SELECT id FROM public.tournaments WHERE creator_id = auth.uid())
+  ) WITH CHECK (
+    public.is_super_admin() OR
+    tournament_id IN (SELECT id FROM public.tournaments WHERE creator_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Requester can cancel own pending request" ON public.tournament_join_requests;
+CREATE POLICY "Requester can cancel own pending request" ON public.tournament_join_requests
+  FOR UPDATE USING (
+    requester_id = auth.uid() AND status = 'pending'
+  ) WITH CHECK (
+    requester_id = auth.uid()
+  );
+
+-- updated_at trigger para tournament_join_requests
+DROP TRIGGER IF EXISTS update_tjr_updated_at ON public.tournament_join_requests;
+CREATE TRIGGER update_tjr_updated_at BEFORE UPDATE ON public.tournament_join_requests
+FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Trigger de efectos al cambiar el estado
+CREATE OR REPLACE FUNCTION public.handle_join_request_status()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'approved' AND (OLD.status IS DISTINCT FROM NEW.status) THEN
+    INSERT INTO public.tournament_teams (tournament_id, team_id, status)
+    VALUES (NEW.tournament_id, NEW.team_id, 'registered')
+    ON CONFLICT (tournament_id, team_id) DO NOTHING;
+    NEW.decided_by := COALESCE(NEW.decided_by, auth.uid());
+    NEW.decided_at := COALESCE(NEW.decided_at, NOW());
+  ELSIF NEW.status IN ('rejected','cancelled') AND (OLD.status IS DISTINCT FROM NEW.status) THEN
+    NEW.decided_by := COALESCE(NEW.decided_by, auth.uid());
+    NEW.decided_at := COALESCE(NEW.decided_at, NOW());
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_handle_join_request_status ON public.tournament_join_requests;
+CREATE TRIGGER trg_handle_join_request_status
+  BEFORE UPDATE ON public.tournament_join_requests
+  FOR EACH ROW EXECUTE FUNCTION public.handle_join_request_status();
+
 -- Restricción: capitan solo puede crear un equipo; invitado no puede crear
 CREATE OR REPLACE FUNCTION public.check_team_creation_limit()
 RETURNS TRIGGER AS $$

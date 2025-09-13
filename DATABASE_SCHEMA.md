@@ -131,6 +131,27 @@ CREATE TABLE player_stats (
 );
 ```
 
+### 9. **tournament_join_requests** - Solicitudes de Participación
+```sql
+CREATE TABLE tournament_join_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  tournament_id UUID REFERENCES tournaments(id) ON DELETE CASCADE,
+  team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+  requester_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  status TEXT CHECK (status IN ('pending','approved','rejected','cancelled')) DEFAULT 'pending',
+  message TEXT,
+  decided_by UUID REFERENCES auth.users(id),
+  decided_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índice único para evitar duplicados pendientes
+CREATE UNIQUE INDEX ux_pending_join_requests
+ON tournament_join_requests(tournament_id, team_id)
+WHERE status = 'pending';
+```
+
 ## 🔐 Políticas de Seguridad (RLS)
 
 ### Row Level Security habilitado en todas las tablas
