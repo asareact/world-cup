@@ -3,14 +3,14 @@
 import { Trophy, Users, Calendar, MapPin, ShieldCheck } from 'lucide-react'
 
 import type { Tournament } from '@/lib/database'
+import { JoinRequestButton } from './join-request-button'
 
-export function TournamentHeader({ tournament, teamsCount, onFollow, isFollowing, canJoin, onJoin }: {
+export function TournamentHeader({ tournament, teamsCount, onFollow, isFollowing, canJoin }: {
   tournament: Tournament & { venue?: string }
   teamsCount: number,
   onFollow?: () => void,
   isFollowing?: boolean,
   canJoin?: boolean,
-  onJoin?: () => void,
 }) {
   const statusColors: Record<string, string> = {
     draft: 'bg-gray-600 text-gray-200',
@@ -82,12 +82,7 @@ export function TournamentHeader({ tournament, teamsCount, onFollow, isFollowing
             </button>
           )}
           {canJoin && (
-            <button
-              onClick={onJoin}
-              className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700"
-            >
-              Unirse al Torneo
-            </button>
+            <JoinRequestButton tournamentId={tournament.id} />
           )}
         </div>
       </div>

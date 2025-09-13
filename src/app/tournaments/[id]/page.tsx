@@ -50,6 +50,7 @@ export default function TournamentPublicPage() {
   const [tab, setTab] = useState('overview')
   const [following, setFollowing] = useState(false)
   const [joining, setJoining] = useState(false)
+  const [toast, setToast] = useState<{ message: string, type: 'success'|'error' } | null>(null)
 
   const t = (tournament || {}) as Partial<TournamentLite>
   const teamsCount = t.tournament_teams?.length || 0
@@ -69,10 +70,13 @@ export default function TournamentPublicPage() {
       setJoining(true)
       await db.registerTeamForTournament((t as TournamentLite).id!, team.id)
       await refetch()
-      alert('Equipo registrado en el torneo')
+      setToast({ message: 'Equipo registrado en el torneo', type: 'success' })
+      setTimeout(() => setToast(null), 2000)
     } catch (e) {
       console.error(e)
-      alert(e instanceof Error ? e.message : 'No se pudo unir al torneo')
+      const msg = e instanceof Error ? e.message : 'No se pudo unir al torneo'
+      setToast({ message: msg, type: 'error' })
+      setTimeout(() => setToast(null), 2500)
     } finally {
       setJoining(false)
     }
@@ -97,6 +101,11 @@ export default function TournamentPublicPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {toast && (
+          <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+            {toast.message}
+          </div>
+        )}
         <TournamentHeader
           tournament={t as Tournament}
           teamsCount={teamsCount}

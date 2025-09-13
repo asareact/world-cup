@@ -13,18 +13,23 @@ import {
   Loader2
 } from 'lucide-react'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard-stats'
+import { JoinRequestsPanel } from './join-requests-panel'
+import { useTeams } from '@/lib/hooks/use-teams'
 import { useTournaments } from '@/lib/hooks/use-tournaments'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
 
 export function DashboardOverview() {
   const { stats, upcomingMatches, loading: statsLoading } = useDashboardStats()
   const { tournaments, loading: tournamentsLoading } = useTournaments()
+  const { teams } = useTeams()
   const router = useRouter()
+  const { role } = useAuth()
 
   const isLoading = statsLoading || tournamentsLoading
 
   // Calculate stats for display
-  const displayStats = [
+  const allStats = [
     {
       title: 'Total Torneos',
       value: stats.totalTournaments.toString(),
@@ -58,6 +63,7 @@ export function DashboardOverview() {
       color: 'from-orange-500 to-orange-600'
     }
   ]
+  const displayStats = role === 'superAdmin' ? allStats : allStats.filter(s => s.title === 'Total Equipos')
 
   // Get recent tournaments (active ones first, then by date)
   const recentTournaments = tournaments
@@ -100,19 +106,18 @@ export function DashboardOverview() {
         </div>
       </motion.div>
 
+      {/* Join Requests Panel (for tournament owners) */}
+      <JoinRequestsPanel />
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 ${role==='superAdmin' ? 'md:grid-cols-2 lg:grid-cols-4' : ''} gap-6`}>
         {displayStats.map((stat, index) => (
           <motion.div
             key={stat.title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className={`bg-gray-800 rounded-2xl p-6 border border-gray-700 transition-all ${
-              stat.title === 'Total Equipos' 
-                ? 'hover:border-blue-500/50 cursor-pointer hover:scale-105 transform' 
-                : 'hover:border-green-500/50'
-            }`}
+            className={`bg-gray-800 rounded-2xl p-6 border border-gray-700 transition-all hover:border-green-500/50 ${stat.title === 'Total Equipos' ? 'cursor-pointer hover:scale-105 transform' : ''}`}
             onClick={stat.title === 'Total Equipos' ? () => router.push('/dashboard/teams') : undefined}
           >
             <div className="flex items-center justify-between mb-4">
@@ -135,6 +140,7 @@ export function DashboardOverview() {
         ))}
       </div>
 
+      {role === 'superAdmin' && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Tournaments */}
         <motion.div
@@ -144,7 +150,7 @@ export function DashboardOverview() {
           className="lg:col-span-2 bg-gray-800 rounded-2xl p-6 border border-gray-700"
         >
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-white">Mis Torneos</h3>
+            <h3 className="text-lg font-semibold text-white">Torneos</h3>
             <button 
               onClick={() => router.push('/dashboard/tournaments')}
               className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
@@ -224,8 +230,30 @@ export function DashboardOverview() {
                   className="p-4 bg-gray-700/50 rounded-xl hover:bg-gray-700 transition-colors"
                 >
                   <div className="text-center mb-3">
-                    <div className="text-sm font-medium text-white">
-                      {match.homeTeam || 'TBD'} vs {match.awayTeam || 'TBD'}
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 bg-gray-600 rounded-full overflow-hidden flex items-center justify-center">
+                          {match.homeLogo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={match.homeLogo} alt={match.homeTeam || 'local'} className="w-full h-full object-cover" />
+                          ) : (
+                            <Users className="h-3 w-3 text-gray-300" />
+                          )}
+                        </div>
+                        <span className="text-sm font-medium text-white">{match.homeTeam || 'TBD'}</span>
+                      </div>
+                      <span className="text-gray-400">vs</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 bg-gray-600 rounded-full overflow-hidden flex items-center justify-center">
+                          {match.awayLogo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={match.awayLogo} alt={match.awayTeam || 'visita'} className="w-full h-full object-cover" />
+                          ) : (
+                            <Users className="h-3 w-3 text-gray-300" />
+                          )}
+                        </div>
+                        <span className="text-sm font-medium text-white">{match.awayTeam || 'TBD'}</span>
+                      </div>
                     </div>
                     <div className="text-xs text-gray-400 mt-1">
                       {match.tournament}
@@ -262,6 +290,37 @@ export function DashboardOverview() {
           </button>
         </motion.div>
       </div>
+      )}
+
+      {/* My Teams (logos) */}
+      {teams.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55 }}
+          className="bg-gray-800 rounded-2xl p-6 border border-gray-700"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">Equipos</h3>
+            <button onClick={() => router.push('/dashboard/teams')} className="text-sm text-blue-400 hover:text-blue-300">Ver todos →</button>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {teams.slice(0, 8).map(team => (
+              <div key={team.id} className="flex flex-col items-center w-16">
+                <div className="w-12 h-12 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center">
+                  {team.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={team.logo_url} alt={team.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Users className="h-5 w-5 text-gray-400" />
+                  )}
+                </div>
+                <div className="mt-1 text-xs text-gray-300 line-clamp-1 text-center w-full" title={team.name}>{team.name}</div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Quick Actions */}
       <motion.div
@@ -272,34 +331,40 @@ export function DashboardOverview() {
       >
         <h3 className="text-lg font-semibold text-white mb-6">Acciones Rápidas</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button 
-            onClick={() => router.push('/dashboard/tournaments')}
-            className="flex items-center space-x-3 p-4 bg-gradient-to-r from-green-600 to-green-700 rounded-xl hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 text-white"
-          >
-            <Plus className="h-5 w-5" />
-            <span>Crear Torneo</span>
-          </button>
-          <button 
-            onClick={() => router.push('/dashboard/teams/create')}
-            className="flex items-center space-x-3 p-4 bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 text-white"
-          >
-            <Users className="h-5 w-5" />
-            <span>Agregar Equipo</span>
-          </button>
-          <button 
-            onClick={() => router.push('/dashboard/matches')}
-            className="flex items-center space-x-3 p-4 bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all transform hover:scale-105 text-white"
-          >
-            <Calendar className="h-5 w-5" />
-            <span>Programar Partido</span>
-          </button>
-          <button 
-            onClick={() => router.push('/dashboard/stats')}
-            className="flex items-center space-x-3 p-4 bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all transform hover:scale-105 text-white"
-          >
-            <Award className="h-5 w-5" />
-            <span>Ver Estadísticas</span>
-          </button>
+          {role === 'superAdmin' && (
+            <>
+              <button 
+                onClick={() => router.push('/dashboard/tournaments')}
+                className="flex items-center space-x-3 p-4 bg-gradient-to-r from-green-600 to-green-700 rounded-xl hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 text-white"
+              >
+                <Plus className="h-5 w-5" />
+                <span>Crear Torneo</span>
+              </button>
+              <button 
+                onClick={() => router.push('/dashboard/matches')}
+                className="flex items-center space-x-3 p-4 bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all transform hover:scale-105 text-white"
+              >
+                <Calendar className="h-5 w-5" />
+                <span>Programar Partido</span>
+              </button>
+              <button 
+                onClick={() => router.push('/dashboard/stats')}
+                className="flex items-center space-x-3 p-4 bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl hover:from-orange-700 hover:to-orange-800 transition-all transform hover:scale-105 text-white"
+              >
+                <Award className="h-5 w-5" />
+                <span>Ver Estadísticas</span>
+              </button>
+            </>
+          )}
+          {(role === 'superAdmin' || role === 'capitan') && (
+            <button 
+              onClick={() => router.push('/dashboard/teams/create')}
+              className="flex items-center space-x-3 p-4 bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 text-white"
+            >
+              <Users className="h-5 w-5" />
+              <span>Agregar Equipo</span>
+            </button>
+          )}
         </div>
       </motion.div>
     </div>
