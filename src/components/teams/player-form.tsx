@@ -79,7 +79,7 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
         is_active: true
       })
       
-      const createPromise = createPlayer({
+      const newPlayer = await createPlayer({
         team_id: teamId,
         name: formData.name.trim(),
         position: formData.position,
@@ -89,13 +89,6 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
         birth_date: null,
         is_active: true
       })
-
-      // Timeout fallback to avoid spinner hanging indefinitely
-      const timeout = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Tiempo de espera agotado al crear jugador')), 15000)
-      )
-
-      const newPlayer = await Promise.race([createPromise, timeout])
       
       console.log('Player created successfully:', newPlayer)
       
@@ -110,7 +103,6 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
       
       onPlayerCreated()
     } catch (err) {
-      console.error('Error creating player:', err)
       if (err instanceof Error) {
         setSubmitError(err.message)
       } else {

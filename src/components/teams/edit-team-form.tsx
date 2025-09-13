@@ -113,11 +113,34 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
       let logoUrl: string | null = null
       if (logoFile) {
         const ext = logoFile.name.split('.').pop()?.toLowerCase() || 'png'
-        const path = `teams/${teamId}/${Date.now()}.${ext}`
-        const { error: upErr } = await supabase.storage.from('team-logos').upload(path, logoFile, { upsert: true })
-        if (upErr) throw upErr
-        const { data } = supabase.storage.from('team-logos').getPublicUrl(path)
-        logoUrl = data.publicUrl
+        // Deterministic path to enable overwrite and instant refresh
+        const path = `teams/${teamId}/logo.${ext}`
+        // Try primary bucket 'team-logos' first, then fallback to 'player-photos'
+        try {
+          const { error: upErr } = await supabase
+            .storage
+            .from('team-logos')
+            .upload(path, logoFile, { upsert: true, contentType: logoFile.type || 'image/*' })
+          if (upErr) throw upErr
+          const { data } = supabase.storage.from('team-logos').getPublicUrl(path)
+          logoUrl = data.publicUrl
+        } catch (e) {
+          console.warn('team-logos upload failed, trying fallback bucket:', e)
+          try {
+            const { error: fallbackErr } = await supabase
+              .storage
+              .from('player-photos')
+              .upload(path, logoFile, { upsert: true, contentType: logoFile.type || 'image/*' })
+            if (fallbackErr) throw fallbackErr
+            const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
+            logoUrl = data.publicUrl
+          } catch (fallback) {
+            console.error('Fallback upload failed:', fallback)
+            setToast({ message: 'Logo no subido (permisos). Datos guardados.', type: 'error' })
+            setTimeout(() => setToast(null), 2500)
+            // Proceed without logo
+          }
+        }
       }
       await updateTeam(teamId, {
         name: teamData.name.trim(),
@@ -126,6 +149,13 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
         contact_phone: teamData.contact_phone.trim() || null,
         ...(logoUrl ? { logo_url: logoUrl } : {})
       })
+      // If we uploaded a new logo, update local preview to the public URL (cache-busted)
+      if (logoUrl) {
+        const cacheBusted = `${logoUrl}?t=${Date.now()}`
+        setLogoPreview(cacheBusted)
+      }
+      // Close modal first, then show toast
+      setShowTeamInfoModal(false)
       setToast({ message: 'Equipo actualizado', type: 'success' })
       setTimeout(() => setToast(null), 2000)
     } catch {
@@ -181,11 +211,11 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
   }
 
   const handlePlayerCreated = async () => {
-    // Ensure parent list refreshes after player creation
-    try { await refetch() } catch {}
+    // Close modal immediately, then refresh list in background and show toast
     setShowPlayerForm(false)
     setToast({ message: 'Jugador agregado', type: 'success' })
     setTimeout(() => setToast(null), 2000)
+    refetch().catch(() => {})
   }
 
   const filteredSortedPlayers = () => {
@@ -270,11 +300,15 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
     if (!file) return
     try {
       const cropped = await cropToSquare(file, 256)
-      const path = `teams/${teamId}/players/${playerId}-${Date.now()}.jpg`
+      // Deterministic path for player photo to allow overwrite and cache-busting
+      const path = `teams/${teamId}/players/${playerId}.jpg`
       const { error: upErr } = await supabase.storage.from('player-photos').upload(path, cropped, { contentType: 'image/jpeg', upsert: true })
       if (upErr) throw upErr
       const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
+      // Persist URL without cache-busting
       await updatePlayer(playerId, { photo_url: data.publicUrl as string })
+      // Ask list to refresh so UI can pick up ?t=updated_at
+      try { await refetch() } catch {}
       setToast({ message: `Foto actualizada (${playerName})`, type: 'success' })
       setTimeout(() => setToast(null), 1500)
     } catch (e) {

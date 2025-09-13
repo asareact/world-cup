@@ -26,10 +26,7 @@ export function usePlayers(teamId: string | null) {
     try {
       setLoading(true)
       setError(null)
-      
-      console.log('usePlayers: Fetching players for team:', teamId)
       const data = await db.getPlayers(teamId)
-      console.log('usePlayers: Fetched players:', data)
       setPlayers(data)
     } catch (err) {
       console.error('Error fetching players:', err)
@@ -53,15 +50,10 @@ export function usePlayers(teamId: string | null) {
     }
 
     try {
-      console.log('usePlayers: Creating player with data:', { ...player, team_id: teamId })
-      
       const newPlayer = await db.createPlayer({
         ...player,
         team_id: teamId
       })
-      
-      console.log('usePlayers: Player created successfully:', newPlayer)
-      
       // Actualizar inmediatamente el estado local para mejor UX
       setPlayers(prevPlayers => {
         const updatedPlayers = [...prevPlayers, newPlayer]
@@ -76,13 +68,9 @@ export function usePlayers(teamId: string | null) {
         
         return updatedPlayers
       })
-      
-      // También hacer fetch para asegurar sincronización
-      setTimeout(() => fetchPlayers(), 100)
-      
+      // No forzamos refetch inmediato; confiamos en la actualización optimista
       return newPlayer
     } catch (err) {
-      console.error('Error creating player:', err)
       if (err instanceof Error) {
         throw err
       }
@@ -92,8 +80,6 @@ export function usePlayers(teamId: string | null) {
 
   const updatePlayer = async (id: string, updates: Partial<Player>) => {
     try {
-      console.log('usePlayers: Updating player:', id, updates)
-      
       // Si estamos actualizando el capitán, manejar la lógica especial
       if (updates.is_captain === true) {
         // Actualizar inmediatamente todos los jugadores para desmarcar otros capitanes
@@ -104,17 +90,10 @@ export function usePlayers(teamId: string | null) {
           }))
         )
       }
-      
-      const updatedPlayer = await db.updatePlayer(id, updates)
-      
-      console.log('usePlayers: Player updated successfully:', updatedPlayer)
-      
-      // Hacer un fetch delayed para asegurar sincronización con DB
-      setTimeout(() => fetchPlayers(), 100)
-      
-      return updatedPlayer
-    } catch (err) {
-      console.error('Error updating player:', err)
+      await db.updatePlayer(id, updates)
+      // No hacemos refetch; el estado ya fue actualizado de forma optimista
+      return { id, ...updates } as Partial<Player>
+    } catch {
       // Revertir el cambio local si falla
       await fetchPlayers()
       throw new Error('Error al actualizar el jugador')
@@ -123,19 +102,11 @@ export function usePlayers(teamId: string | null) {
 
   const deletePlayer = async (id: string) => {
     try {
-      console.log('usePlayers: Deleting player:', id)
-      
       // Actualizar inmediatamente el estado local
       setPlayers(prevPlayers => prevPlayers.filter(p => p.id !== id))
-      
       await db.deletePlayer(id)
-      
-      console.log('usePlayers: Player deleted successfully')
-      
-      // Hacer fetch para asegurar sincronización
-      setTimeout(() => fetchPlayers(), 100)
-    } catch (err) {
-      console.error('Error deleting player:', err)
+      // No hacemos refetch inmediato; el estado ya se actualizó localmente
+    } catch {
       // Revertir el cambio local si falla
       await fetchPlayers()
       throw new Error('Error al eliminar el jugador')
