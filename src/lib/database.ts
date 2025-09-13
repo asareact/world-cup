@@ -285,7 +285,7 @@ export class DatabaseService {
     const { data, error } = await this.client
       .from('players')
       .insert(player)
-      .select()
+      .select('id, team_id, name, jersey_number, position, photo_url, is_captain, is_active, created_at, updated_at')
       .single()
 
     if (error) throw error
@@ -293,15 +293,12 @@ export class DatabaseService {
   }
 
   async updatePlayer(id: string, updates: Partial<Player>) {
-    const { data, error } = await this.client
+    const { error } = await this.client
       .from('players')
       .update(updates)
       .eq('id', id)
-      .select()
-      .single()
 
     if (error) throw error
-    return data
   }
 
   async deletePlayer(id: string) {

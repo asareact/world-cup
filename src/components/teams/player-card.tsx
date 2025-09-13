@@ -36,6 +36,9 @@ export function PlayerCard({ player, onSetCaptain, onDelete, index, onFeedback }
   const [loadingDelete, setLoadingDelete] = useState(false)
   const [showActions, setShowActions] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const photoSrc = player.photo_url
+    ? `${player.photo_url}?t=${new Date(player.updated_at).getTime()}`
+    : null
   
   const positionConfig = {
     portero: { 
@@ -154,10 +157,10 @@ export function PlayerCard({ player, onSetCaptain, onDelete, index, onFeedback }
             whileHover={{ scale: 1.1 }}
             className="relative"
           >
-            {player.photo_url ? (
+            {photoSrc ? (
               <div className="w-16 h-16 rounded-2xl overflow-hidden">
                 <Image 
-                  src={player.photo_url} 
+                  src={photoSrc} 
                   alt={player.name}
                   width={64}
                   height={64}

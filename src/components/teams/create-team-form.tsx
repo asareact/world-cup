@@ -65,11 +65,27 @@ export function CreateTeamForm() {
 
   const uploadLogo = async (file: File, teamId: string) => {
     const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
-    const path = `teams/${teamId}/${Date.now()}.${ext}`
-    const { error: upErr } = await supabase.storage.from('team-logos').upload(path, file, { upsert: true })
-    if (upErr) throw upErr
-    const { data } = supabase.storage.from('team-logos').getPublicUrl(path)
-    return data.publicUrl
+    // Deterministic path to enable overwrite and instant refresh
+    const path = `teams/${teamId}/logo.${ext}`
+    // Try primary 'team-logos' bucket, then fallback to 'player-photos'
+    try {
+      const { error: upErr } = await supabase
+        .storage
+        .from('team-logos')
+        .upload(path, file, { upsert: true, contentType: file.type || 'image/*' })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from('team-logos').getPublicUrl(path)
+      return `${data.publicUrl}?t=${Date.now()}`
+    } catch (e) {
+      console.warn('team-logos upload failed, trying fallback bucket:', e)
+      const { error: fallbackErr } = await supabase
+        .storage
+        .from('player-photos')
+        .upload(path, file, { upsert: true, contentType: file.type || 'image/*' })
+      if (fallbackErr) throw fallbackErr
+      const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
+      return `${data.publicUrl}?t=${Date.now()}`
+  }
   }
 
   const handleTeamSubmit = async (e: React.FormEvent) => {
@@ -96,10 +112,14 @@ export function CreateTeamForm() {
       if (logoFile) {
         try {
           const url = await uploadLogo(logoFile, newTeam.id)
-          // Update team with logo URL
-          await db.updateTeam(newTeam.id, { logo_url: url })
+          // Persist without cache-busting query
+          await db.updateTeam(newTeam.id, { logo_url: url.split('?')[0] })
+          // Update preview immediately with cache-busted URL
+          setLogoPreview(url)
         } catch (e) {
           console.warn('No se pudo subir el logo', e)
+          setToast({ message: 'Logo no subido (permisos). Equipo guardado.', type: 'error' })
+          setTimeout(() => setToast(null), 2500)
         }
       }
 
@@ -145,10 +165,11 @@ export function CreateTeamForm() {
   }
 
   const handlePlayerCreated = async () => {
-    try { await refetch() } catch {}
+    // Close modal immediately, refresh in background and show toast
     setShowPlayerForm(false)
     setToast({ message: 'Jugador agregado', type: 'success' })
     setTimeout(() => setToast(null), 2000)
+    refetch().catch(() => {})
   }
 
   return (
