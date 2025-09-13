@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft, 
@@ -10,11 +10,16 @@ import {
   FileText,
   Plus,
   Save,
-  Loader2
+  Loader2,
+  Image as ImageIcon,
+  Upload,
+  X
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTeams } from '@/lib/hooks/use-teams'
 import { usePlayers } from '@/lib/hooks/use-players'
+import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/database'
 import { PlayerForm } from './player-form'
 import { PlayerCard } from './player-card'
 
@@ -29,11 +34,13 @@ export function CreateTeamForm() {
   const router = useRouter()
   const { createTeam } = useTeams()
   const [currentTeamId, setCurrentTeamId] = useState<string | null>(null)
-  const { captain, activePlayers, setCaptain, deletePlayer } = usePlayers(currentTeamId)
+  const { captain, activePlayers, setCaptain, deletePlayer, refetch } = usePlayers(currentTeamId)
   
   const [loading, setLoading] = useState(false)
   const [showPlayerForm, setShowPlayerForm] = useState(false)
   const [teamCreated, setTeamCreated] = useState(false)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
   
   const [teamData, setTeamData] = useState<TeamFormData>({
     name: '',
@@ -41,6 +48,29 @@ export function CreateTeamForm() {
     contact_email: '',
     contact_phone: ''
   })
+  const [logoError, setLogoError] = useState('')
+  const [toast, setToast] = useState<{ message: string, type: 'success'|'error' } | null>(null)
+
+  const emailError = useMemo(() => {
+    if (!teamData.contact_email) return ''
+    const re = /.+@.+\..+/
+    return re.test(teamData.contact_email) ? '' : 'Email inválido'
+  }, [teamData.contact_email])
+
+  const phoneError = useMemo(() => {
+    if (!teamData.contact_phone) return ''
+    const re = /^[+\d][\d\s().-]{6,}$/
+    return re.test(teamData.contact_phone) ? '' : 'Teléfono inválido'
+  }, [teamData.contact_phone])
+
+  const uploadLogo = async (file: File, teamId: string) => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
+    const path = `teams/${teamId}/${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('team-logos').upload(path, file, { upsert: true })
+    if (upErr) throw upErr
+    const { data } = supabase.storage.from('team-logos').getPublicUrl(path)
+    return data.publicUrl
+  }
 
   const handleTeamSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,6 +79,7 @@ export function CreateTeamForm() {
       alert('El nombre del equipo es obligatorio')
       return
     }
+    if (emailError || phoneError) return
 
     try {
       setLoading(true)
@@ -61,10 +92,24 @@ export function CreateTeamForm() {
         contact_phone: teamData.contact_phone.trim() || null
       })
       
+      // Upload logo if provided
+      if (logoFile) {
+        try {
+          const url = await uploadLogo(logoFile, newTeam.id)
+          // Update team with logo URL
+          await db.updateTeam(newTeam.id, { logo_url: url })
+        } catch (e) {
+          console.warn('No se pudo subir el logo', e)
+        }
+      }
+
       setCurrentTeamId(newTeam.id)
       setTeamCreated(true)
+      setToast({ message: 'Equipo creado', type: 'success' })
+      setTimeout(() => setToast(null), 2000)
     } catch {
-      alert('Error al crear el equipo')
+      setToast({ message: 'Error al crear el equipo', type: 'error' })
+      setTimeout(() => setToast(null), 2000)
     } finally {
       setLoading(false)
     }
@@ -81,12 +126,38 @@ export function CreateTeamForm() {
     }))
   }
 
-  const handlePlayerCreated = () => {
+  const handleLogoChange = (file: File | null) => {
+    setLogoError('')
+    if (file) {
+      const max = 2 * 1024 * 1024
+      const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
+      if (!allowed.includes(file.type)) {
+        setLogoError('Formato inválido. Usa JPG, PNG, WEBP o SVG')
+        return
+      }
+      if (file.size > max) {
+        setLogoError('El archivo supera 2MB')
+        return
+      }
+    }
+    setLogoFile(file)
+    setLogoPreview(file ? URL.createObjectURL(file) : null)
+  }
+
+  const handlePlayerCreated = async () => {
+    try { await refetch() } catch {}
     setShowPlayerForm(false)
+    setToast({ message: 'Jugador agregado', type: 'success' })
+    setTimeout(() => setToast(null), 2000)
   }
 
   return (
     <div className="space-y-6">
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+          {toast.message}
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center space-x-4">
         <button
@@ -145,6 +216,36 @@ export function CreateTeamForm() {
               </div>
             </div>
 
+            {/* Logo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Logo (opcional)</label>
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center border border-gray-600">
+                  {logoPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={logoPreview} alt="logo preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageIcon className="h-6 w-6 text-gray-400" />
+                  )}
+                </div>
+                <div>
+                  <label className={`inline-flex items-center space-x-2 px-3 py-2 rounded-lg border ${logoError ? 'border-red-500 text-red-300' : 'border-gray-600 text-gray-200'} hover:bg-gray-700 cursor-pointer`}>
+                    <Upload className="h-4 w-4" />
+                    <span>Subir imagen</span>
+                    <input className="hidden" type="file" accept="image/*" onChange={(e) => handleLogoChange(e.target.files?.[0] || null)} disabled={loading} />
+                  </label>
+                  {logoPreview && (
+                    <button type="button" className="ml-2 inline-flex items-center space-x-1 text-xs text-gray-300 hover:text-white" onClick={() => handleLogoChange(null)}>
+                      <X className="h-3 w-3" />
+                      <span>Quitar</span>
+                    </button>
+                  )}
+                  <div className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP o SVG • máx. 2MB</div>
+                  {logoError && <div className="text-xs text-red-400 mt-1">{logoError}</div>}
+                </div>
+              </div>
+            </div>
+
             {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -160,49 +261,52 @@ export function CreateTeamForm() {
                   className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   disabled={loading}
                 />
+                <div className="text-xs text-gray-400 mt-1 text-right">{teamData.description.length}/280</div>
               </div>
             </div>
 
-            {/* Contact Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Email de Contacto
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={teamData.contact_email}
-                  onChange={(e) => handleChange('contact_email', e.target.value)}
-                  placeholder="contacto@equipo.com"
-                  className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  disabled={loading}
-                />
+            {/* Contacto */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Email de Contacto
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="email"
+                    value={teamData.contact_email}
+                    onChange={(e) => handleChange('contact_email', e.target.value)}
+                    placeholder="contacto@equipo.com"
+                  className={`w-full pl-10 pr-4 py-3 bg-gray-700 border rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${emailError ? 'border-red-500' : 'border-gray-600'}`}
+                    disabled={loading}
+                  />
+                  {emailError && <p className="mt-1 text-xs text-red-400">{emailError}</p>}
+                </div>
               </div>
-            </div>
-
-            {/* Contact Phone */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Teléfono de Contacto
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="tel"
-                  value={teamData.contact_phone}
-                  onChange={(e) => handleChange('contact_phone', e.target.value)}
-                  placeholder="+1 234 567 8900"
-                  className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  disabled={loading}
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Teléfono de Contacto
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="tel"
+                    value={teamData.contact_phone}
+                    onChange={(e) => handleChange('contact_phone', e.target.value)}
+                    placeholder="+1 234 567 8900"
+                  className={`w-full pl-10 pr-4 py-3 bg-gray-700 border rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${phoneError ? 'border-red-500' : 'border-gray-600'}`}
+                    disabled={loading}
+                  />
+                  {phoneError && <p className="mt-1 text-xs text-red-400">{phoneError}</p>}
+                </div>
               </div>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || !teamData.name.trim()}
+              disabled={loading || !teamData.name.trim() || !!emailError || !!phoneError}
               className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (

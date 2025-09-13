@@ -2,7 +2,7 @@
 
 import { Users } from 'lucide-react'
 
-type Entry = { id: string, status?: string | null, teams?: { name: string } | null }
+type Entry = { id: string, status?: string | null, teams?: { name: string, logo_url?: string | null } | null }
 
 export function TournamentTeams({ tournament }: { tournament: { tournament_teams?: Entry[] } }) {
   const entries = (tournament.tournament_teams || []) as Entry[]
@@ -15,8 +15,13 @@ export function TournamentTeams({ tournament }: { tournament: { tournament_teams
         {entries.map((tt: Entry) => (
           <div key={tt.id} className="border border-gray-700 rounded-xl p-3 text-gray-300">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-600 to-green-700 flex items-center justify-center">
-                <Users className="h-4 w-4 text-white" />
+              <div className="w-8 h-8 rounded-lg bg-gray-700 overflow-hidden flex items-center justify-center">
+                {tt.teams?.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={tt.teams.logo_url} alt={tt.teams.name} className="w-full h-full object-cover" />
+                ) : (
+                  <Users className="h-4 w-4 text-gray-400" />
+                )}
               </div>
               <div className="font-semibold">{tt.teams?.name || 'Equipo'}</div>
             </div>

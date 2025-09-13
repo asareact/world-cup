@@ -21,9 +21,10 @@ interface PlayerCardProps {
   onSetCaptain: () => void
   onDelete: () => void
   index: number
+  onFeedback?: (message: string, type: 'success'|'error') => void
 }
 
-export function PlayerCard({ player, onSetCaptain, onDelete, index }: PlayerCardProps) {
+export function PlayerCard({ player, onSetCaptain, onDelete, index, onFeedback }: PlayerCardProps) {
   const [loadingCaptain, setLoadingCaptain] = useState(false)
   const [loadingDelete, setLoadingDelete] = useState(false)
   const [showActions, setShowActions] = useState(false)
@@ -61,9 +62,10 @@ export function PlayerCard({ player, onSetCaptain, onDelete, index }: PlayerCard
       try {
         setLoadingDelete(true)
         await onDelete()
+        onFeedback?.('Jugador eliminado', 'success')
       } catch (err) {
         console.error('Error deleting player:', err)
-        alert('Error al eliminar jugador')
+        onFeedback?.('Error al eliminar jugador', 'error')
       } finally {
         setLoadingDelete(false)
       }
@@ -76,9 +78,10 @@ export function PlayerCard({ player, onSetCaptain, onDelete, index }: PlayerCard
         try {
           setLoadingCaptain(true)
           await onSetCaptain()
+          onFeedback?.('Capitán actualizado', 'success')
         } catch (err) {
           console.error('Error setting captain:', err)
-          alert('Error al designar capitán')
+          onFeedback?.('Error al designar capitán', 'error')
         } finally {
           setLoadingCaptain(false)
         }

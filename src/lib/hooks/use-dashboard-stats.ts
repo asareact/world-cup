@@ -15,6 +15,8 @@ export interface UpcomingMatch {
   id: string
   homeTeam: string | null
   awayTeam: string | null
+  homeLogo?: string | null
+  awayLogo?: string | null
   tournament: string
   date: string
   venue: string | null
@@ -49,6 +51,8 @@ export function useDashboardStats() {
         id: match.id,
         homeTeam: match.home_team?.name || null,
         awayTeam: match.away_team?.name || null,
+        homeLogo: match.home_team?.logo_url || null,
+        awayLogo: match.away_team?.logo_url || null,
         tournament: match.tournaments.name,
         date: match.scheduled_at || '',
         venue: match.venue

@@ -6,8 +6,8 @@ type MatchRow = {
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
   home_score: number
   away_score: number
-  home_team?: { name: string } | null
-  away_team?: { name: string } | null
+  home_team?: { name: string, logo_url?: string | null } | null
+  away_team?: { name: string, logo_url?: string | null } | null
 }
 
 export function TournamentMatches({ tournament }: { tournament: { matches?: MatchRow[] } }) {
@@ -23,10 +23,26 @@ export function TournamentMatches({ tournament }: { tournament: { matches?: Matc
         )}
         {matches.map((m: MatchRow) => (
           <div key={m.id} className="flex items-center justify-between text-gray-300">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{m.home_team?.name || 'TBD'}</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-gray-700 rounded-full overflow-hidden flex items-center justify-center">
+                  {m.home_team?.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={m.home_team.logo_url} alt={m.home_team?.name || 'Local'} className="w-full h-full object-cover" />
+                  ) : null}
+                </div>
+                <span className="font-medium">{m.home_team?.name || 'TBD'}</span>
+              </div>
               <span className="text-gray-500">vs</span>
-              <span className="font-medium">{m.away_team?.name || 'TBD'}</span>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-gray-700 rounded-full overflow-hidden flex items-center justify-center">
+                  {m.away_team?.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={m.away_team.logo_url} alt={m.away_team?.name || 'Visita'} className="w-full h-full object-cover" />
+                  ) : null}
+                </div>
+                <span className="font-medium">{m.away_team?.name || 'TBD'}</span>
+              </div>
             </div>
             <div className="text-sm text-gray-400">
               {m.status === 'completed' ? (
