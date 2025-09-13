@@ -64,11 +64,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const filteredSidebarItems = sidebarItems.filter((item) => {
     if (role === 'superAdmin') return true
     if (role === 'capitan') {
-      // Capitán: solo Dashboard y Equipos
-      return item.id === 'dashboard' || item.id === 'teams'
+      // Capitán: Dashboard, Equipos y Configuración
+      return item.id === 'dashboard' || item.id === 'teams' || item.id === 'settings'
     }
-    // Invitado: solo Dashboard
-    return item.id === 'dashboard'
+    // Invitado: Dashboard y Configuración
+    return item.id === 'dashboard' || item.id === 'settings'
   })
 
   useEffect(() => {
