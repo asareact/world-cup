@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../auth-context'
 import { db, Team, Player } from '../database'
 
@@ -15,7 +15,7 @@ export function useTeams() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchTeams = async () => {
+  const fetchTeams = useCallback(async () => {
     if (!user) return
 
     try {
@@ -38,7 +38,7 @@ export function useTeams() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
   const createTeam = async (team: Omit<Team, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => {
     if (!user) throw new Error('Usuario no autenticado')
@@ -87,7 +87,7 @@ export function useTeams() {
 
   useEffect(() => {
     fetchTeams()
-  }, [user])
+  }, [user, fetchTeams])
 
   return {
     teams,

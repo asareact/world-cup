@@ -3,15 +3,17 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  X, 
   User, 
-  Hash, 
   Camera, 
-  Upload,
-  Loader2,
-  Crown
+  Upload, 
+  Loader2, 
+  Hash,
+  Crown,
+  X
 } from 'lucide-react'
-import { usePlayers, FUTSAL_POSITIONS, FutsalPosition } from '@/lib/hooks/use-players'
+import { FutsalPosition, FUTSAL_POSITIONS } from '@/lib/hooks/use-players'
+import { usePlayers } from '@/lib/hooks/use-players'
+import Image from 'next/image'
 
 interface PlayerFormProps {
   teamId: string
@@ -222,10 +224,12 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
               <div className="relative inline-block">
                 {formData.photo_url ? (
                   <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-green-500">
-                    <img 
+                    <Image 
                       src={formData.photo_url} 
                       alt="Foto del jugador" 
-                      className="w-full h-full object-cover"
+                      width={96}
+                      height={96}
+                      className="object-cover"
                     />
                   </div>
                 ) : (

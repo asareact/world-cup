@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../auth-context'
 import { db } from '../database'
 
@@ -34,7 +34,7 @@ export function useDashboardStats() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     if (!user) return
 
     try {
@@ -65,11 +65,11 @@ export function useDashboardStats() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
   useEffect(() => {
     fetchStats()
-  }, [user])
+  }, [user, fetchStats])
 
   return {
     stats,

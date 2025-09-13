@@ -151,7 +151,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">
-                  {user?.user_metadata?.full_name || 'Usuario'}
+                  {user?.user_metadata?.full_name || user?.email || 'Usuario'}
                 </p>
                 <p className="text-xs text-gray-400 truncate">
                   {user?.email}

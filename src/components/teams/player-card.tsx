@@ -3,18 +3,25 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  Crown, 
-  User,
-  MoreHorizontal,
-  Trash2,
-  Edit,
-  Loader2,
-  Star,
+  User, 
+  MoreHorizontal, 
+  Edit, 
+  Trash2, 
+  Loader2, 
+  Crown,
   Shield,
-  Zap
+  Zap,
+  Star
 } from 'lucide-react'
 import { Player } from '@/lib/database'
-import { FUTSAL_POSITIONS } from '@/lib/hooks/use-players'
+import Image from 'next/image'
+
+const FUTSAL_POSITIONS = {
+  portero: 'Portero',
+  cierre: 'Cierre',
+  ala: 'Ala',
+  pivote: 'Pívot'
+} as const
 
 interface PlayerCardProps {
   player: Player
@@ -148,18 +155,19 @@ export function PlayerCard({ player, onSetCaptain, onDelete, index, onFeedback }
             className="relative"
           >
             {player.photo_url ? (
-              <img 
-                src={player.photo_url} 
-                alt={player.name}
-                className={`
-                  w-16 h-16 rounded-2xl object-cover 
-                  border-3 transition-all duration-300
-                  ${player.is_captain 
-                    ? 'border-yellow-400 shadow-lg shadow-yellow-500/20' 
-                    : 'border-gray-600 group-hover:border-blue-400'
-                  }
-                `}
-              />
+              <div className="w-16 h-16 rounded-2xl overflow-hidden">
+                <Image 
+                  src={player.photo_url} 
+                  alt={player.name}
+                  width={64}
+                  height={64}
+                  className={`object-cover border-3 transition-all duration-300 ${
+                    player.is_captain 
+                      ? 'border-yellow-400 shadow-lg shadow-yellow-500/20' 
+                      : 'border-gray-600 group-hover:border-blue-400'
+                  }`}
+                />
+              </div>
             ) : (
               <div className={`
                 w-16 h-16 rounded-2xl flex items-center justify-center
