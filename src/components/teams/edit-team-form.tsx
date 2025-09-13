@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTeams } from '@/lib/hooks/use-teams'
-import { usePlayers, FUTSAL_POSITIONS } from '@/lib/hooks/use-players'
+import { usePlayers, FUTSAL_POSITIONS, FutsalPosition } from '@/lib/hooks/use-players'
 import { PlayerForm } from './player-form'
 import { db } from '@/lib/database'
 import { supabase } from '@/lib/supabase'
@@ -252,7 +252,7 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
       setSavingRowId(playerId)
       await updatePlayer(playerId, {
         jersey_number: jersey as number | null,
-        position: (editValues.position || null) as any
+        position: (editValues.position || null) as FutsalPosition | null
       })
       setToast({ message: 'Jugador actualizado', type: 'success' })
       setTimeout(() => setToast(null), 1500)
@@ -274,7 +274,7 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
       const { error: upErr } = await supabase.storage.from('player-photos').upload(path, cropped, { contentType: 'image/jpeg', upsert: true })
       if (upErr) throw upErr
       const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
-      await updatePlayer(playerId, { photo_url: data.publicUrl as any })
+      await updatePlayer(playerId, { photo_url: data.publicUrl as string })
       setToast({ message: `Foto actualizada (${playerName})`, type: 'success' })
       setTimeout(() => setToast(null), 1500)
     } catch (e) {
@@ -569,12 +569,12 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                         {editRowId === player.id ? (
                           <select
                             value={editValues.position}
-                            onChange={(e) => setEditValues(v => ({ ...v, position: e.target.value as any }))}
+                            onChange={(e) => setEditValues(v => ({ ...v, position: e.target.value as keyof typeof FUTSAL_POSITIONS | '' }))}
                             className="px-2 py-1 rounded-lg bg-gray-800 border border-gray-600 text-gray-200"
                           >
                             <option value="">—</option>
-                            {Object.keys(FUTSAL_POSITIONS).map((k) => (
-                              <option key={k} value={k}>{(FUTSAL_POSITIONS as any)[k]}</option>
+                            {Object.entries(FUTSAL_POSITIONS).map(([k, label]) => (
+                              <option key={k} value={k}>{label}</option>
                             ))}
                           </select>
                         ) : (

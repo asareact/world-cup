@@ -13,7 +13,7 @@ import { TournamentStats } from '@/components/tournaments/tournament-stats'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { useAuth } from '@/lib/auth-context'
 import { useTeams } from '@/lib/hooks/use-teams'
-import { db } from '@/lib/database'
+// join handled via JoinRequestButton within header
 
 type MatchRow = {
   id: string
@@ -43,14 +43,13 @@ type TournamentLite = {
 export default function TournamentPublicPage() {
   const params = useParams<{ id: string }>()
   const tournamentId = params?.id
-  const { tournament, loading, error, refetch } = useTournament(tournamentId)
+  const { tournament, loading, error } = useTournament(tournamentId)
   const { role } = useAuth()
   const { teams } = useTeams()
 
   const [tab, setTab] = useState('overview')
   const [following, setFollowing] = useState(false)
-  const [joining, setJoining] = useState(false)
-  const [toast, setToast] = useState<{ message: string, type: 'success'|'error' } | null>(null)
+  // Toasts not currently used on this page
 
   const t = (tournament || {}) as Partial<TournamentLite>
   const teamsCount = t.tournament_teams?.length || 0
@@ -63,24 +62,7 @@ export default function TournamentPublicPage() {
 
   const handleFollow = () => setFollowing(v => !v)
 
-  const handleJoin = async () => {
-    if (!canJoin || !tournament) return
-    const team = myTeamOptions[0]
-    try {
-      setJoining(true)
-      await db.registerTeamForTournament((t as TournamentLite).id!, team.id)
-      await refetch()
-      setToast({ message: 'Equipo registrado en el torneo', type: 'success' })
-      setTimeout(() => setToast(null), 2000)
-    } catch (e) {
-      console.error(e)
-      const msg = e instanceof Error ? e.message : 'No se pudo unir al torneo'
-      setToast({ message: msg, type: 'error' })
-      setTimeout(() => setToast(null), 2500)
-    } finally {
-      setJoining(false)
-    }
-  }
+  // join handled via JoinRequestButton
 
   if (loading) {
     return (
@@ -101,18 +83,13 @@ export default function TournamentPublicPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {toast && (
-          <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
-            {toast.message}
-          </div>
-        )}
+        {/* Reserved for future toasts if needed */}
         <TournamentHeader
           tournament={t as Tournament}
           teamsCount={teamsCount}
           onFollow={handleFollow}
           isFollowing={following}
-          canJoin={canJoin && !joining}
-          onJoin={handleJoin}
+          canJoin={canJoin}
         />
 
         <TournamentTabs active={tab} onChange={setTab} />

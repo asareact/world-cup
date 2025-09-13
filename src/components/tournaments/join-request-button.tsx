@@ -20,7 +20,7 @@ export function JoinRequestButton({ tournamentId }: { tournamentId: string }) {
     try {
       const existing = await db.getJoinRequest(tournamentId, myTeam.id)
       setRequest(existing || null)
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
@@ -75,4 +75,3 @@ export function JoinRequestButton({ tournamentId }: { tournamentId: string }) {
     </div>
   )
 }
-

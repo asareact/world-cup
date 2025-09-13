@@ -515,7 +515,11 @@ export class DatabaseService {
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    return (data || []).map((t: any) => ({
+    type PublicTournamentRow = Tournament & {
+      tournament_teams?: { id: string }[] | null
+      matches?: { id: string }[] | null
+    }
+    return (data || []).map((t: PublicTournamentRow) => ({
       ...t,
       teamsCount: Array.isArray(t.tournament_teams) ? t.tournament_teams.length : 0,
       matchesCount: Array.isArray(t.matches) ? t.matches.length : 0,

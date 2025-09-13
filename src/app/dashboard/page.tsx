@@ -17,6 +17,13 @@ export default function DashboardPage() {
     }
   }, [user, loading, router])
 
+  // Redirect captains to Teams page for focused experience
+  useEffect(() => {
+    if (!loading && user && role === 'capitan') {
+      router.replace('/dashboard/teams')
+    }
+  }, [loading, user, role, router])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -29,11 +36,7 @@ export default function DashboardPage() {
     return null
   }
 
-  // Redirect captains to Teams page for focused experience
-  if (role === 'capitan') {
-    useEffect(() => { router.replace('/dashboard/teams') }, [router])
-    return null
-  }
+  if (role === 'capitan') return null
 
   return (
     <DashboardLayout>
