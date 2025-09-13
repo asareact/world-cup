@@ -285,7 +285,7 @@ export class DatabaseService {
     const { data, error } = await this.client
       .from('players')
       .insert(player)
-      .select('id, team_id, name, jersey_number, position, photo_url, is_captain, is_active, created_at, updated_at')
+      .select('*')
       .single()
 
     if (error) throw error

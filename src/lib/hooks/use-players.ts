@@ -70,7 +70,7 @@ export function usePlayers(teamId: string | null) {
       })
       // No forzamos refetch inmediato; confiamos en la actualización optimista
       return newPlayer
-    } catch {
+    } catch (err) {
       if (err instanceof Error) {
         throw err
       }
