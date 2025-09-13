@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Trophy, 
@@ -35,6 +35,9 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
+  )
   const { user, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
@@ -53,8 +56,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const activeItem = getActiveItem()
 
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 1024px)')
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    // Set initial value and subscribe
+    setIsDesktop(mql.matches)
+    mql.addEventListener('change', handler)
+    return () => mql.removeEventListener('change', handler)
+  }, [])
+
   return (
-    <div className="min-h-screen bg-gray-900 flex">
+    <div className="min-h-screen bg-gray-900">
+      <div className="mx-auto w-full max-w-7xl flex">
       {/* Mobile Sidebar Backdrop */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -72,9 +85,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <motion.aside
         initial={false}
         animate={{
-          x: sidebarOpen ? 0 : -300,
+          x: isDesktop ? 0 : (sidebarOpen ? 0 : -300),
         }}
-        className="fixed lg:static inset-y-0 left-0 z-50 w-72 bg-gray-800 border-r border-gray-700 lg:translate-x-0 lg:block"
+        className="fixed lg:static inset-y-0 left-0 z-50 w-72 shrink-0 bg-gray-800 border-r border-gray-700 lg:translate-x-0 lg:block"
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -102,7 +115,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">
-                  {user?.user_metadata?.full_name || 'Usuario'}
+                  {user?.user_metadata?.full_name || user?.email || 'Usuario'}
                 </p>
                 <p className="text-xs text-gray-400 truncate">
                   {user?.email}
@@ -168,7 +181,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
         <header className="bg-gray-800 border-b border-gray-700 lg:pl-0">
-          <div className="flex items-center justify-between px-6 py-4">
+          <div className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-10 py-4">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setSidebarOpen(true)}
@@ -205,9 +218,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-6 overflow-auto">
-          {children}
+        <main className="flex-1 overflow-auto">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-6">
+            {children}
+          </div>
         </main>
+      </div>
       </div>
     </div>
   )

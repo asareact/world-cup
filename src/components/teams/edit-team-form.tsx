@@ -34,7 +34,7 @@ interface TeamFormData {
 export function EditTeamForm({ teamId }: EditTeamFormProps) {
   const router = useRouter()
   const { updateTeam } = useTeams()
-  const { players, captain, activePlayers, createPlayer, setCaptain, deletePlayer } = usePlayers(teamId)
+  const { captain, activePlayers, setCaptain, deletePlayer } = usePlayers(teamId)
   
   const [loading, setLoading] = useState(false)
   const [loadingTeam, setLoadingTeam] = useState(true)
@@ -91,7 +91,7 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
       })
       
       alert('Equipo actualizado exitosamente')
-    } catch (err) {
+    } catch {
       alert('Error al actualizar el equipo')
     } finally {
       setLoading(false)
