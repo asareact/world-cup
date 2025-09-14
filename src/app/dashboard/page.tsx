@@ -17,12 +17,7 @@ export default function DashboardPage() {
     }
   }, [user, loading, router])
 
-  // Redirect captains to Teams page for focused experience
-  useEffect(() => {
-    if (!loading && user && role === 'capitan') {
-      router.replace('/dashboard/teams')
-    }
-  }, [loading, user, role, router])
+  // Nota: no redirigimos a capitan automáticamente para permitir acceso a "Torneos"
 
   if (loading) {
     return (
@@ -35,8 +30,6 @@ export default function DashboardPage() {
   if (!user) {
     return null
   }
-
-  if (role === 'capitan') return null
 
   return (
     <DashboardLayout>

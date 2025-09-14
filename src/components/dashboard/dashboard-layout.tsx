@@ -42,7 +42,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
   )
-  const { user, signOut, role } = useAuth()
+  const { user, signOut, role, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const { stats } = useDashboardStats()
@@ -61,15 +61,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const activeItem = getActiveItem()
 
-  const filteredSidebarItems = sidebarItems.filter((item) => {
+  // Menú por rol (sin flicker durante loading)
+  const filteredSidebarItems = !loading ? sidebarItems.filter((item) => {
     if (role === 'superAdmin') return true
     if (role === 'capitan') {
-      // Capitán: Dashboard, Equipos y Configuración
-      return item.id === 'dashboard' || item.id === 'teams' || item.id === 'settings'
+      // Capitán: Torneos, Mi Equipo y Configuración
+      return item.id === 'tournaments' || item.id === 'teams' || item.id === 'settings'
     }
-    // Invitado: Dashboard y Configuración
-    return item.id === 'dashboard' || item.id === 'settings'
-  })
+    // Invitado: Torneos y Configuración
+    return item.id === 'tournaments' || item.id === 'settings'
+  }) : []
 
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 1024px)')
@@ -128,7 +129,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between p-6 border-b border-gray-700">
-            <Link href="/dashboard" className="flex items-center space-x-3">
+            <Link href={'/dashboard'} className="flex items-center space-x-3">
               <div className="relative">
                 <Trophy className="h-8 w-8 text-green-500" />
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
@@ -150,24 +151,42 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <User className="h-5 w-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {user?.user_metadata?.full_name || user?.email || 'Usuario'}
-                </p>
-                <p className="text-xs text-gray-400 truncate">
-                  {user?.email}
-                </p>
+                {loading ? (
+                  <>
+                    <div className="h-4 bg-gray-700 rounded w-2/3 mb-2 animate-pulse" />
+                    <div className="h-3 bg-gray-700 rounded w-1/2 animate-pulse" />
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-white truncate">
+                      {user?.user_metadata?.full_name || user?.email || ''}
+                    </p>
+                    {user?.email && (
+                      <p className="text-xs text-gray-400 truncate">
+                        {user.email}
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-2">
-            {filteredSidebarItems.map((item) => {
+            {loading && (
+              <>
+                <div className="h-10 bg-gray-700 rounded-xl animate-pulse" />
+                <div className="h-10 bg-gray-700 rounded-xl animate-pulse" />
+                <div className="h-10 bg-gray-700 rounded-xl animate-pulse" />
+              </>
+            )}
+            {!loading && filteredSidebarItems.map((item) => {
               const isActive = activeItem === item.id
               return (
                 <Link
                   key={item.id}
-                  href={item.href}
+                  href={(item.id === 'tournaments' && role !== 'superAdmin') ? '/dashboard' : item.href}
                   className={`relative flex items-center space-x-3 px-4 py-3 rounded-xl transition-all group ${
                     isActive
                       ? 'bg-green-600 text-white shadow-lg'
@@ -176,7 +195,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   onClick={() => setSidebarOpen(false)}
                 >
                   <item.icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-green-400'}`} />
-                  <span className="font-medium">{item.label}</span>
+                  <span className="font-medium">{role === 'capitan' && item.id === 'teams' ? 'Mi Equipo' : item.label}</span>
                   {item.id === 'requests' && role === 'superAdmin' && pendingRequests > 0 && (
                     <span className="ml-auto inline-flex items-center justify-center text-xs font-bold bg-red-600 text-white rounded-full px-2 py-0.5">
                       {pendingRequests}
@@ -208,7 +227,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           )}
 
           {/* Sign Out */}
-          <div className="p-4 border-t border-gray-700">
+          <div className="p-4 border-t border-gray-700 mt-auto">
             <button
               onClick={handleSignOut}
               className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-xl transition-all"
@@ -234,7 +253,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </button>
               <div>
                 <h1 className="text-xl font-bold text-white">
-                  {sidebarItems.find(item => item.id === activeItem)?.label || 'Dashboard'}
+                  {role === 'superAdmin'
+                    ? (sidebarItems.find(item => item.id === activeItem)?.label || 'Dashboard')
+                    : (activeItem === 'dashboard'
+                        ? 'Torneos'
+                        : (activeItem === 'teams' && role === 'capitan' ? 'Mi Equipo' : (sidebarItems.find(item => item.id === activeItem)?.label || 'Torneos')))
+                  }
                 </h1>
                 <p className="text-sm text-gray-400">
                   Gestiona tus torneos de futsal

@@ -80,21 +80,26 @@ export function usePlayers(teamId: string | null) {
 
   const updatePlayer = async (id: string, updates: Partial<Player>) => {
     try {
-      // Si estamos actualizando el capitán, manejar la lógica especial
-      if (updates.is_captain === true) {
-        // Actualizar inmediatamente todos los jugadores para desmarcar otros capitanes
-        setPlayers(prevPlayers => 
-          prevPlayers.map(p => ({
-            ...p,
-            is_captain: p.id === id
-          }))
-        )
-      }
+      // Optimistic update for all relevant fields
+      setPlayers(prevPlayers => prevPlayers.map(p => {
+        if (p.id !== id) {
+          return updates.is_captain === true ? { ...p, is_captain: false } : p
+        }
+        return {
+          ...p,
+          name: updates.name !== undefined ? updates.name : p.name,
+          jersey_number: updates.jersey_number !== undefined ? updates.jersey_number : p.jersey_number,
+          position: updates.position !== undefined ? updates.position : p.position,
+          photo_url: updates.photo_url !== undefined ? updates.photo_url as string | null : p.photo_url,
+          is_active: updates.is_active !== undefined ? !!updates.is_active : p.is_active,
+          is_captain: updates.is_captain !== undefined ? !!updates.is_captain : p.is_captain,
+        }
+      }))
+
       await db.updatePlayer(id, updates)
-      // No hacemos refetch; el estado ya fue actualizado de forma optimista
       return { id, ...updates } as Partial<Player>
     } catch {
-      // Revertir el cambio local si falla
+      // Revert by refetch on failure
       await fetchPlayers()
       throw new Error('Error al actualizar el jugador')
     }

@@ -14,7 +14,9 @@ import {
   AlertCircle,
   Image as ImageIcon,
   Upload,
-  X
+  X,
+  Edit,
+  Trash2
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTeams } from '@/lib/hooks/use-teams'
@@ -41,7 +43,11 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
   
   const [loading, setLoading] = useState(false)
   const [loadingTeam, setLoadingTeam] = useState(true)
-  const [showPlayerForm, setShowPlayerForm] = useState(false)
+  type PlayerModalState =
+    | { open: false }
+    | { open: true; mode: 'create' }
+    | { open: true; mode: 'edit'; player: { id: string, name: string, position: FutsalPosition | null, jersey_number: number | null, is_captain: boolean, photo_url?: string | null } }
+  const [playerModal, setPlayerModal] = useState<PlayerModalState>({ open: false })
   const [error, setError] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
@@ -55,7 +61,19 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc')
   const [editRowId, setEditRowId] = useState<string | null>(null)
   const [savingRowId, setSavingRowId] = useState<string | null>(null)
-  const [editValues, setEditValues] = useState<{ jersey_number: number | '' , position: keyof typeof FUTSAL_POSITIONS | ''}>({ jersey_number: '', position: '' })
+  const [editValues, setEditValues] = useState<{ name: string, jersey_number: number | '' , position: keyof typeof FUTSAL_POSITIONS | ''}>({ name: '', jersey_number: '', position: '' })
+  const [isMobile, setIsMobile] = useState(false)
+  const [photoVersion, setPhotoVersion] = useState<Record<string, number>>({})
+  const [newPhotoBlob, setNewPhotoBlob] = useState<Record<string, Blob | null>>({})
+  const [newPhotoPreview, setNewPhotoPreview] = useState<Record<string, string | null>>({})
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    setIsMobile(mq.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
   
   const [teamData, setTeamData] = useState<TeamFormData>({
     name: '',
@@ -212,7 +230,7 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
 
   const handlePlayerCreated = async () => {
     // Close modal immediately, then refresh list in background and show toast
-    setShowPlayerForm(false)
+    setPlayerModal({ open: false })
     setToast({ message: 'Jugador agregado', type: 'success' })
     setTimeout(() => setToast(null), 2000)
     refetch().catch(() => {})
@@ -250,14 +268,14 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
     }
   }
 
-  const startEditRow = (playerId: string, initial: { jersey_number: number | null, position: keyof typeof FUTSAL_POSITIONS | null }) => {
+  const startEditRow = (playerId: string, initial: { name: string, jersey_number: number | null, position: keyof typeof FUTSAL_POSITIONS | null }) => {
     setEditRowId(playerId)
-    setEditValues({ jersey_number: initial.jersey_number || '', position: initial.position || '' })
+    setEditValues({ name: initial.name, jersey_number: initial.jersey_number || '', position: initial.position || '' })
   }
 
   const cancelEditRow = () => {
     setEditRowId(null)
-    setEditValues({ jersey_number: '', position: '' })
+    setEditValues({ name: '', jersey_number: '', position: '' })
   }
 
   const isDuplicateNumber = (num: number, playerId: string) => {
@@ -280,10 +298,26 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
     }
     try {
       setSavingRowId(playerId)
+      let photoUrlUpdate: string | undefined
+      const blob = newPhotoBlob[playerId]
+      if (blob) {
+        const path = `teams/${teamId}/players/${playerId}.jpg`
+        const { error: upErr } = await supabase.storage.from('player-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: true })
+        if (upErr) throw upErr
+        const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
+        photoUrlUpdate = data.publicUrl as string
+      }
       await updatePlayer(playerId, {
+        name: editValues.name.trim() || undefined,
         jersey_number: jersey as number | null,
-        position: (editValues.position || null) as FutsalPosition | null
+        position: (editValues.position || null) as FutsalPosition | null,
+        ...(photoUrlUpdate ? { photo_url: photoUrlUpdate } : {})
       })
+      if (photoUrlUpdate) {
+        setPhotoVersion(prev => ({ ...prev, [playerId]: Date.now() }))
+        setNewPhotoBlob(prev => ({ ...prev, [playerId]: null }))
+        setNewPhotoPreview(prev => ({ ...prev, [playerId]: null }))
+      }
       setToast({ message: 'Jugador actualizado', type: 'success' })
       setTimeout(() => setToast(null), 1500)
       cancelEditRow()
@@ -295,25 +329,17 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
     }
   }
 
-  // Photo change with automatic square crop
-  const handlePhotoChange = async (playerId: string, file: File | null, playerName: string) => {
+  // Photo select with preview (upload on Save)
+  const handlePhotoChange = async (playerId: string, file: File | null) => {
     if (!file) return
     try {
       const cropped = await cropToSquare(file, 256)
-      // Deterministic path for player photo to allow overwrite and cache-busting
-      const path = `teams/${teamId}/players/${playerId}.jpg`
-      const { error: upErr } = await supabase.storage.from('player-photos').upload(path, cropped, { contentType: 'image/jpeg', upsert: true })
-      if (upErr) throw upErr
-      const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
-      // Persist URL without cache-busting
-      await updatePlayer(playerId, { photo_url: data.publicUrl as string })
-      // Ask list to refresh so UI can pick up ?t=updated_at
-      try { await refetch() } catch {}
-      setToast({ message: `Foto actualizada (${playerName})`, type: 'success' })
-      setTimeout(() => setToast(null), 1500)
+      setNewPhotoBlob(prev => ({ ...prev, [playerId]: cropped }))
+      const previewUrl = URL.createObjectURL(cropped)
+      setNewPhotoPreview(prev => ({ ...prev, [playerId]: previewUrl }))
     } catch (e) {
       console.error(e)
-      setToast({ message: 'No se pudo actualizar la foto', type: 'error' })
+      setToast({ message: 'No se pudo preparar la foto', type: 'error' })
       setTimeout(() => setToast(null), 2000)
     }
   }
@@ -512,7 +538,7 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
               />
             </div>
             <button
-              onClick={() => setShowPlayerForm(true)}
+              onClick={() => setPlayerModal({ open: true, mode: 'create' })}
               disabled={activePlayers.length >= 12}
               className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -553,26 +579,39 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                 </thead>
                 <tbody className="divide-y divide-gray-700">
                   {filteredSortedPlayers().map((player) => (
-                    <tr key={player.id} className="hover:bg-gray-700/50">
+                    <tr
+                      key={player.id}
+                      className={`hover:bg-gray-700/50 ${editRowId === player.id ? 'bg-gray-700/80 ring-1 ring-blue-500/30' : ''}`}
+                    >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-gray-700 overflow-hidden flex items-center justify-center">
-                            {player.photo_url ? (
+                            {(editRowId === player.id && newPhotoPreview[player.id]) ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover" />
+                              <img src={newPhotoPreview[player.id] as string} alt={player.name} className="w-full h-full object-cover" />
+                            ) : player.photo_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={`${player.photo_url}${photoVersion[player.id] ? (player.photo_url.includes('?') ? '&' : '?') + 'v=' + photoVersion[player.id] : ''}`}
+                                alt={player.name}
+                                className="w-full h-full object-cover"
+                              />
                             ) : (
                               <Users className="h-4 w-4 text-gray-400" />
                             )}
                           </div>
-                          <label className="text-xs text-blue-300 hover:text-white cursor-pointer">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handlePhotoChange(player.id, e.target.files?.[0] || null, player.name)}
-                            />
-                            Cambiar
-                          </label>
+                          {editRowId === player.id && !isMobile && (
+                            <label className="inline-flex items-center justify-center p-2 rounded-md bg-gray-700/60 hover:bg-gray-600 cursor-pointer" title="Cambiar foto">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handlePhotoChange(player.id, e.target.files?.[0] || null)}
+                              />
+                              <Upload className="h-4 w-4 text-gray-200" />
+                              <span className="sr-only">Cambiar foto</span>
+                            </label>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-200 hidden sm:table-cell">
@@ -586,13 +625,29 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                             className="w-20 px-2 py-1 rounded-lg bg-gray-800 border border-gray-600 text-gray-200"
                           />
                         ) : (
-                          <button className="text-gray-200 hover:text-white" onClick={() => startEditRow(player.id, { jersey_number: player.jersey_number, position: player.position })}>
+                          <button className="text-gray-200 hover:text-white" onClick={() => startEditRow(player.id, { name: player.name, jersey_number: player.jersey_number, position: player.position })}>
                             {player.jersey_number || '-'}
                           </button>
                         )}
                       </td>
                       <td className="px-4 py-3 text-white font-medium">
-                        <div>{player.name}</div>
+                        {editRowId === player.id && !isMobile ? (
+                          <input
+                            type="text"
+                            value={editValues.name}
+                            onChange={(e) => setEditValues(v => ({ ...v, name: e.target.value }))}
+                            className="w-full max-w-xs px-2 py-1 rounded-lg bg-gray-800 border border-gray-600 text-gray-200"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span>{player.name}</span>
+                            {editRowId === player.id && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-blue-900/40 text-blue-300 border border-blue-700/40">
+                                Editando
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div className="md:hidden text-xs text-gray-400 mt-1">
                           <span className="mr-2">#{player.jersey_number || '-'}</span>
                           <span>{player.position ? FUTSAL_POSITIONS[player.position] : '—'}</span>
@@ -612,7 +667,7 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                             ))}
                           </select>
                         ) : (
-                          <button className="text-gray-300 hover:text-white" onClick={() => startEditRow(player.id, { jersey_number: player.jersey_number, position: player.position })}>
+                          <button className="text-gray-300 hover:text-white" onClick={() => startEditRow(player.id, { name: player.name, jersey_number: player.jersey_number, position: player.position })}>
                             {player.position ? FUTSAL_POSITIONS[player.position] : '—'}
                           </button>
                         )}
@@ -644,18 +699,41 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                             <button
                               disabled={savingRowId === player.id}
                               onClick={() => saveEditRow(player.id)}
-                              className="px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 text-xs"
+                              className="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                              title="Guardar"
+                              aria-label="Guardar"
                             >
-                              {savingRowId === player.id ? 'Guardando...' : 'Guardar'}
+                              {savingRowId === player.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Save className="h-4 w-4" />
+                              )}
                             </button>
                             <button
                               onClick={cancelEditRow}
-                              className="px-3 py-1.5 rounded-lg bg-gray-700 text-white hover:bg-gray-600 text-xs"
+                              className="p-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600"
+                              title="Cancelar"
+                              aria-label="Cancelar"
                             >
-                              Cancelar
+                              <X className="h-4 w-4" />
                             </button>
                           </>
-                        ) : null}
+                        ) : (
+                          <button
+                            onClick={() => {
+                              if (isMobile) {
+                                setPlayerModal({ open: true, mode: 'edit', player: { id: player.id, name: player.name, position: player.position || null, jersey_number: player.jersey_number || null, is_captain: player.is_captain, photo_url: player.photo_url || null } })
+                              } else {
+                                startEditRow(player.id, { name: player.name, jersey_number: player.jersey_number, position: player.position })
+                              }
+                            }}
+                            className="p-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600"
+                            title="Editar"
+                            aria-label="Editar"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           onClick={async () => {
                             if (!confirm(`¿Eliminar a ${player.name}?`)) return
@@ -668,9 +746,11 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                               setTimeout(() => setToast(null), 2000)
                             }
                           }}
-                          className="px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 text-xs"
+                          className="p-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                          title="Eliminar"
+                          aria-label="Eliminar"
                         >
-                          Eliminar
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </td>
                     </tr>
@@ -684,12 +764,26 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
         )}
       </div>
 
-      {/* Player Form Modal */}
-      {showPlayerForm && (
+      {/* Player Form Modal (Create/Edit) */}
+      {playerModal.open && (
         <PlayerForm
           teamId={teamId}
-          onClose={() => setShowPlayerForm(false)}
+          mode={playerModal.mode}
+          playerId={playerModal.mode === 'edit' ? playerModal.player.id : undefined}
+          initialData={playerModal.mode === 'edit' ? {
+            name: playerModal.player.name,
+            position: playerModal.player.position || undefined,
+            jersey_number: playerModal.player.jersey_number || undefined,
+            is_captain: playerModal.player.is_captain,
+            photo_url: playerModal.player.photo_url || null
+          } : undefined}
+          onClose={() => setPlayerModal({ open: false })}
           onPlayerCreated={handlePlayerCreated}
+          onPlayerUpdated={async (id) => {
+            setPlayerModal({ open: false })
+            setPhotoVersion(prev => ({ ...prev, [id]: Date.now() }))
+            try { await refetch() } catch {}
+          }}
         />
       )}
 

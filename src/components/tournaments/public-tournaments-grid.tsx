@@ -56,8 +56,23 @@ export function PublicTournamentsGrid() {
 
   if (tournaments.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-400">
-        No hay torneos públicos disponibles todavía
+      <div className="flex flex-col items-center justify-center py-16">
+        <div className="w-20 h-20 rounded-2xl bg-gradient-to-r from-green-600 to-green-700 flex items-center justify-center shadow-lg mb-6">
+          <Trophy className="h-10 w-10 text-white" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Aún no hay torneos públicos</h2>
+        <p className="text-gray-400 mb-8 text-center max-w-md">
+          Cuando los organizadores publiquen nuevos torneos podrás verlos aquí. Mientras tanto, puedes recargar para comprobar si hay novedades.
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-5 py-2.5 rounded-xl transition-colors"
+          >
+            <Loader2 className="h-4 w-4" />
+            Recargar
+          </button>
+        </div>
       </div>
     )
   }
