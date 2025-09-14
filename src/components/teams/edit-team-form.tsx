@@ -63,6 +63,9 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
   const [savingRowId, setSavingRowId] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<{ name: string, jersey_number: number | '' , position: keyof typeof FUTSAL_POSITIONS | ''}>({ name: '', jersey_number: '', position: '' })
   const [isMobile, setIsMobile] = useState(false)
+  const [photoVersion, setPhotoVersion] = useState<Record<string, number>>({})
+  const [newPhotoBlob, setNewPhotoBlob] = useState<Record<string, Blob | null>>({})
+  const [newPhotoPreview, setNewPhotoPreview] = useState<Record<string, string | null>>({})
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)')
@@ -295,11 +298,26 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
     }
     try {
       setSavingRowId(playerId)
+      let photoUrlUpdate: string | undefined
+      const blob = newPhotoBlob[playerId]
+      if (blob) {
+        const path = `teams/${teamId}/players/${playerId}.jpg`
+        const { error: upErr } = await supabase.storage.from('player-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: true })
+        if (upErr) throw upErr
+        const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
+        photoUrlUpdate = data.publicUrl as string
+      }
       await updatePlayer(playerId, {
         name: editValues.name.trim() || undefined,
         jersey_number: jersey as number | null,
-        position: (editValues.position || null) as FutsalPosition | null
+        position: (editValues.position || null) as FutsalPosition | null,
+        ...(photoUrlUpdate ? { photo_url: photoUrlUpdate } : {})
       })
+      if (photoUrlUpdate) {
+        setPhotoVersion(prev => ({ ...prev, [playerId]: Date.now() }))
+        setNewPhotoBlob(prev => ({ ...prev, [playerId]: null }))
+        setNewPhotoPreview(prev => ({ ...prev, [playerId]: null }))
+      }
       setToast({ message: 'Jugador actualizado', type: 'success' })
       setTimeout(() => setToast(null), 1500)
       cancelEditRow()
@@ -311,25 +329,17 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
     }
   }
 
-  // Photo change with automatic square crop
-  const handlePhotoChange = async (playerId: string, file: File | null, playerName: string) => {
+  // Photo select with preview (upload on Save)
+  const handlePhotoChange = async (playerId: string, file: File | null) => {
     if (!file) return
     try {
       const cropped = await cropToSquare(file, 256)
-      // Deterministic path for player photo to allow overwrite and cache-busting
-      const path = `teams/${teamId}/players/${playerId}.jpg`
-      const { error: upErr } = await supabase.storage.from('player-photos').upload(path, cropped, { contentType: 'image/jpeg', upsert: true })
-      if (upErr) throw upErr
-      const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
-      // Persist URL without cache-busting
-      await updatePlayer(playerId, { photo_url: data.publicUrl as string })
-      // Ask list to refresh so UI can pick up ?t=updated_at
-      try { await refetch() } catch {}
-      setToast({ message: `Foto actualizada (${playerName})`, type: 'success' })
-      setTimeout(() => setToast(null), 1500)
+      setNewPhotoBlob(prev => ({ ...prev, [playerId]: cropped }))
+      const previewUrl = URL.createObjectURL(cropped)
+      setNewPhotoPreview(prev => ({ ...prev, [playerId]: previewUrl }))
     } catch (e) {
       console.error(e)
-      setToast({ message: 'No se pudo actualizar la foto', type: 'error' })
+      setToast({ message: 'No se pudo preparar la foto', type: 'error' })
       setTimeout(() => setToast(null), 2000)
     }
   }
@@ -569,11 +579,17 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                 </thead>
                 <tbody className="divide-y divide-gray-700">
                   {filteredSortedPlayers().map((player) => (
-                    <tr key={player.id} className="hover:bg-gray-700/50">
+                    <tr
+                      key={player.id}
+                      className={`hover:bg-gray-700/50 ${editRowId === player.id ? 'bg-gray-700/80 ring-1 ring-blue-500/30' : ''}`}
+                    >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-gray-700 overflow-hidden flex items-center justify-center">
-                            {player.photo_url ? (
+                            {(editRowId === player.id && newPhotoPreview[player.id]) ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={newPhotoPreview[player.id] as string} alt={player.name} className="w-full h-full object-cover" />
+                            ) : player.photo_url ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover" />
                             ) : (
@@ -586,7 +602,7 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                                 type="file"
                                 accept="image/*"
                                 className="hidden"
-                                onChange={(e) => handlePhotoChange(player.id, e.target.files?.[0] || null, player.name)}
+                                onChange={(e) => handlePhotoChange(player.id, e.target.files?.[0] || null)}
                               />
                               <Upload className="h-4 w-4 text-gray-200" />
                               <span className="sr-only">Cambiar foto</span>
@@ -619,7 +635,14 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                             className="w-full max-w-xs px-2 py-1 rounded-lg bg-gray-800 border border-gray-600 text-gray-200"
                           />
                         ) : (
-                          <div>{player.name}</div>
+                          <div className="flex items-center gap-2">
+                            <span>{player.name}</span>
+                            {editRowId === player.id && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-blue-900/40 text-blue-300 border border-blue-700/40">
+                                Editando
+                              </span>
+                            )}
+                          </div>
                         )}
                         <div className="md:hidden text-xs text-gray-400 mt-1">
                           <span className="mr-2">#{player.jersey_number || '-'}</span>
@@ -752,7 +775,11 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
           } : undefined}
           onClose={() => setPlayerModal({ open: false })}
           onPlayerCreated={handlePlayerCreated}
-          onPlayerUpdated={async () => { try { await refetch() } catch {} }}
+          onPlayerUpdated={async (id) => {
+            setPlayerModal({ open: false })
+            setPhotoVersion(prev => ({ ...prev, [id]: Date.now() }))
+            try { await refetch() } catch {}
+          }}
         />
       )}
 
