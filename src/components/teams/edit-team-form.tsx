@@ -14,7 +14,8 @@ import {
   AlertCircle,
   Image as ImageIcon,
   Upload,
-  X
+  X,
+  Edit
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTeams } from '@/lib/hooks/use-teams'
@@ -655,7 +656,15 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                               Cancelar
                             </button>
                           </>
-                        ) : null}
+                        ) : (
+                          <button
+                            onClick={() => startEditRow(player.id, { jersey_number: player.jersey_number, position: player.position })}
+                            className="px-3 py-1.5 rounded-lg bg-gray-700 text-white hover:bg-gray-600 text-xs inline-flex items-center gap-1"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                            Editar
+                          </button>
+                        )}
                         <button
                           onClick={async () => {
                             if (!confirm(`¿Eliminar a ${player.name}?`)) return
