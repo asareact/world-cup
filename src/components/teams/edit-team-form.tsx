@@ -722,7 +722,7 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                           <button
                             onClick={() => {
                               if (isMobile) {
-                                setPlayerModal({ open: true, mode: 'edit', player: { id: player.id, name: player.name, position: player.position || null, jersey_number: player.jersey_number || null, is_captain: player.is_captain, photo_url: (player as any).photo_url || null } })
+                                setPlayerModal({ open: true, mode: 'edit', player: { id: player.id, name: player.name, position: player.position || null, jersey_number: player.jersey_number || null, is_captain: player.is_captain, photo_url: player.photo_url || null } })
                               } else {
                                 startEditRow(player.id, { name: player.name, jersey_number: player.jersey_number, position: player.position })
                               }

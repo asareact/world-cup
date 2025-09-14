@@ -83,17 +83,16 @@ export function usePlayers(teamId: string | null) {
       // Optimistic update for all relevant fields
       setPlayers(prevPlayers => prevPlayers.map(p => {
         if (p.id !== id) {
-          // If setting new captain, clear captain for others
           return updates.is_captain === true ? { ...p, is_captain: false } : p
         }
         return {
           ...p,
-          ...(updates.name !== undefined ? { name: updates.name as any } : {}),
-          ...(updates.jersey_number !== undefined ? { jersey_number: updates.jersey_number as any } : {}),
-          ...(updates.position !== undefined ? { position: updates.position as any } : {}),
-          ...(updates.photo_url !== undefined ? { photo_url: updates.photo_url as any } : {}),
-          ...(updates.is_active !== undefined ? { is_active: updates.is_active as any } : {}),
-          ...(updates.is_captain !== undefined ? { is_captain: !!updates.is_captain } : {}),
+          name: updates.name !== undefined ? updates.name : p.name,
+          jersey_number: updates.jersey_number !== undefined ? updates.jersey_number : p.jersey_number,
+          position: updates.position !== undefined ? updates.position : p.position,
+          photo_url: updates.photo_url !== undefined ? updates.photo_url as string | null : p.photo_url,
+          is_active: updates.is_active !== undefined ? !!updates.is_active : p.is_active,
+          is_captain: updates.is_captain !== undefined ? !!updates.is_captain : p.is_captain,
         }
       }))
 

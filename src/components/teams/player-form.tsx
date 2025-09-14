@@ -55,8 +55,8 @@ export function PlayerForm({ teamId, onClose, mode = 'create', playerId, initial
     if (mode === 'edit' && initialData) {
       setFormData(prev => ({
         name: (initialData.name as string) ?? prev.name,
-        position: (initialData.position as any) ?? prev.position,
-        jersey_number: (initialData.jersey_number as any) ?? prev.jersey_number,
+        position: (initialData.position as FutsalPosition | '') ?? prev.position,
+        jersey_number: (initialData.jersey_number as number | '') ?? prev.jersey_number,
         is_captain: (initialData.is_captain as boolean) ?? prev.is_captain,
         photo_url: initialData.photo_url ?? prev.photo_url
       }))
@@ -114,8 +114,8 @@ export function PlayerForm({ teamId, onClose, mode = 'create', playerId, initial
           jersey_number: (formData.jersey_number as number) || null,
           is_captain: formData.is_captain,
           ...(photoUrlUpdate ? { photo_url: photoUrlUpdate } : {})
-        } as any)
-        onPlayerUpdated && onPlayerUpdated(playerId)
+        })
+        if (onPlayerUpdated) onPlayerUpdated(playerId)
         onClose()
       } else {
         // Create first (without photo_url) to get id
@@ -135,7 +135,7 @@ export function PlayerForm({ teamId, onClose, mode = 'create', playerId, initial
           const { error: upErr } = await supabase.storage.from('player-photos').upload(path, photoFile, { contentType: 'image/jpeg', upsert: true })
           if (upErr) throw upErr
           const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
-          await updatePlayer(newPlayer.id, { photo_url: data.publicUrl } as any)
+          await updatePlayer(newPlayer.id, { photo_url: data.publicUrl })
         }
         // Reset form
         setFormData({
@@ -146,7 +146,7 @@ export function PlayerForm({ teamId, onClose, mode = 'create', playerId, initial
           photo_url: null
         })
         setPhotoFile(null)
-        onPlayerCreated && onPlayerCreated()
+        if (onPlayerCreated) onPlayerCreated()
         onClose()
       }
     } catch (err) {
