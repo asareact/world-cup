@@ -591,7 +591,11 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
                               <img src={newPhotoPreview[player.id] as string} alt={player.name} className="w-full h-full object-cover" />
                             ) : player.photo_url ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover" />
+                              <img
+                                src={`${player.photo_url}${photoVersion[player.id] ? (player.photo_url.includes('?') ? '&' : '?') + 'v=' + photoVersion[player.id] : ''}`}
+                                alt={player.name}
+                                className="w-full h-full object-cover"
+                              />
                             ) : (
                               <Users className="h-4 w-4 text-gray-400" />
                             )}

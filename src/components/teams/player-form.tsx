@@ -13,7 +13,8 @@ import {
 } from 'lucide-react'
 import { FutsalPosition, FUTSAL_POSITIONS } from '@/lib/hooks/use-players'
 import { usePlayers } from '@/lib/hooks/use-players'
-import Image from 'next/image'
+import NextImage from 'next/image'
+import { supabase } from '@/lib/supabase'
 
 interface PlayerFormProps {
   teamId: string
@@ -22,7 +23,7 @@ interface PlayerFormProps {
   playerId?: string
   initialData?: Partial<PlayerFormData>
   onPlayerCreated?: () => void
-  onPlayerUpdated?: () => void
+  onPlayerUpdated?: (playerId: string) => void
 }
 
 interface PlayerFormData {
@@ -38,6 +39,7 @@ export function PlayerForm({ teamId, onClose, mode = 'create', playerId, initial
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoFile, setPhotoFile] = useState<Blob | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   
   const [formData, setFormData] = useState<PlayerFormData>({
@@ -98,26 +100,43 @@ export function PlayerForm({ teamId, onClose, mode = 'create', playerId, initial
       })
       if (mode === 'edit') {
         if (!playerId) throw new Error('playerId requerido para editar')
+        let photoUrlUpdate: string | undefined
+        if (photoFile) {
+          const path = `teams/${teamId}/players/${playerId}.jpg`
+          const { error: upErr } = await supabase.storage.from('player-photos').upload(path, photoFile, { contentType: 'image/jpeg', upsert: true })
+          if (upErr) throw upErr
+          const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
+          photoUrlUpdate = data.publicUrl
+        }
         await updatePlayer(playerId, {
           name: formData.name.trim(),
           position: formData.position as FutsalPosition,
           jersey_number: (formData.jersey_number as number) || null,
           is_captain: formData.is_captain,
-          photo_url: formData.photo_url || null
+          ...(photoUrlUpdate ? { photo_url: photoUrlUpdate } : {})
         } as any)
-        onPlayerUpdated && onPlayerUpdated()
+        onPlayerUpdated && onPlayerUpdated(playerId)
+        onClose()
       } else {
+        // Create first (without photo_url) to get id
         const newPlayer = await createPlayer({
           team_id: teamId,
           name: formData.name.trim(),
           position: formData.position as FutsalPosition,
           jersey_number: formData.jersey_number || null,
           is_captain: formData.is_captain,
-          photo_url: formData.photo_url,
+          photo_url: null,
           birth_date: null,
           is_active: true
         })
         console.log('Player created successfully:', newPlayer)
+        if (photoFile && newPlayer?.id) {
+          const path = `teams/${teamId}/players/${newPlayer.id}.jpg`
+          const { error: upErr } = await supabase.storage.from('player-photos').upload(path, photoFile, { contentType: 'image/jpeg', upsert: true })
+          if (upErr) throw upErr
+          const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
+          await updatePlayer(newPlayer.id, { photo_url: data.publicUrl } as any)
+        }
         // Reset form
         setFormData({
           name: '',
@@ -126,7 +145,9 @@ export function PlayerForm({ teamId, onClose, mode = 'create', playerId, initial
           is_captain: false,
           photo_url: null
         })
+        setPhotoFile(null)
         onPlayerCreated && onPlayerCreated()
+        onClose()
       }
     } catch (err) {
       if (err instanceof Error) {
@@ -157,29 +178,40 @@ export function PlayerForm({ teamId, onClose, mode = 'create', playerId, initial
 
     try {
       setUploadingPhoto(true)
-      
-      // Convertir imagen a base64 para demostración
-      // En producción, aquí subirías a Supabase Storage
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const imageUrl = event.target?.result as string
-        setFormData(prev => ({
-          ...prev,
-          photo_url: imageUrl
-        }))
-        setUploadingPhoto(false)
-      }
-      reader.onerror = () => {
-        alert('Error al procesar la imagen')
-        setUploadingPhoto(false)
-      }
-      reader.readAsDataURL(file)
-      
+      const cropped = await cropToSquare(file, 256)
+      setPhotoFile(cropped)
+      // Preview with object URL
+      const url = URL.createObjectURL(cropped)
+      setFormData(prev => ({ ...prev, photo_url: url }))
+      setUploadingPhoto(false)
     } catch (err) {
       console.error('Error uploading photo:', err)
       alert('Error al subir la imagen')
       setUploadingPhoto(false)
     }
+  }
+
+  const cropToSquare = (file: File, size = 256): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        const s = Math.min(img.width, img.height)
+        const sx = (img.width - s) / 2
+        const sy = (img.height - s) / 2
+        const canvas = document.createElement('canvas')
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return reject(new Error('Canvas no soportado'))
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size)
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error('No se pudo generar imagen'))
+          resolve(blob)
+        }, 'image/jpeg', 0.9)
+      }
+      img.onerror = reject
+      img.src = URL.createObjectURL(file)
+    })
   }
 
   const handleChange = (field: keyof PlayerFormData, value: string | number | boolean) => {
@@ -242,7 +274,7 @@ export function PlayerForm({ teamId, onClose, mode = 'create', playerId, initial
               <div className="relative inline-block">
                 {formData.photo_url ? (
                   <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-green-500">
-                    <Image 
+                    <NextImage 
                       src={formData.photo_url} 
                       alt="Foto del jugador" 
                       width={96}
