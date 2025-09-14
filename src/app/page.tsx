@@ -42,7 +42,7 @@ const stats = [
 ]
 
 export default function Home() {
-  const { user, signOut, loading } = useAuth()
+  const { user, signOut, loading, role } = useAuth()
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin')
 
@@ -54,6 +54,18 @@ export default function Home() {
   const handleSignOut = async () => {
     await signOut()
   }
+
+  const homeHref = role === 'superAdmin'
+    ? '/dashboard'
+    : role === 'capitan'
+      ? '/dashboard/teams'
+      : '/dashboard/tournaments'
+
+  const ctaLabel = role === 'superAdmin'
+    ? 'Ir a Mi Dashboard'
+    : role === 'capitan'
+      ? 'Ir a Mi Equipo'
+      : 'Ir a Torneos'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -98,7 +110,7 @@ export default function Home() {
                   <div className="flex items-center space-x-3">
                     {user ? (
                       <div className="flex items-center space-x-3">
-                        <Link href="/dashboard" className="flex items-center space-x-2 text-gray-300 hover:text-green-400 transition-colors">
+                        <Link href={homeHref} className="flex items-center space-x-2 text-gray-300 hover:text-green-400 transition-colors">
                           <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
                             <User className="h-4 w-4 text-white" />
                           </div>
@@ -187,8 +199,8 @@ export default function Home() {
               className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16"
             >
               {user ? (
-                <Link href="/dashboard" className="group relative bg-gradient-to-r from-green-600 to-green-700 text-white px-10 py-5 rounded-full text-lg font-bold hover:from-green-700 hover:to-green-800 transition-all shadow-2xl hover:shadow-green-500/25 transform hover:scale-105 flex items-center space-x-3">
-                  <span>Ir a Mi Dashboard</span>
+                <Link href={homeHref} className="group relative bg-gradient-to-r from-green-600 to-green-700 text-white px-10 py-5 rounded-full text-lg font-bold hover:from-green-700 hover:to-green-800 transition-all shadow-2xl hover:shadow-green-500/25 transform hover:scale-105 flex items-center space-x-3">
+                  <span>{ctaLabel}</span>
                   <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   <div className="absolute inset-0 bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 </Link>
@@ -415,9 +427,9 @@ export default function Home() {
             className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12"
           >
             {user ? (
-              <Link href="/dashboard" className="group relative bg-gradient-to-r from-green-600 to-green-700 text-white px-12 py-6 rounded-full text-xl font-bold hover:from-green-700 hover:to-green-800 transition-all shadow-2xl hover:shadow-green-500/25 transform hover:scale-105">
+              <Link href={homeHref} className="group relative bg-gradient-to-r from-green-600 to-green-700 text-white px-12 py-6 rounded-full text-xl font-bold hover:from-green-700 hover:to-green-800 transition-all shadow-2xl hover:shadow-green-500/25 transform hover:scale-105">
                 <span className="relative z-10 flex items-center space-x-3">
-                  <span>Ir a Mi Dashboard</span>
+                  <span>{ctaLabel}</span>
                   <ArrowRight className="h-6 w-6 group-hover:translate-x-1 transition-transform" />
                 </span>
                 <div className="absolute inset-0 bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
