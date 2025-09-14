@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   User, 
@@ -18,7 +18,11 @@ import Image from 'next/image'
 interface PlayerFormProps {
   teamId: string
   onClose: () => void
-  onPlayerCreated: () => void
+  mode?: 'create' | 'edit'
+  playerId?: string
+  initialData?: Partial<PlayerFormData>
+  onPlayerCreated?: () => void
+  onPlayerUpdated?: () => void
 }
 
 interface PlayerFormData {
@@ -29,8 +33,8 @@ interface PlayerFormData {
   photo_url: string | null
 }
 
-export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps) {
-  const { createPlayer, availableNumbers, captain } = usePlayers(teamId)
+export function PlayerForm({ teamId, onClose, mode = 'create', playerId, initialData, onPlayerCreated, onPlayerUpdated }: PlayerFormProps) {
+  const { createPlayer, availableNumbers, captain, updatePlayer } = usePlayers(teamId)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -43,6 +47,20 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
     is_captain: false,
     photo_url: null
   })
+
+  // Prefill data when editing
+  React.useEffect(() => {
+    if (mode === 'edit' && initialData) {
+      setFormData(prev => ({
+        name: (initialData.name as string) ?? prev.name,
+        position: (initialData.position as any) ?? prev.position,
+        jersey_number: (initialData.jersey_number as any) ?? prev.jersey_number,
+        is_captain: (initialData.is_captain as boolean) ?? prev.is_captain,
+        photo_url: initialData.photo_url ?? prev.photo_url
+      }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, JSON.stringify(initialData)])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,7 +86,7 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
     try {
       setLoading(true)
       setSubmitError(null)
-      console.log('Creating player with data:', {
+      console.log(`${mode === 'edit' ? 'Updating' : 'Creating'} player with data:`, {
         team_id: teamId,
         name: formData.name.trim(),
         position: formData.position,
@@ -78,30 +96,38 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
         birth_date: null,
         is_active: true
       })
-      
-      const newPlayer = await createPlayer({
-        team_id: teamId,
-        name: formData.name.trim(),
-        position: formData.position,
-        jersey_number: formData.jersey_number || null,
-        is_captain: formData.is_captain,
-        photo_url: formData.photo_url,
-        birth_date: null,
-        is_active: true
-      })
-      
-      console.log('Player created successfully:', newPlayer)
-      
-      // Reset form
-      setFormData({
-        name: '',
-        position: '',
-        jersey_number: '',
-        is_captain: false,
-        photo_url: null
-      })
-      
-      onPlayerCreated()
+      if (mode === 'edit') {
+        if (!playerId) throw new Error('playerId requerido para editar')
+        await updatePlayer(playerId, {
+          name: formData.name.trim(),
+          position: formData.position as FutsalPosition,
+          jersey_number: (formData.jersey_number as number) || null,
+          is_captain: formData.is_captain,
+          photo_url: formData.photo_url || null
+        } as any)
+        onPlayerUpdated && onPlayerUpdated()
+      } else {
+        const newPlayer = await createPlayer({
+          team_id: teamId,
+          name: formData.name.trim(),
+          position: formData.position as FutsalPosition,
+          jersey_number: formData.jersey_number || null,
+          is_captain: formData.is_captain,
+          photo_url: formData.photo_url,
+          birth_date: null,
+          is_active: true
+        })
+        console.log('Player created successfully:', newPlayer)
+        // Reset form
+        setFormData({
+          name: '',
+          position: '',
+          jersey_number: '',
+          is_captain: false,
+          photo_url: null
+        })
+        onPlayerCreated && onPlayerCreated()
+      }
     } catch (err) {
       if (err instanceof Error) {
         setSubmitError(err.message)
@@ -196,8 +222,8 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
                 <User className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">Agregar Jugador</h3>
-                <p className="text-sm text-gray-400">Nuevo jugador al equipo</p>
+                <h3 className="text-lg font-semibold text-white">{mode === 'edit' ? 'Editar Jugador' : 'Agregar Jugador'}</h3>
+                <p className="text-sm text-gray-400">{mode === 'edit' ? 'Actualiza los datos del jugador' : 'Nuevo jugador al equipo'}</p>
               </div>
             </div>
             <button
@@ -359,19 +385,19 @@ export function PlayerForm({ teamId, onClose, onPlayerCreated }: PlayerFormProps
                 loading ||
                 !formData.name.trim() ||
                 !formData.position ||
-                (formData.jersey_number !== '' && !availableNumbers.includes(formData.jersey_number as number))
+                (mode === 'create' && formData.jersey_number !== '' && !availableNumbers.includes(formData.jersey_number as number))
               }
               className="flex-1 flex items-center justify-center space-x-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Agregando...</span>
+                  <span>{mode === 'edit' ? 'Guardando...' : 'Agregando...'}</span>
                 </>
               ) : (
                 <>
                   <User className="h-4 w-4" />
-                  <span>Agregar Jugador</span>
+                  <span>{mode === 'edit' ? 'Guardar Cambios' : 'Agregar Jugador'}</span>
                 </>
               )}
             </button>
