@@ -198,10 +198,11 @@ export class DatabaseService {
     return data
   }
 
-  async getTeams(userId: string) {
-    const { data, error } = await this.client
+  async getTeams(userId: string, role?: 'superAdmin' | 'capitan' | 'invitado') {
+    let query = this.client
       .from('teams')
-      .select(`
+      .select(
+        `
         *,
         players(
           id,
@@ -209,10 +210,21 @@ export class DatabaseService {
           position,
           is_active
         )
-      `)
-      .eq('created_by', userId)
+      `
+      )
       .order('created_at', { ascending: false })
 
+    if (role === 'superAdmin') {
+      // No additional filter: super admins can see all teams (RLS allows it)
+    } else if (role === 'capitan') {
+      // Captains see teams they created or where they are set as captain
+      query = query.or(`created_by.eq.${userId},captain_id.eq.${userId}`)
+    } else {
+      // Invitado or unknown role: only teams created by the user
+      query = query.eq('created_by', userId)
+    }
+
+    const { data, error } = await query
     if (error) throw error
     return data || []
   }
@@ -406,8 +418,8 @@ export class DatabaseService {
     return (data && data[0]) as JoinRequest | undefined
   }
 
-  async getPendingJoinRequestsForAdmin(userId: string) {
-    const { data, error } = await this.client
+  async getPendingJoinRequestsForAdmin(userId: string, isSuperAdmin = false) {
+    let query = this.client
       .from('tournament_join_requests')
       .select(`
         *,
@@ -415,9 +427,13 @@ export class DatabaseService {
         tournament:tournaments!inner(id,name,creator_id)
       `)
       .eq('status', 'pending')
-      .eq('tournaments.creator_id', userId)
-      .order('created_at', { ascending: true })
 
+    if (!isSuperAdmin) {
+      // Limit by tournaments created by this admin
+      query = query.eq('tournaments.creator_id', userId)
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: true })
     if (error) throw error
     return (data || []) as (JoinRequest & { team: { id: string, name: string, logo_url: string | null }, tournament: { id: string, name: string, creator_id: string } })[]
   }

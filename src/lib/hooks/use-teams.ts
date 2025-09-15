@@ -10,7 +10,7 @@ export interface TeamWithPlayers extends Team {
 }
 
 export function useTeams() {
-  const { user } = useAuth()
+  const { user, role } = useAuth()
   const [teams, setTeams] = useState<TeamWithPlayers[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -22,7 +22,7 @@ export function useTeams() {
       setLoading(true)
       setError(null)
       
-      const data = await db.getTeams(user.id)
+      const data = await db.getTeams(user.id, role)
       
       // Transform data to include player count
       const teamsWithPlayers: TeamWithPlayers[] = data.map(team => ({
@@ -38,7 +38,7 @@ export function useTeams() {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, role])
 
   const createTeam = async (team: Omit<Team, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => {
     if (!user) throw new Error('Usuario no autenticado')

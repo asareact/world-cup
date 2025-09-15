@@ -22,7 +22,7 @@ export function JoinRequestsPanel() {
     try {
       setLoading(true)
       setError(null)
-      const data = await db.getPendingJoinRequestsForAdmin(user.id)
+      const data = await db.getPendingJoinRequestsForAdmin(user.id, role === 'superAdmin')
       setRequests(data)
     } catch (e) {
       console.error(e)

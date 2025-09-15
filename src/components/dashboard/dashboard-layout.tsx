@@ -85,7 +85,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     const fetchPending = async () => {
       if (!user || role !== 'superAdmin') { setPendingRequests(0); return }
       try {
-        const data = await db.getPendingJoinRequestsForAdmin(user.id)
+        const data = await db.getPendingJoinRequestsForAdmin(user.id, true)
         setPendingRequests(data.length || 0)
       } catch {
         setPendingRequests(0)
