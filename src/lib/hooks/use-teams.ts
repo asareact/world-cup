@@ -5,7 +5,7 @@ import { useAuth } from '../auth-context'
 import { db, Team, Player } from '../database'
 
 export interface TeamWithPlayers extends Team {
-  players: Player[]
+  players: (Player & { is_captain: boolean })[]
   playerCount: number
 }
 

@@ -22,7 +22,7 @@ import {
 import { formatDate } from '@/lib/utils'
 
 type TeamWithPlayers = Team & { 
-  players?: Pick<Player, 'id'|'name'|'position'|'is_active'|'is_captain'>[] 
+  players?: (Pick<Player, 'id'|'name'|'position'|'is_active'> & { is_captain: boolean })[] 
 }
 
 export default function MyTeamPage() {

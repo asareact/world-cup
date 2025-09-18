@@ -209,7 +209,8 @@ export class DatabaseService {
           id,
           name,
           position,
-          is_active
+          is_active,
+          is_captain
         )
       `
       )
