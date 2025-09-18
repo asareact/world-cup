@@ -58,7 +58,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     
     // Casos especiales para capitanes
     if (role === 'capitan' && pathname === '/dashboard/my-team') return 'teams'
-    if (role === 'capitan' && pathname === '/dashboard') return 'tournaments'
     
     const pathSegments = pathname.split('/')
     return pathSegments[2] || 'dashboard'
