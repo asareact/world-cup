@@ -21,9 +21,9 @@ import { useAuth } from '@/lib/auth-context'
 import { formatDateTime } from '@/lib/utils'
 
 export function DashboardOverview() {
-  const { stats, upcomingMatches, loading: statsLoading } = useDashboardStats()
-  const { tournaments, loading: tournamentsLoading } = useTournaments()
-  const { teams } = useTeams()
+  const { stats, upcomingMatches, loading: statsLoading, error, refetch: refetchStats } = useDashboardStats()
+  const { tournaments, loading: tournamentsLoading, refetch: refetchTournaments } = useTournaments()
+  const { teams, refetch: refetchTeams } = useTeams()
   const router = useRouter()
   const { role } = useAuth()
 
@@ -92,7 +92,9 @@ export function DashboardOverview() {
         <button
           onClick={() => {
             // Reintentar cargar los datos
-            stats.refetch();
+            refetchStats();
+            refetchTournaments();
+            refetchTeams();
           }}
           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
         >
