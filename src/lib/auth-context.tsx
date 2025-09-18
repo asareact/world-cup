@@ -87,6 +87,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null)
       await loadUserRole(session?.user ?? null)
       setLoading(false)
+      
+      // Redirigir a capitanes directamente a "Mi Equipo" si es su primera visita al dashboard
+      if (session?.user && typeof window !== 'undefined' && window.location.pathname === '/dashboard') {
+        try {
+          const profile = await apiClient.getProfile()
+          const userRole = deriveRole(profile?.role, session.user.user_metadata?.role)
+          if (userRole === 'capitan') {
+            window.location.replace('/dashboard/my-team')
+          }
+        } catch (error) {
+          console.error('[Auth] Error checking role for redirect:', error)
+        }
+      }
     }
 
     getInitialSession()
@@ -101,6 +114,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // After sign-in, if we had an implicit hash, ensure the URL is clean
         if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
           window.history.replaceState({}, document.title, window.location.pathname + window.location.search)
+        }
+        
+        // Redirigir a capitanes directamente a "Mi Equipo" después del inicio de sesión
+        if (event === 'SIGNED_IN' && session?.user) {
+          try {
+            const profile = await apiClient.getProfile()
+            const userRole = deriveRole(profile?.role, session.user.user_metadata?.role)
+            if (userRole === 'capitan' && typeof window !== 'undefined' && window.location.pathname === '/dashboard') {
+              window.location.replace('/dashboard/my-team')
+            }
+          } catch (error) {
+            console.error('[Auth] Error checking role for redirect:', error)
+          }
         }
       }
     )
