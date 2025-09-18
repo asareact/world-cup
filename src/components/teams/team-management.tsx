@@ -19,6 +19,7 @@ import { useTeams } from '@/lib/hooks/use-teams'
 import { db } from '@/lib/database'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { formatDate } from '@/lib/utils'
 
 export function TeamManagement() {
   const { teams, loading, error, deleteTeam } = useTeams()
@@ -268,7 +269,7 @@ export function TeamManagement() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-400">Creado:</span>
                   <span className="text-white">
-                    {new Date(team.created_at).toLocaleDateString('es-ES')}
+                    {formatDate(team.created_at)}
                   </span>
                 </div>
               </div>
@@ -380,3 +381,4 @@ export function TeamManagement() {
     </div>
   )
 }
+

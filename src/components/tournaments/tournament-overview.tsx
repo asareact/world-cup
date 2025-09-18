@@ -2,6 +2,7 @@
 
 import { Calendar, Clock, Trophy, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { formatDate, formatDateTime } from '@/lib/utils'
 import type { UpcomingMatchRow, RecentResultRow } from '@/lib/hooks/use-tournament'
 import { getUpcomingMatches, getRecentResults } from '@/lib/hooks/use-tournament'
 
@@ -53,7 +54,7 @@ export function TournamentOverview({ tournament }: { tournament: { id?: string, 
                   <span className="font-medium">{m.away_team_name || 'TBD'}</span>
                 </div>
                 <div className="text-sm text-gray-400">
-                  {m.scheduled_at ? new Date(m.scheduled_at).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Por definir'}
+                  {m.scheduled_at ? formatDateTime(m.scheduled_at) : 'Por definir'}
                 </div>
               </div>
             ))}
@@ -93,9 +94,9 @@ export function TournamentOverview({ tournament }: { tournament: { id?: string, 
         <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4">
           <h3 className="text-white font-semibold mb-3">Cronograma</h3>
           <ul className="text-gray-300 text-sm space-y-1">
-            <li>Inicio: {tournament.start_date ? new Date(tournament.start_date).toLocaleDateString('es-ES') : 'Por definir'}</li>
-            <li>Fin: {tournament.end_date ? new Date(tournament.end_date).toLocaleDateString('es-ES') : 'Por definir'}</li>
-            <li>Inscripción: {tournament.registration_deadline ? new Date(tournament.registration_deadline).toLocaleDateString('es-ES') : 'Abierta'}</li>
+            <li>Inicio: {tournament.start_date ? formatDate(tournament.start_date) : 'Por definir'}</li>
+            <li>Fin: {tournament.end_date ? formatDate(tournament.end_date) : 'Por definir'}</li>
+            <li>Inscripción: {tournament.registration_deadline ? formatDate(tournament.registration_deadline) : 'Abierta'}</li>
           </ul>
         </div>
       </div>
@@ -118,3 +119,5 @@ function Stat({ icon: Icon, label, value }: { icon: ComponentType<{ className?: 
     </div>
   )
 }
+
+

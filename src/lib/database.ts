@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
 // Types matching our Supabase schema
@@ -559,16 +560,17 @@ export class DatabaseService {
   }
 
   // Profile operations
-  async getProfile(userId: string) {
+  async getProfile(userId: string, clientOverride?: SupabaseClient) {
+    const client = clientOverride ?? this.client
     // Try user_profiles first (some setups use this name), fallback to profiles
-    const { data, error } = await this.client
+    const { data, error } = await client
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
       .single()
 
     if (error) {
-      const fallback = await this.client
+      const fallback = await client
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -579,9 +581,10 @@ export class DatabaseService {
     return data
   }
 
-  async updateProfile(userId: string, updates: Partial<Profile>) {
+  async updateProfile(userId: string, updates: Partial<Profile>, clientOverride?: SupabaseClient) {
+    const client = clientOverride ?? this.client
     // Primero verificamos si el perfil existe
-    const { data: existingProfile, error: fetchError } = await this.client
+    const { data: existingProfile, error: fetchError } = await client
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -594,7 +597,7 @@ export class DatabaseService {
     
     // Si el perfil no existe, lo creamos primero
     if (!existingProfile) {
-      const { error: insertError } = await this.client
+      const { error: insertError } = await client
         .from('profiles')
         .insert({
           id: userId,
@@ -606,8 +609,8 @@ export class DatabaseService {
         throw new Error(`Error al crear el perfil: ${insertError.message}`)
       }
       
-      // Obtenemos el perfil recién creado
-      const { data: newProfile, error: selectError } = await this.client
+      // Obtenemos el perfil recien creado
+      const { data: newProfile, error: selectError } = await client
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -622,7 +625,7 @@ export class DatabaseService {
     }
     
     // Si el perfil existe, lo actualizamos
-    const { data, error } = await this.client
+    const { data, error } = await client
       .from('profiles')
       .update(updates)
       .eq('id', userId)
@@ -636,7 +639,7 @@ export class DatabaseService {
     // Verificamos que haya datos retornados
     if (!data || data.length === 0) {
       // Si no hay datos, obtenemos el perfil actualizado
-      const { data: updatedProfile, error: selectError } = await this.client
+      const { data: updatedProfile, error: selectError } = await client
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -707,3 +710,4 @@ export class DatabaseService {
 
 // Export singleton instance
 export const db = new DatabaseService()
+

@@ -18,6 +18,7 @@ import { useTeams } from '@/lib/hooks/use-teams'
 import { useTournaments } from '@/lib/hooks/use-tournaments'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { formatDateTime } from '@/lib/utils'
 
 export function DashboardOverview() {
   const { stats, upcomingMatches, loading: statsLoading } = useDashboardStats()
@@ -263,12 +264,7 @@ export function DashboardOverview() {
                     <div className="flex items-center space-x-1">
                       <Clock className="h-3 w-3" />
                       <span>
-                        {match.date ? new Date(match.date).toLocaleDateString('es-ES', { 
-                          day: 'numeric', 
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }) : 'Por definir'}
+                        {match.date ? formatDateTime(match.date, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Por definir'}
                       </span>
                     </div>
                     <div className="flex items-center space-x-1">

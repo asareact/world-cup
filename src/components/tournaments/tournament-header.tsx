@@ -3,6 +3,7 @@
 import { Trophy, Users, Calendar, MapPin, ShieldCheck } from 'lucide-react'
 
 import type { Tournament } from '@/lib/database'
+import { formatDate } from '@/lib/utils'
 import { JoinRequestButton } from './join-request-button'
 
 export function TournamentHeader({ tournament, teamsCount, onFollow, isFollowing, canJoin }: {
@@ -51,8 +52,8 @@ export function TournamentHeader({ tournament, teamsCount, onFollow, isFollowing
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 <span>
-                  {tournament.start_date ? new Date(tournament.start_date).toLocaleDateString('es-ES') : 'Por definir'}
-                  {tournament.end_date ? ` - ${new Date(tournament.end_date).toLocaleDateString('es-ES')}` : ''}
+                  {tournament.start_date ? formatDate(tournament.start_date) : 'Por definir'}
+                  {tournament.end_date ? <> - {formatDate(tournament.end_date)}</> : null}
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -92,3 +93,8 @@ export function TournamentHeader({ tournament, teamsCount, onFollow, isFollowing
     </div>
   )
 }
+
+
+
+
+
