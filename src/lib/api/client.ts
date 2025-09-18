@@ -22,8 +22,17 @@ class ApiClient {
       },
     }
 
+    // Crear un timeout para la solicitud
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout')), 10000) // 10 segundos
+    })
+
     try {
-      const response = await fetch(url, config)
+      // Hacer la solicitud con timeout
+      const response = await Promise.race([
+        fetch(url, config),
+        timeoutPromise
+      ]) as Response
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))

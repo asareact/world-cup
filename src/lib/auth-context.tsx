@@ -54,16 +54,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadUserRole = async (currentUser: User | null) => {
     if (!currentUser) {
+      console.log('[Auth] No user, setting role to invitado')
       setRole('invitado')
       return
     }
 
     try {
+      console.log('[Auth] Loading profile for user:', currentUser.id)
       const profile = await apiClient.getProfile()
-      setRole(deriveRole(profile?.role, currentUser.user_metadata?.role))
+      console.log('[Auth] Profile loaded:', profile)
+      const derivedRole = deriveRole(profile?.role, currentUser.user_metadata?.role)
+      console.log('[Auth] Derived role:', derivedRole)
+      setRole(derivedRole)
     } catch (error) {
       console.error('[Auth] failed to load profile via API:', error)
-      setRole(deriveRole(undefined, currentUser.user_metadata?.role))
+      // En caso de error, establecer un rol por defecto pero permitir continuar
+      const fallbackRole = deriveRole(undefined, currentUser.user_metadata?.role)
+      console.log('[Auth] Using fallback role:', fallbackRole)
+      setRole(fallbackRole)
     }
   }
 

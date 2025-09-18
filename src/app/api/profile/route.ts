@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     const profile = await db.getProfile(user.id, supabase)
-    const response = NextResponse.json(profile)
+    const response = NextResponse.json(profile || { id: user.id, role: 'invitado' })
     applyCookies(response)
     return response
   } catch (error) {

@@ -84,6 +84,24 @@ export function DashboardOverview() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 bg-gray-800 rounded-2xl border border-gray-700">
+        <div className="text-red-400 mb-4">Error al cargar los datos</div>
+        <div className="text-gray-300 mb-6">{error}</div>
+        <button
+          onClick={() => {
+            // Reintentar cargar los datos
+            stats.refetch();
+          }}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
+          Reintentar
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}

@@ -19,7 +19,8 @@ export async function middleware(request: NextRequest) {
   console.log('Middleware auth check:', { 
     user: user?.id, 
     error, 
-    cookies: request.cookies.getAll().length 
+    cookies: request.cookies.getAll().length,
+    pathname: request.nextUrl.pathname
   })
 
   // Protect the profile API route
@@ -38,6 +39,14 @@ export async function middleware(request: NextRequest) {
           }
         }
       )
+    }
+    
+    // For protected dashboard routes, redirect to login
+    if (request.nextUrl.pathname.startsWith('/dashboard')) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/auth/login'
+      url.searchParams.set('redirect', request.nextUrl.pathname)
+      return NextResponse.redirect(url)
     }
   }
 
