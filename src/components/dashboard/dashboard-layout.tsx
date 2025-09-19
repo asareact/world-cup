@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Trophy, 
@@ -64,6 +64,26 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   const activeItem = getActiveItem()
+
+  const pageTitle = useMemo(() => {
+    if (role === 'superAdmin') {
+      return sidebarItems.find(item => item.id === activeItem)?.label || 'Dashboard'
+    }
+
+    if (activeItem === 'dashboard') {
+      return 'Torneos'
+    }
+
+    if (activeItem === 'teams' && role === 'capitan') {
+      return 'Mi Equipo'
+    }
+
+    if (activeItem === 'tournaments' && role === 'capitan') {
+      return 'Torneos Disponibles'
+    }
+
+    return sidebarItems.find(item => item.id === activeItem)?.label || 'Torneos'
+  }, [role, activeItem])
 
   // Menú por rol (sin flicker durante loading)
   const filteredSidebarItems = !loading ? sidebarItems.filter((item) => {
@@ -174,6 +194,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 )}
               </div>
             </div>
+            
+            {/* Sign Out Button */}
+            <button
+              onClick={handleSignOut}
+              className="mt-4 flex items-center space-x-2 w-full px-3 py-2 text-gray-400 hover:bg-gray-700 hover:text-white rounded-lg transition-all text-sm"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Cerrar Sesión</span>
+            </button>
           </div>
 
           {/* Navigation */}
@@ -188,20 +217,24 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             {!loading && filteredSidebarItems.map((item) => {
               const isActive = activeItem === item.id
               return (
-                              <Link
-                key={item.id}
-                href={(item.id === 'tournaments' && role !== 'superAdmin') ? '/dashboard/tournaments' : 
-                      (item.id === 'teams' && role === 'capitan') ? '/dashboard/my-team' : 
-                      item.href}
-                className={`relative flex items-center space-x-3 px-4 py-3 rounded-xl transition-all group ${
-                  isActive
-                    ? 'bg-green-600 text-white shadow-lg'
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                }`}
-                onClick={() => setSidebarOpen(false)}
-              >
+                <Link
+                  key={item.id}
+                  href={(item.id === 'tournaments' && role !== 'superAdmin') ? '/dashboard/tournaments/public' : 
+                        (item.id === 'teams' && role === 'capitan') ? '/dashboard/my-team' : 
+                        item.href}
+                  className={`relative flex items-center space-x-3 px-4 py-3 rounded-xl transition-all group ${
+                    isActive
+                      ? 'bg-green-600 text-white shadow-lg'
+                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  }`}
+                  onClick={() => setSidebarOpen(false)}
+                >
                   <item.icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-green-400'}`} />
-                  <span className="font-medium">{role === 'capitan' && item.id === 'teams' ? 'Mi Equipo' : item.label}</span>
+                  <span className="font-medium">
+                    {role === 'capitan' && item.id === 'teams' ? 'Mi Equipo' : 
+                     role === 'capitan' && item.id === 'tournaments' ? 'Torneos' : 
+                     item.label}
+                  </span>
                   {item.id === 'requests' && role === 'superAdmin' && pendingRequests > 0 && (
                     <span className="ml-auto inline-flex items-center justify-center text-xs font-bold bg-red-600 text-white rounded-full px-2 py-0.5">
                       {pendingRequests}
@@ -231,17 +264,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </button>
             </div>
           )}
-
-          {/* Sign Out */}
-          <div className="p-4 border-t border-gray-700 mt-auto">
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-xl transition-all"
-            >
-              <LogOut className="h-5 w-5" />
-              <span>Cerrar Sesión</span>
-            </button>
-          </div>
         </div>
       </motion.aside>
 
@@ -258,14 +280,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Menu className="h-6 w-6" />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-white">
-                  {role === 'superAdmin'
-                    ? (sidebarItems.find(item => item.id === activeItem)?.label || 'Dashboard')
-                    : (activeItem === 'dashboard'
-                        ? 'Torneos'
-                        : (activeItem === 'teams' && role === 'capitan' ? 'Mi Equipo' : (sidebarItems.find(item => item.id === activeItem)?.label || 'Torneos')))
-                  }
-                </h1>
+                <h1 className="text-xl font-bold text-white">{pageTitle}</h1>
                 <p className="text-sm text-gray-400">
                   Gestiona tus torneos de futsal
                 </p>

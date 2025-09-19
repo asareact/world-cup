@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "FutsalPro - Gestiona Torneos de Futsal Profesionales",
   description: "La plataforma más avanzada para organizar, seguir y analizar torneos de futsal. Equipos de 5 jugadores, estadísticas especializadas y gestión completa de competiciones.",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
 };
 
 export default function RootLayout({

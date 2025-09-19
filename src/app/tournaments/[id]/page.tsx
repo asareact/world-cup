@@ -7,6 +7,7 @@ import { TournamentHeader } from '@/components/tournaments/tournament-header'
 import type { Tournament } from '@/lib/database'
 import { TournamentTabs } from '@/components/tournaments/tournament-tabs'
 import { TournamentOverview } from '@/components/tournaments/tournament-overview'
+import { TournamentRules } from '@/components/tournaments/tournament-overview'
 import { TournamentMatches } from '@/components/tournaments/tournament-matches'
 import { TournamentTeams } from '@/components/tournaments/tournament-teams'
 import { TournamentStats } from '@/components/tournaments/tournament-stats'
@@ -104,9 +105,13 @@ export default function TournamentPublicPage() {
         {tab === 'teams' && <TournamentTeams tournament={tournament} />}
         {tab === 'stats' && <TournamentStats tournamentId={(t as TournamentLite).id!} />}
         {tab === 'rules' && (
-          <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4 text-gray-300">
+          <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4">
             <h3 className="text-white font-semibold mb-3">Reglamento</h3>
-            <p className="text-gray-300 whitespace-pre-wrap text-sm">{(t as TournamentLite).rules || 'Reglamento no especificado'}</p>
+            {(t as TournamentLite).rules ? (
+              <TournamentRules rules={(t as TournamentLite).rules!} />
+            ) : (
+              <p className="text-gray-400 text-sm">Reglamento no especificado</p>
+            )}
           </div>
         )}
       </div>

@@ -106,8 +106,9 @@ export class DatabaseService {
       .from('tournaments')
       .select(`
         *,
-        tournament_teams!inner(
+        tournament_teams(
           team_id,
+          status,
           teams(name)
         ),
         matches(

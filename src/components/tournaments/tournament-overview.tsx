@@ -86,7 +86,7 @@ export function TournamentOverview({ tournament }: { tournament: { id?: string, 
         <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4">
           <h3 className="text-white font-semibold mb-3">Reglamento</h3>
           {tournament.rules ? (
-            <p className="text-gray-300 whitespace-pre-wrap text-sm">{tournament.rules}</p>
+            <TournamentRules rules={tournament.rules} />
           ) : (
             <p className="text-gray-400 text-sm">Reglamento no especificado</p>
           )}
@@ -120,4 +120,77 @@ function Stat({ icon: Icon, label, value }: { icon: ComponentType<{ className?: 
   )
 }
 
+function TournamentRules({ rules }: { rules: string }) {
+  let parsedRules;
+  try {
+    parsedRules = JSON.parse(rules);
+  } catch {
+    // If parsing fails, display as plain text
+    return <p className="text-gray-300 whitespace-pre-wrap text-sm">{rules}</p>;
+  }
+
+  // Handle league_repechage format
+  if (parsedRules.type === "league_repechage" && parsedRules.notes) {
+    return (
+      <div className="space-y-3">
+        <div className="bg-gray-700/50 rounded-lg p-3">
+          <h4 className="font-medium text-white mb-2">Fase de Grupos</h4>
+          <p className="text-sm text-gray-300">
+            {parsedRules.notes[0]}
+          </p>
+        </div>
+        
+        <div className="space-y-2">
+          <h4 className="font-medium text-white">Clasificación</h4>
+          <ul className="space-y-2">
+            <li className="flex items-start space-x-2">
+              <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-green-500" />
+              <span className="text-sm text-gray-300">{parsedRules.notes[1]}</span>
+            </li>
+            <li className="flex items-start space-x-2">
+              <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-yellow-500" />
+              <span className="text-sm text-gray-300">{parsedRules.notes[2]}</span>
+            </li>
+            <li className="flex items-start space-x-2">
+              <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-500" />
+              <span className="text-sm text-gray-300">{parsedRules.notes[3]}</span>
+            </li>
+          </ul>
+        </div>
+        
+        <div className="bg-gray-700/50 rounded-lg p-3">
+          <h4 className="font-medium text-white mb-2">Fase Eliminatoria</h4>
+          <p className="text-sm text-gray-300">
+            {parsedRules.notes[4]}
+          </p>
+        </div>
+        
+        <div className="pt-2 border-t border-gray-700">
+          <p className="text-xs text-gray-500">
+            Sistema adaptativo: El formato se ajusta automáticamente según la cantidad de equipos inscritos.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Default fallback for other formats
+  if (parsedRules.notes && Array.isArray(parsedRules.notes)) {
+    return (
+      <ul className="space-y-2">
+        {parsedRules.notes.map((note: string, index: number) => (
+          <li key={index} className="flex items-start space-x-2">
+            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-green-500" />
+            <span className="text-sm text-gray-300">{note}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  // If no notes array, display as JSON
+  return <pre className="text-gray-300 text-sm whitespace-pre-wrap">{JSON.stringify(parsedRules, null, 2)}</pre>;
+}
+
+export { TournamentRules };
 
