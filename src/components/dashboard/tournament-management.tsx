@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTournaments } from '@/lib/hooks/use-tournaments'
+import type { TournamentWithStats } from '@/lib/hooks/use-tournaments'
 import { formatDate } from '@/lib/utils'
 
 type TournamentTypeOption = {
