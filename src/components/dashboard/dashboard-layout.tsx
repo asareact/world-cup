@@ -190,7 +190,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               return (
                               <Link
                 key={item.id}
-                href={(item.id === 'tournaments' && role !== 'superAdmin') ? '/dashboard' : 
+                href={(item.id === 'tournaments' && role !== 'superAdmin') ? '/dashboard/tournaments' : 
                       (item.id === 'teams' && role === 'capitan') ? '/dashboard/my-team' : 
                       item.href}
                 className={`relative flex items-center space-x-3 px-4 py-3 rounded-xl transition-all group ${

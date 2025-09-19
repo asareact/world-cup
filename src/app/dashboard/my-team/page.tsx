@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { useAuth } from '@/lib/auth-context'
 import { db, Team, Player } from '@/lib/database'
+import { createClient } from '@/lib/supabase/client'
 import { 
   Users, 
   UserPlus, 
@@ -17,30 +18,43 @@ import {
   Loader2,
   Plus,
   Trash2,
-  Check
+  Check,
+  Upload
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
+// Posiciones constantes para jugadores de futsal
+const PLAYER_POSITIONS = [
+  { value: 'portero', label: 'Portero' },
+  { value: 'ala', label: 'Ala' },
+  { value: 'cierre', label: 'Cierre' },
+  { value: 'pivote', label: 'Pivote' }
+]
+
 type TeamWithPlayers = Team & { 
-  players?: (Pick<Player, 'id'|'name'|'position'|'is_active'> & { is_captain: boolean })[] 
+  players?: (Pick<Player, 'id'|'name'|'position'|'is_active'|'photo_url'|'jersey_number'> & { is_captain: boolean })[] 
 }
 
 export default function MyTeamPage() {
   const router = useRouter()
   const { user, role } = useAuth()
+  const supabase = createClient()
   const [team, setTeam] = useState<TeamWithPlayers | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
-  const [newPlayer, setNewPlayer] = useState({ name: '', position: '' })
+  const [newPlayer, setNewPlayer] = useState({ name: '', jersey_number: '' })
   const [addingPlayer, setAddingPlayer] = useState(false)
   const [deletingPlayerId, setDeletingPlayerId] = useState<string | null>(null)
 
   // Estados para edición de jugadores
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null)
-  const [editingPlayerData, setEditingPlayerData] = useState({ name: '', position: '' })
+  const [editingPlayerData, setEditingPlayerData] = useState({ name: '', position: '', photo_url: '', jersey_number: '' })
+  const [newPlayerPhoto, setNewPlayerPhoto] = useState<File | null>(null)
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string>('')
+  const [teamLogoFile, setTeamLogoFile] = useState<File | null>(null)
 
   useEffect(() => {
     const loadTeam = async () => {
@@ -109,14 +123,48 @@ export default function MyTeamPage() {
     setEditingField(null)
   }
 
+  const handleTeamLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setTeamLogoFile(e.target.files[0])
+    }
+  }
+
+  const uploadTeamLogo = async () => {
+    if (!team || !teamLogoFile) return
+
+    try {
+      setSaving(true)
+      // Aquí iría la lógica para subir la imagen
+      // Por ahora, simulamos la actualización
+      const updatedTeam = { ...team, logo_url: URL.createObjectURL(teamLogoFile) }
+      setTeam(updatedTeam)
+      setTeamLogoFile(null)
+      setEditingField(null)
+    } catch (err) {
+      console.error('Error uploading team logo:', err)
+      setError('Error al subir el logo del equipo')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const addPlayer = async () => {
-    if (!team || !newPlayer.name.trim()) return
+    if (!team || !newPlayer.name.trim() || !newPlayer.jersey_number.trim()) return
+
+    // Verificar si el número de camiseta ya existe
+    const jerseyNumber = parseInt(newPlayer.jersey_number);
+    const existingPlayer = players.find(p => p.jersey_number === jerseyNumber);
+    if (existingPlayer) {
+      setError('Ya existe un jugador con ese número de camiseta');
+      return;
+    }
 
     try {
       setAddingPlayer(true)
       const playerData = {
         name: newPlayer.name,
-        position: newPlayer.position || null,
+        jersey_number: jerseyNumber,
+        position: null,
         team_id: team.id,
         is_active: true,
         is_captain: players.length === 0 // El primer jugador es el capitán
@@ -127,11 +175,11 @@ export default function MyTeamPage() {
       // Actualizar la lista de jugadores
       setTeam({
         ...team,
-        players: [...(team.players || []), newPlayerData]
+        players: [...(team.players || []), { ...newPlayerData, is_captain: players.length === 0 }]
       })
       
       // Resetear el formulario
-      setNewPlayer({ name: '', position: '' })
+      setNewPlayer({ name: '', jersey_number: '' })
     } catch (err) {
       console.error('Error adding player:', err)
       setError('Error al agregar jugador')
@@ -144,36 +192,145 @@ export default function MyTeamPage() {
     setEditingPlayerId(player.id)
     setEditingPlayerData({
       name: player.name,
-      position: player.position || ''
+      position: player.position || '',
+      photo_url: player.photo_url || '',
+      jersey_number: player.jersey_number?.toString() || ''
     })
+    setNewPlayerPhoto(null)
+    setPreviewPhotoUrl(player.photo_url || '')
+  }
+
+  const handlePlayerPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setNewPlayerPhoto(file)
+      // Crear URL de previsualización
+      const previewUrl = URL.createObjectURL(file)
+      setPreviewPhotoUrl(previewUrl)
+      // Actualizar también los datos de edición
+      setEditingPlayerData(prev => ({ ...prev, photo_url: previewUrl }))
+    }
   }
 
   const saveEditPlayer = async () => {
-    if (!team || !editingPlayerId) return
+    console.log('Iniciando saveEditPlayer');
+    console.log('team:', team);
+    console.log('editingPlayerId:', editingPlayerId);
+    console.log('editingPlayerData:', editingPlayerData);
+    
+    if (!team || !editingPlayerId) {
+      console.log('No se puede actualizar: faltan datos de equipo o jugador');
+      return;
+    }
+
+    // Verificar si el número de camiseta ya existe (excluyendo el jugador actual)
+    const jerseyNumber = editingPlayerData.jersey_number ? parseInt(editingPlayerData.jersey_number) : null;
+    if (jerseyNumber !== null) {
+      const existingPlayer = players.find(p => p.id !== editingPlayerId && p.jersey_number === jerseyNumber);
+      if (existingPlayer) {
+        setError('Ya existe un jugador con ese número de camiseta');
+        return;
+      }
+    }
 
     try {
-      await db.updatePlayer(editingPlayerId, {
+      // Actualizar datos del jugador
+      const updates: any = {
         name: editingPlayerData.name,
-        position: editingPlayerData.position || null
-      })
+        position: editingPlayerData.position || null,
+        jersey_number: jerseyNumber
+      }
       
-      // Actualizar la lista de jugadores
-      const updatedPlayers = (team.players || []).map(p => 
-        p.id === editingPlayerId 
-          ? { ...p, name: editingPlayerData.name, position: editingPlayerData.position || null } 
-          : p
-      )
+      console.log('Preparando actualización con datos:', updates);
       
-      setTeam({ ...team, players: updatedPlayers })
+      // Si hay una nueva foto, subirla
+      if (newPlayerPhoto) {
+        const path = `teams/${team.id}/players/${editingPlayerId}.jpg`
+        console.log('Subiendo imagen a:', path)
+        const { error: upErr } = await supabase.storage.from('player-photos').upload(path, newPlayerPhoto, { 
+          contentType: 'image/jpeg', 
+          upsert: true 
+        })
+        
+        if (upErr) {
+          console.error('Error subiendo imagen:', upErr)
+          setError('Error subiendo imagen: ' + upErr.message)
+          return
+        }
+        
+        const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
+        // Agregar timestamp para evitar cache
+        const timestamp = new Date().getTime()
+        updates.photo_url = `${data.publicUrl}?v=${timestamp}`
+        console.log('URL de imagen obtenida:', updates.photo_url)
+      }
+      
+      console.log('Actualizando jugador con datos:', updates);
+      const result = await db.updatePlayer(editingPlayerId, updates)
+      console.log('Resultado de actualización:', result);
+      console.log('Jugador actualizado exitosamente en la base de datos');
+      
+      // Actualizar también editingPlayerData con los nuevos datos
+      if (updates.photo_url) {
+        setEditingPlayerData(prev => ({ ...prev, ...updates }))
+      }
+      
+      // Pequeño delay para asegurar que los datos se propaguen
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Verificar que los datos se guardaron correctamente
+      console.log('Recargando datos del equipo para verificar cambios...');
+      console.log('Datos del usuario:', user);
+      console.log('Rol del usuario:', role);
+      
+      // Verificar específicamente el jugador actualizado
+      try {
+        const specificPlayer = await db.getPlayerById(editingPlayerId);
+        console.log('Datos del jugador específicamente obtenidos:', specificPlayer);
+      } catch (err) {
+        console.error('Error obteniendo jugador específico:', err);
+      }
+      
+      const updatedTeams = await db.getTeams(user.id, role);
+      console.log('Equipos obtenidos:', updatedTeams);
+      if (updatedTeams.length > 0) {
+        const updatedTeamData = updatedTeams[0] as TeamWithPlayers;
+        console.log('Jugadores actualizados:', updatedTeamData.players);
+        // Buscar el jugador específico que acabamos de actualizar
+        const updatedPlayer = updatedTeamData.players?.find(p => p.id === editingPlayerId);
+        console.log('Jugador específico actualizado:', updatedPlayer);
+        
+        console.log('Actualizando estado con nuevos datos...');
+        setTeam(updatedTeamData);
+        console.log('Estado actualizado. Nuevo estado:', updatedTeamData);
+        
+        // Verificar inmediatamente después de la actualización
+        setTimeout(() => {
+          console.log('Estado 100ms después:', team);
+        }, 100);
+      }
+      
       setEditingPlayerId(null)
+      setNewPlayerPhoto(null)
+      setPreviewPhotoUrl('')
+      console.log('Estado actualizado localmente');
     } catch (err) {
       console.error('Error updating player:', err)
-      setError('Error al actualizar jugador')
+      setError('Error al actualizar jugador: ' + (err as Error).message)
     }
   }
 
   const cancelEditPlayer = () => {
     setEditingPlayerId(null)
+    setNewPlayerPhoto(null)
+    setPreviewPhotoUrl('')
+    // Restaurar la foto original en editingPlayerData
+    if (editingPlayerId) {
+      const player = players.find(p => p.id === editingPlayerId)
+      if (player) {
+        setEditingPlayerData(prev => ({ ...prev, photo_url: player.photo_url || '' }))
+      }
+    }
   }
 
   const deletePlayer = async (playerId: string) => {
@@ -277,6 +434,37 @@ export default function MyTeamPage() {
             <h1 className="text-2xl font-bold text-white">Mi Equipo</h1>
             <p className="text-gray-400">Gestiona tu equipo de futsal directamente</p>
           </div>
+          <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                players.length >= 7 
+                  ? 'bg-green-900/50 text-green-300' 
+                  : players.length >= 5
+                  ? 'bg-yellow-900/50 text-yellow-300'
+                  : 'bg-red-900/50 text-red-300'
+              }`}>
+                {players.length >= 7 ? '✓ Completado' : 
+                 players.length >= 5 ? `⚠️ ${players.length}/7 jugadores` : 
+                 `❌ ${players.length}/5 mínimo`}
+              </div>
+              <div className="flex items-center mt-2">
+                <div className="w-32 bg-gray-700 rounded-full h-2 mr-2">
+                  <div 
+                    className={`h-2 rounded-full ${players.length >= 5 ? 'bg-green-500' : 'bg-red-500'}`} 
+                    style={{ width: `${Math.min((players.length / 5) * 100, 100)}%` }}
+                  />
+                </div>
+                {players.length >= 5 && players.length < 7 && (
+                  <div className="w-16 bg-gray-700 rounded-full h-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full" 
+                      style={{ width: `${((players.length - 5) / 2) * 100}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Información del equipo editable */}
@@ -286,13 +474,28 @@ export default function MyTeamPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Logo y nombre */}
             <div className="flex items-start space-x-4">
-              <div className="w-16 h-16 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0">
-                {team.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={team.logo_url} alt={team.name} className="w-full h-full object-cover" />
-                ) : (
-                  <Users className="h-8 w-8 text-gray-400" />
-                )}
+              <div className="relative group">
+                <div className="w-16 h-16 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0">
+                  {team.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={team.logo_url} alt={team.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Users className="h-8 w-8 text-gray-400" />
+                  )}
+                </div>
+                <button
+                  onClick={() => document.getElementById('team-logo-input')?.click()}
+                  className="absolute -bottom-2 -right-2 bg-gray-600 rounded-full p-1 hover:bg-gray-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Edit3 className="h-3 w-3 text-white" />
+                </button>
+                <input
+                  id="team-logo-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleTeamLogoChange}
+                />
               </div>
               <div className="flex-1">
                 {editingField === 'name' ? (
@@ -321,17 +524,18 @@ export default function MyTeamPage() {
                 ) : (
                   <div>
                     <h3 
-                      className="text-xl font-semibold text-white cursor-pointer hover:text-blue-400 flex items-center"
+                      className="text-xl font-semibold text-white cursor-pointer hover:text-blue-400 flex items-center group"
                       onClick={() => startEdit('name', team.name)}
                     >
                       {team.name}
-                      <Edit3 className="h-4 w-4 ml-2 opacity-0 group-hover:opacity-100" />
+                      <Edit3 className="h-4 w-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </h3>
                     <p 
-                      className="text-gray-400 text-sm cursor-pointer hover:text-gray-300"
+                      className="text-gray-400 text-sm cursor-pointer hover:text-gray-300 flex items-center group"
                       onClick={() => startEdit('description', team.description || '')}
                     >
                       {team.description || 'Sin descripción'}
+                      <Edit3 className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </p>
                   </div>
                 )}
@@ -340,7 +544,7 @@ export default function MyTeamPage() {
 
             {/* Contacto */}
             <div className="space-y-3">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 group">
                 <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
                 {editingField === 'contact_email' ? (
                   <div className="flex items-center space-x-2 flex-1">
@@ -367,15 +571,16 @@ export default function MyTeamPage() {
                   </div>
                 ) : (
                   <span 
-                    className="text-gray-300 cursor-pointer hover:text-white text-sm flex-1"
+                    className="text-gray-300 cursor-pointer hover:text-white text-sm flex items-center flex-1 group"
                     onClick={() => startEdit('contact_email', team.contact_email || '')}
                   >
                     {team.contact_email || 'Sin email'}
+                    <Edit3 className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </span>
                 )}
               </div>
               
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 group">
                 <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
                 {editingField === 'contact_phone' ? (
                   <div className="flex items-center space-x-2 flex-1">
@@ -402,10 +607,11 @@ export default function MyTeamPage() {
                   </div>
                 ) : (
                   <span 
-                    className="text-gray-300 cursor-pointer hover:text-white text-sm flex-1"
+                    className="text-gray-300 cursor-pointer hover:text-white text-sm flex items-center flex-1 group"
                     onClick={() => startEdit('contact_phone', team.contact_phone || '')}
                   >
                     {team.contact_phone || 'Sin teléfono'}
+                    <Edit3 className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </span>
                 )}
               </div>
@@ -443,16 +649,18 @@ export default function MyTeamPage() {
                   className="bg-gray-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
-                  type="text"
-                  placeholder="Posición"
-                  value={newPlayer.position}
-                  onChange={(e) => setNewPlayer({...newPlayer, position: e.target.value})}
+                  type="number"
+                  placeholder="Número de camiseta"
+                  value={newPlayer.jersey_number}
+                  onChange={(e) => setNewPlayer({...newPlayer, jersey_number: e.target.value})}
+                  min="1"
+                  max="99"
                   className="bg-gray-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <div className="flex space-x-2">
                   <button
                     onClick={addPlayer}
-                    disabled={addingPlayer || !newPlayer.name.trim()}
+                    disabled={addingPlayer || !newPlayer.name.trim() || !newPlayer.jersey_number.trim()}
                     className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center"
                   >
                     {addingPlayer ? (
@@ -464,7 +672,7 @@ export default function MyTeamPage() {
                   <button
                     onClick={() => {
                       setAddingPlayer(false)
-                      setNewPlayer({ name: '', position: '' })
+                      setNewPlayer({ name: '', jersey_number: '' })
                     }}
                     className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
                   >
@@ -487,6 +695,7 @@ export default function MyTeamPage() {
                 <thead>
                   <tr className="border-b border-gray-700">
                     <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Jugador</th>
+                    <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">N° Camiseta</th>
                     <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Posición</th>
                     <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Capitán</th>
                     <th className="text-right py-3 px-4 text-gray-400 font-medium text-sm">Acciones</th>
@@ -497,19 +706,59 @@ export default function MyTeamPage() {
                     <tr key={player.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
                       <td className="py-3 px-4">
                         {editingPlayerId === player.id ? (
-                          <input
-                            type="text"
-                            value={editingPlayerData.name}
-                            onChange={(e) => setEditingPlayerData({...editingPlayerData, name: e.target.value})}
-                            className="bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            autoFocus
-                          />
+                          <div className="flex items-center space-x-2">
+                            <div className="relative">
+                              <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+                                {previewPhotoUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img 
+                                    src={`${previewPhotoUrl}&v=${new Date().getTime()}`} 
+                                    alt={editingPlayerData.name} 
+                                    className="w-full h-full object-cover rounded-full" 
+                                  />
+                                ) : (
+                                  <span className="text-xs font-medium text-white">
+                                    {editingPlayerData.name.charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => document.getElementById(`player-photo-${player.id}`)?.click()}
+                                className="absolute -bottom-1 -right-1 bg-gray-600 rounded-full p-0.5 hover:bg-gray-500"
+                              >
+                                <Edit3 className="h-2 w-2 text-white" />
+                              </button>
+                              <input
+                                id={`player-photo-${player.id}`}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handlePlayerPhotoChange}
+                              />
+                            </div>
+                            <input
+                              type="text"
+                              value={editingPlayerData.name}
+                              onChange={(e) => setEditingPlayerData({...editingPlayerData, name: e.target.value})}
+                              className="bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              autoFocus
+                            />
+                          </div>
                         ) : (
                           <div className="flex items-center space-x-2">
                             <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-white">
-                                {player.name.charAt(0).toUpperCase()}
-                              </span>
+                              {player.photo_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img 
+                                  src={`${player.photo_url}?v=${new Date().getTime()}`} 
+                                  alt={player.name} 
+                                  className="w-full h-full object-cover rounded-full" 
+                                />
+                              ) : (
+                                <span className="text-xs font-medium text-white">
+                                  {player.name.charAt(0).toUpperCase()}
+                                </span>
+                              )}
                             </div>
                             <span className="text-white">{player.name}</span>
                           </div>
@@ -517,14 +766,39 @@ export default function MyTeamPage() {
                       </td>
                       <td className="py-3 px-4">
                         {editingPlayerId === player.id ? (
-                          <input
-                            type="text"
-                            value={editingPlayerData.position}
-                            onChange={(e) => setEditingPlayerData({...editingPlayerData, position: e.target.value})}
-                            className="bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
+                          <div className="space-y-2">
+                            <input
+                              type="number"
+                              value={editingPlayerData.jersey_number}
+                              onChange={(e) => setEditingPlayerData({...editingPlayerData, jersey_number: e.target.value})}
+                              className="bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              placeholder="N° camiseta"
+                              min="1"
+                              max="99"
+                            />
+                          </div>
                         ) : (
-                          <span className="text-gray-300">{player.position || '—'}</span>
+                          <span className="text-gray-300">{player.jersey_number || '—'}</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        {editingPlayerId === player.id ? (
+                          <select
+                            value={editingPlayerData.position || ''}
+                            onChange={(e) => setEditingPlayerData({...editingPlayerData, position: e.target.value || null})}
+                            className="bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          >
+                            <option value="">Sin posición</option>
+                            {PLAYER_POSITIONS.map(pos => (
+                              <option key={pos.value} value={pos.value}>{pos.label}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-gray-300">
+                            {player.position 
+                              ? PLAYER_POSITIONS.find(p => p.value === player.position)?.label || player.position 
+                              : '—'}
+                          </span>
                         )}
                       </td>
                       <td className="py-3 px-4">
@@ -586,35 +860,6 @@ export default function MyTeamPage() {
               </table>
             </div>
           )}
-        </div>
-
-        {/* Estado del equipo */}
-        <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
-          <h2 className="text-lg font-semibold text-white mb-4">Estado del Equipo</h2>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                players.length >= 7 
-                  ? 'bg-green-900/50 text-green-300' 
-                  : players.length > 0
-                  ? 'bg-yellow-900/50 text-yellow-300'
-                  : 'bg-red-900/50 text-red-300'
-              }`}>
-                {players.length >= 7 ? '✓ Listo para Torneos' : 
-                 players.length > 0 ? `⚠️ Faltan ${7 - players.length} jugadores` : 
-                 '❌ Sin jugadores'}
-              </div>
-              <div className="text-sm text-gray-400 mt-2">
-                Progreso: {players.length}/7 jugadores necesarios
-              </div>
-            </div>
-            <div className="w-32 bg-gray-700 rounded-full h-2">
-              <div 
-                className="bg-blue-500 h-2 rounded-full" 
-                style={{ width: `${Math.min((players.length / 7) * 100, 100)}%` }}
-              />
-            </div>
-          </div>
         </div>
       </div>
     </DashboardLayout>

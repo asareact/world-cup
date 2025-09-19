@@ -210,10 +210,14 @@ export class DatabaseService {
           name,
           position,
           is_active,
-          is_captain
+          is_captain,
+          photo_url,
+          jersey_number
         )
       `
       )
+      // Ordenar jugadores por nombre
+      .order('name', { foreignTable: 'players' })
       .order('created_at', { ascending: false })
 
     if (role === 'superAdmin') {
@@ -226,6 +230,7 @@ export class DatabaseService {
       query = query.eq('created_by', userId)
     }
 
+    // Desactivar cache usando opciones
     const { data, error } = await query
     if (error) throw error
     return data || []
@@ -307,12 +312,38 @@ export class DatabaseService {
   }
 
   async updatePlayer(id: string, updates: Partial<Player>) {
-    const { error } = await this.client
+    console.log('Actualizando jugador con ID:', id);
+    console.log('Datos a actualizar:', updates);
+    
+    // Verificar específicamente el jersey_number
+    if (updates.jersey_number !== undefined) {
+      console.log('Actualizando jersey_number a:', updates.jersey_number);
+    }
+    
+    // Primero, intentar la actualización
+    const { error: updateError } = await this.client
       .from('players')
       .update(updates)
       .eq('id', id)
 
+    if (updateError) {
+      console.error('Error actualizando jugador:', updateError);
+      throw updateError;
+    }
+    
+    console.log('Actualización completada exitosamente');
+    return { message: 'Jugador actualizado exitosamente' };
+  }
+
+  async getPlayerById(playerId: string) {
+    const { data, error } = await this.client
+      .from('players')
+      .select('*')
+      .eq('id', playerId)
+      .single()
+
     if (error) throw error
+    return data
   }
 
   async deletePlayer(id: string) {
