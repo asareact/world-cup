@@ -9,26 +9,34 @@ const supabase = createClient()
 function CallbackHandler() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const searchParamsKey = searchParams.toString()
   const [message, setMessage] = useState('Procesando inicio de sesión...')
 
   useEffect(() => {
-    const handleAuth = async () => {
-      const code = searchParams.get('code')
-      const next = searchParams.get('next') || '/'
-      const error = searchParams.get('error') || searchParams.get('error_description')
+    const params = new URLSearchParams(searchParamsKey)
+    const code = params.get('code')
+    const next = params.get('next') || '/'
+    const rawError = params.get('error') ?? params.get('error_description')
+    const normalizedError = rawError?.toString().trim().toLowerCase()
+    const hasRealError = Boolean(
+      normalizedError &&
+      normalizedError !== 'null' &&
+      normalizedError !== 'undefined' &&
+      normalizedError !== 'none'
+    )
 
-      if (error) {
-        router.replace('/auth/auth-code-error')
-        return
+    if (hasRealError) {
+      router.replace('/auth/auth-code-error')
+      return
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        router.replace(next)
       }
+    })
 
-      // Listen for implicit flow sign-in event
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-        if (event === 'SIGNED_IN') {
-          router.replace(next)
-        }
-      })
-
+    const handleAuth = async () => {
       if (code) {
         try {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
@@ -44,13 +52,14 @@ function CallbackHandler() {
         const { data: { session } } = await supabase.auth.getSession()
         if (session) router.replace(next)
       }
-
-      return () => subscription.unsubscribe()
     }
 
     handleAuth()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [router, searchParamsKey])
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
