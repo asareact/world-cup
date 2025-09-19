@@ -192,5 +192,5 @@ function TournamentRules({ rules }: { rules: string }) {
   return <pre className="text-gray-300 text-sm whitespace-pre-wrap">{JSON.stringify(parsedRules, null, 2)}</pre>;
 }
 
-export { TournamentOverview, TournamentRules };
+export { TournamentRules };
 
