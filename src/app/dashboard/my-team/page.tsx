@@ -671,7 +671,7 @@ export default function MyTeamPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-white">Mi Equipo</h1>
             <p className="text-gray-400">Gestiona tu equipo de futsal directamente</p>
@@ -727,7 +727,13 @@ export default function MyTeamPage() {
                 </div>
                 <button
                   onClick={() => setShowLogoModal(true)}
-                  className="absolute -bottom-2 -right-2 bg-gray-600 rounded-full p-1 hover:bg-gray-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -bottom-2 -right-2 bg-gray-600 rounded-full p-1 hover:bg-gray-500 opacity-0 group-hover:opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
+                >
+                  <Edit3 className="h-3 w-3 text-white" />
+                </button>
+                <button
+                  onClick={() => setShowLogoModal(true)}
+                  className="absolute -bottom-2 -right-2 bg-gray-600 rounded-full p-1 hover:bg-gray-500 md:hidden"
                 >
                   <Edit3 className="h-3 w-3 text-white" />
                 </button>
@@ -763,14 +769,16 @@ export default function MyTeamPage() {
                       onClick={() => startEdit('name', team.name)}
                     >
                       {team.name}
-                      <Edit3 className="h-4 w-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <Edit3 className="h-4 w-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100" />
+                      <Edit3 className="h-4 w-4 ml-2 md:hidden" />
                     </h3>
                     <p 
                       className="text-gray-400 text-sm cursor-pointer hover:text-gray-300 flex items-center group"
                       onClick={() => startEdit('description', team.description || '')}
                     >
                       {team.description || 'Sin descripción'}
-                      <Edit3 className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <Edit3 className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100" />
+                      <Edit3 className="h-3 w-3 ml-1 md:hidden" />
                     </p>
                   </div>
                 )}
@@ -805,13 +813,16 @@ export default function MyTeamPage() {
                     </button>
                   </div>
                 ) : (
-                  <span 
-                    className="text-gray-300 cursor-pointer hover:text-white text-sm flex items-center flex-1 group"
-                    onClick={() => startEdit('contact_email', team.contact_email || '')}
-                  >
-                    {team.contact_email || 'Sin email'}
-                    <Edit3 className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </span>
+                  <div className="flex items-center justify-between w-full">
+                    <span 
+                      className="text-gray-300 cursor-pointer hover:text-white text-sm flex items-center group flex-1"
+                      onClick={() => startEdit('contact_email', team.contact_email || '')}
+                    >
+                      {team.contact_email || 'Sin email'}
+                      <Edit3 className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100" />
+                      <Edit3 className="h-3 w-3 ml-1 md:hidden" />
+                    </span>
+                  </div>
                 )}
               </div>
               
@@ -841,13 +852,16 @@ export default function MyTeamPage() {
                     </button>
                   </div>
                 ) : (
-                  <span 
-                    className="text-gray-300 cursor-pointer hover:text-white text-sm flex items-center flex-1 group"
-                    onClick={() => startEdit('contact_phone', team.contact_phone || '')}
-                  >
-                    {team.contact_phone || 'Sin teléfono'}
-                    <Edit3 className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </span>
+                  <div className="flex items-center justify-between w-full">
+                    <span 
+                      className="text-gray-300 cursor-pointer hover:text-white text-sm flex items-center group flex-1"
+                      onClick={() => startEdit('contact_phone', team.contact_phone || '')}
+                    >
+                      {team.contact_phone || 'Sin teléfono'}
+                      <Edit3 className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100" />
+                      <Edit3 className="h-3 w-3 ml-1 md:hidden" />
+                    </span>
+                  </div>
                 )}
               </div>
               
@@ -860,7 +874,7 @@ export default function MyTeamPage() {
 
         {/* Jugadores */}
         <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <h2 className="text-lg font-semibold text-white">Jugadores ({players.length})</h2>
             <button
               onClick={() => {
@@ -869,67 +883,290 @@ export default function MyTeamPage() {
                 setNewPlayerTouched(createInitialTouchedState())
                 setShowAddPlayerModal(true)
               }}
-              className="flex items-center space-x-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm"
+              className="flex items-center space-x-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm justify-center"
             >
               <Plus className="h-4 w-4" />
-              <span>Agregar</span>
+              <span>Agregar jugador</span>
             </button>
           </div>
 
-          {/* Tabla de jugadores */}
+          {/* Lista de jugadores - Vista de tabla en escritorio, cards en móvil */}
           {players.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No hay jugadores en el equipo</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-700">
-                    <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Jugador</th>
-                    <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">N° Camiseta</th>
-                    <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Posición</th>
-                    <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Capitán</th>
-                    <th className="text-right py-3 px-4 text-gray-400 font-medium text-sm">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {players.map((player) => (
-                    <tr key={player.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
-                      <td className="py-3 px-4">
-                        {editingPlayerId === player.id ? (
-                          <div className="flex flex-col space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <div className="relative">
-                                <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
-                                  {previewPhotoUrl ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img 
-                                      src={`${previewPhotoUrl}&v=${new Date().getTime()}`} 
-                                      alt={editingPlayerData.name} 
-                                      className="w-full h-full object-cover rounded-full" 
-                                    />
-                                  ) : (
-                                    <span className="text-xs font-medium text-white">
-                                      {editingPlayerData.name.charAt(0).toUpperCase()}
-                                    </span>
-                                  )}
+            <>
+              {/* Vista de tabla para escritorio */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Jugador</th>
+                      <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">N° Camiseta</th>
+                      <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Posición</th>
+                      <th className="text-left py-3 px-4 text-gray-400 font-medium text-sm">Capitán</th>
+                      <th className="text-right py-3 px-4 text-gray-400 font-medium text-sm">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {players.map((player) => (
+                      <tr key={player.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
+                        <td className="py-3 px-4">
+                          {editingPlayerId === player.id ? (
+                            <div className="flex flex-col space-y-1">
+                              <div className="flex items-center space-x-2">
+                                <div className="relative">
+                                  <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+                                    {previewPhotoUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img 
+                                        src={`${previewPhotoUrl}&v=${new Date().getTime()}`} 
+                                        alt={editingPlayerData.name} 
+                                        className="w-full h-full object-cover rounded-full" 
+                                      />
+                                    ) : (
+                                      <span className="text-xs font-medium text-white">
+                                        {editingPlayerData.name.charAt(0).toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() => document.getElementById(`player-photo-${player.id}`)?.click()}
+                                    className="absolute -bottom-1 -right-1 bg-gray-600 rounded-full p-0.5 hover:bg-gray-500"
+                                  >
+                                    <Edit3 className="h-2 w-2 text-white" />
+                                  </button>
+                                  <input
+                                    id={`player-photo-${player.id}`}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handlePlayerPhotoChange}
+                                  />
                                 </div>
-                                <button
-                                  onClick={() => document.getElementById(`player-photo-${player.id}`)?.click()}
-                                  className="absolute -bottom-1 -right-1 bg-gray-600 rounded-full p-0.5 hover:bg-gray-500"
-                                >
-                                  <Edit3 className="h-2 w-2 text-white" />
-                                </button>
                                 <input
-                                  id={`player-photo-${player.id}`}
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  onChange={handlePlayerPhotoChange}
+                                  type="text"
+                                  value={editingPlayerData.name}
+                                  onChange={(e) => {
+                                    if (!editingPlayerTouched.name) {
+                                      setEditingPlayerTouched(prev => ({ ...prev, name: true }))
+                                    }
+                                    const value = e.target.value
+                                    setEditingPlayerData(prev => ({ ...prev, name: value }))
+                                  }}
+                                  onBlur={() => setEditingPlayerTouched(prev => ({ ...prev, name: true }))}
+                                  className={`bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 border ${
+                                    showEditingNameError ? 'border-red-500 focus:ring-red-500' : 'border-transparent focus:ring-blue-500'
+                                  }`}
+                                  autoFocus
                                 />
                               </div>
+                              {showEditingNameError && editingNameError && (
+                                <p className="text-xs text-red-400">{editingNameError}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+                                {player.photo_url ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img 
+                                    src={`${player.photo_url}?v=${new Date().getTime()}`} 
+                                    alt={player.name} 
+                                    className="w-full h-full object-cover rounded-full" 
+                                  />
+                                ) : (
+                                  <span className="text-xs font-medium text-white">
+                                    {player.name.charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-white">{player.name}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {editingPlayerId === player.id ? (
+                            <div className="space-y-2">
+                              <input
+                                type="number"
+                                value={editingPlayerData.jersey_number}
+                                onChange={(e) => {
+                                  if (!editingPlayerTouched.jersey_number) {
+                                    setEditingPlayerTouched(prev => ({ ...prev, jersey_number: true }))
+                                  }
+                                  const value = e.target.value
+                                  setEditingPlayerData(prev => ({ ...prev, jersey_number: value }))
+                                }}
+                                onBlur={() => setEditingPlayerTouched(prev => ({ ...prev, jersey_number: true }))}
+                                className={`bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 border text-sm ${
+                                  showEditingJerseyError ? 'border-red-500 focus:ring-red-500' : 'border-transparent focus:ring-blue-500'
+                                }`}
+                                placeholder="N° camiseta"
+                                min="1"
+                                max="99"
+                              />
+                              {showEditingJerseyError && editingJerseyNumberError && (
+                                <p className="text-xs text-red-400">{editingJerseyNumberError}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">{player.jersey_number || '—'}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {editingPlayerId === player.id ? (
+                            <select
+                              value={editingPlayerData.position ?? ''}
+                              onChange={(e) => setEditingPlayerData({
+                                ...editingPlayerData,
+                                position: parsePlayerPosition(e.target.value)
+                              })}
+                              className="bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            >
+                              <option value="">Sin posición</option>
+                              {PLAYER_POSITIONS.map(pos => (
+                                <option key={pos.value} value={pos.value}>{pos.label}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-gray-300">
+                              {player.position 
+                                ? PLAYER_POSITIONS.find(p => p.value === player.position)?.label || player.position 
+                                : '—'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {player.is_captain ? (
+                            <div className="flex items-center text-yellow-400">
+                              <Crown className="h-4 w-4 mr-1" />
+                              <span className="text-xs">Capitán</span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => makeCaptain(player.id)}
+                              className="text-gray-400 hover:text-yellow-400 text-sm"
+                            >
+                              Hacer capitán
+                            </button>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {editingPlayerId === player.id ? (
+                            <div className="flex items-center justify-end space-x-1">
+                              <button
+                                onClick={saveEditPlayer}
+                                disabled={hasEditingErrors}
+                                className={`p-1 text-green-400 rounded ${
+                                  hasEditingErrors
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'hover:bg-green-900/50'
+                                }`}
+                              >
+                                <Check className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={cancelEditPlayer}
+                                className="p-1 text-gray-400 hover:bg-gray-700 rounded"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end space-x-1">
+                              <button
+                                onClick={() => startEditPlayer(player)}
+                                className="p-1 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded"
+                              >
+                                <Edit3 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => deletePlayer(player.id)}
+                                disabled={deletingPlayerId === player.id}
+                                className="p-1 text-gray-400 hover:text-red-400 hover:bg-red-900/50 rounded disabled:opacity-50"
+                              >
+                                {deletingPlayerId === player.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Vista de cards para móviles */}
+              <div className="md:hidden space-y-4">
+                {players.map((player) => (
+                  <div key={player.id} className="bg-gray-700/50 rounded-xl p-4 border border-gray-600">
+                    {editingPlayerId === player.id ? (
+                      // Vista de edición de jugador
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-medium text-white">Editar Jugador</h3>
+                          <div className="flex space-x-1">
+                            <button
+                              onClick={saveEditPlayer}
+                              disabled={hasEditingErrors}
+                              className={`p-2 rounded-full ${
+                                hasEditingErrors
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : 'hover:bg-green-900/50 text-green-400'
+                              }`}
+                            >
+                              <Check className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={cancelEditPlayer}
+                              className="p-2 rounded-full hover:bg-gray-600 text-gray-400"
+                            >
+                              <X className="h-5 w-5" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="relative">
+                            <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center">
+                              {previewPhotoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img 
+                                  src={`${previewPhotoUrl}&v=${new Date().getTime()}`} 
+                                  alt={editingPlayerData.name} 
+                                  className="w-full h-full object-cover rounded-full" 
+                                />
+                              ) : (
+                                <span className="text-lg font-medium text-white">
+                                  {editingPlayerData.name.charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => document.getElementById(`player-photo-${player.id}`)?.click()}
+                              className="absolute -bottom-1 -right-1 bg-gray-600 rounded-full p-1 hover:bg-gray-500"
+                            >
+                              <Edit3 className="h-3 w-3 text-white" />
+                            </button>
+                            <input
+                              id={`player-photo-${player.id}`}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handlePlayerPhotoChange}
+                            />
+                          </div>
+                          
+                          <div className="w-full space-y-3">
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-1">Nombre</label>
                               <input
                                 type="text"
                                 value={editingPlayerData.name}
@@ -941,151 +1178,123 @@ export default function MyTeamPage() {
                                   setEditingPlayerData(prev => ({ ...prev, name: value }))
                                 }}
                                 onBlur={() => setEditingPlayerTouched(prev => ({ ...prev, name: true }))}
-                                className={`bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 border ${
+                                className={`w-full bg-gray-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 border ${
                                   showEditingNameError ? 'border-red-500 focus:ring-red-500' : 'border-transparent focus:ring-blue-500'
                                 }`}
-                                autoFocus
                               />
+                              {showEditingNameError && editingNameError && (
+                                <p className="mt-1 text-xs text-red-400">{editingNameError}</p>
+                              )}
                             </div>
-                            {showEditingNameError && editingNameError && (
-                              <p className="text-xs text-red-400">{editingNameError}</p>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
-                              {player.photo_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img 
-                                  src={`${player.photo_url}?v=${new Date().getTime()}`} 
-                                  alt={player.name} 
-                                  className="w-full h-full object-cover rounded-full" 
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs text-gray-400 mb-1">N° Camiseta</label>
+                                <input
+                                  type="number"
+                                  value={editingPlayerData.jersey_number}
+                                  onChange={(e) => {
+                                    if (!editingPlayerTouched.jersey_number) {
+                                      setEditingPlayerTouched(prev => ({ ...prev, jersey_number: true }))
+                                    }
+                                    const value = e.target.value
+                                    setEditingPlayerData(prev => ({ ...prev, jersey_number: value }))
+                                  }}
+                                  onBlur={() => setEditingPlayerTouched(prev => ({ ...prev, jersey_number: true }))}
+                                  className={`w-full bg-gray-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 border ${
+                                    showEditingJerseyError ? 'border-red-500 focus:ring-red-500' : 'border-transparent focus:ring-blue-500'
+                                  }`}
+                                  placeholder="1-99"
+                                  min="1"
+                                  max="99"
                                 />
-                              ) : (
-                                <span className="text-xs font-medium text-white">
-                                  {player.name.charAt(0).toUpperCase()}
-                                </span>
-                              )}
+                                {showEditingJerseyError && editingJerseyNumberError && (
+                                  <p className="mt-1 text-xs text-red-400">{editingJerseyNumberError}</p>
+                                )}
+                              </div>
+                              
+                              <div>
+                                <label className="block text-xs text-gray-400 mb-1">Posición</label>
+                                <select
+                                  value={editingPlayerData.position ?? ''}
+                                  onChange={(e) => setEditingPlayerData({
+                                    ...editingPlayerData,
+                                    position: parsePlayerPosition(e.target.value)
+                                  })}
+                                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">Sin posición</option>
+                                  {PLAYER_POSITIONS.map(pos => (
+                                    <option key={pos.value} value={pos.value}>{pos.label}</option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
-                            <span className="text-white">{player.name}</span>
                           </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        {editingPlayerId === player.id ? (
-                          <div className="space-y-2">
-                            <input
-                              type="number"
-                              value={editingPlayerData.jersey_number}
-                              onChange={(e) => {
-                                if (!editingPlayerTouched.jersey_number) {
-                                  setEditingPlayerTouched(prev => ({ ...prev, jersey_number: true }))
-                                }
-                                const value = e.target.value
-                                setEditingPlayerData(prev => ({ ...prev, jersey_number: value }))
-                              }}
-                              onBlur={() => setEditingPlayerTouched(prev => ({ ...prev, jersey_number: true }))}
-                              className={`bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 border text-sm ${
-                                showEditingJerseyError ? 'border-red-500 focus:ring-red-500' : 'border-transparent focus:ring-blue-500'
-                              }`}
-                              placeholder="N° camiseta"
-                              min="1"
-                              max="99"
-                            />
-                            {showEditingJerseyError && editingJerseyNumberError && (
-                              <p className="text-xs text-red-400">{editingJerseyNumberError}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      // Vista normal de jugador
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center">
+                            {player.photo_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img 
+                                src={`${player.photo_url}?v=${new Date().getTime()}`} 
+                                alt={player.name} 
+                                className="w-full h-full object-cover rounded-full" 
+                              />
+                            ) : (
+                              <span className="text-sm font-medium text-white">
+                                {player.name.charAt(0).toUpperCase()}
+                              </span>
                             )}
                           </div>
-                        ) : (
-                          <span className="text-gray-300">{player.jersey_number || '—'}</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        {editingPlayerId === player.id ? (
-                          <select
-                            value={editingPlayerData.position ?? ''}
-                            onChange={(e) => setEditingPlayerData({
-                              ...editingPlayerData,
-                              position: parsePlayerPosition(e.target.value)
-                            })}
-                            className="bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                          >
-                            <option value="">Sin posición</option>
-                            {PLAYER_POSITIONS.map(pos => (
-                              <option key={pos.value} value={pos.value}>{pos.label}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="text-gray-300">
-                            {player.position 
-                              ? PLAYER_POSITIONS.find(p => p.value === player.position)?.label || player.position 
-                              : '—'}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        {player.is_captain ? (
-                          <div className="flex items-center text-yellow-400">
-                            <Crown className="h-4 w-4 mr-1" />
-                            <span className="text-xs">Capitán</span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => makeCaptain(player.id)}
-                            className="text-gray-400 hover:text-yellow-400 text-sm"
-                          >
-                            Hacer capitán
-                          </button>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        {editingPlayerId === player.id ? (
-                          <div className="flex items-center justify-end space-x-1">
-                            <button
-                              onClick={saveEditPlayer}
-                              disabled={hasEditingErrors}
-                              className={`p-1 text-green-400 rounded ${
-                                hasEditingErrors
-                                  ? 'opacity-50 cursor-not-allowed'
-                                  : 'hover:bg-green-900/50'
-                              }`}
-                            >
-                              <Check className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={cancelEditPlayer}
-                              className="p-1 text-gray-400 hover:bg-gray-700 rounded"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end space-x-1">
-                            <button
-                              onClick={() => startEditPlayer(player)}
-                              className="p-1 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded"
-                            >
-                              <Edit3 className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => deletePlayer(player.id)}
-                              disabled={deletingPlayerId === player.id}
-                              className="p-1 text-gray-400 hover:text-red-400 hover:bg-red-900/50 rounded disabled:opacity-50"
-                            >
-                              {deletingPlayerId === player.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <h3 className="font-medium text-white">{player.name}</h3>
+                              {player.is_captain && (
+                                <div className="flex items-center text-yellow-400">
+                                  <Crown className="h-4 w-4" />
+                                </div>
                               )}
-                            </button>
+                            </div>
+                            <div className="flex items-center space-x-3 text-sm text-gray-400">
+                              <span>N° {player.jersey_number || '—'}</span>
+                              <span>
+                                {player.position 
+                                  ? PLAYER_POSITIONS.find(p => p.value === player.position)?.label || player.position 
+                                  : 'Sin posición'}
+                              </span>
+                            </div>
                           </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                        <div className="flex space-x-1">
+                          <button
+                            onClick={() => startEditPlayer(player)}
+                            className="p-2 rounded-full hover:bg-gray-600 text-gray-400"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => deletePlayer(player.id)}
+                            disabled={deletingPlayerId === player.id}
+                            className="p-2 rounded-full hover:bg-red-900/50 text-gray-400 disabled:opacity-50"
+                          >
+                            {deletingPlayerId === player.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -1093,7 +1302,7 @@ export default function MyTeamPage() {
       {/* Modal de edición de logo del equipo */}
       {showLogoModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 w-full max-w-md">
+          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">Actualizar Logo del Equipo</h3>
               <button
@@ -1109,7 +1318,7 @@ export default function MyTeamPage() {
             
             <div className="mb-6">
               <div className="flex flex-col items-center space-y-4">
-                <div className="w-24 h-24 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center">
+                <div className="w-24 h-24 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center md:w-32 md:h-32">
                   {teamLogoFile ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img 
@@ -1125,7 +1334,7 @@ export default function MyTeamPage() {
                       className="w-full h-full object-cover" 
                     />
                   ) : (
-                    <Users className="h-12 w-12 text-gray-400" />
+                    <Users className="h-12 w-12 text-gray-400 md:h-16 md:w-16" />
                   )}
                 </div>
                 
@@ -1139,7 +1348,7 @@ export default function MyTeamPage() {
                 
                 <button
                   onClick={() => document.getElementById('logo-upload-input')?.click()}
-                  className="flex items-center space-x-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                  className="flex items-center space-x-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors w-full justify-center"
                 >
                   <Upload className="h-4 w-4" />
                   <span>{teamLogoFile ? 'Cambiar imagen' : 'Seleccionar imagen'}</span>
@@ -1147,20 +1356,20 @@ export default function MyTeamPage() {
               </div>
             </div>
             
-            <div className="flex space-x-3">
+            <div className="flex flex-col space-y-3 md:flex-row md:space-y-0 md:space-x-3">
               <button
                 onClick={() => {
                   setShowLogoModal(false)
                   setTeamLogoFile(null)
                 }}
-                className="flex-1 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+                className="flex-1 bg-gray-700 text-white py-3 px-4 rounded-lg hover:bg-gray-600 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={uploadTeamLogo}
                 disabled={!teamLogoFile || saving}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 {saving ? (
                   <>
@@ -1179,7 +1388,7 @@ export default function MyTeamPage() {
       {/* Modal de edición de foto de jugador */}
       {showPlayerPhotoModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 w-full max-w-md">
+          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">Actualizar Foto del Jugador</h3>
               <button
@@ -1196,7 +1405,7 @@ export default function MyTeamPage() {
             
             <div className="mb-6">
               <div className="flex flex-col items-center space-y-4">
-                <div className="w-24 h-24 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center">
+                <div className="w-24 h-24 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center md:w-32 md:h-32">
                   {newPlayerPhoto ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img 
@@ -1205,7 +1414,7 @@ export default function MyTeamPage() {
                       className="w-full h-full object-cover" 
                     />
                   ) : (
-                    <Users className="h-12 w-12 text-gray-400" />
+                    <Users className="h-12 w-12 text-gray-400 md:h-16 md:w-16" />
                   )}
                 </div>
                 
@@ -1219,7 +1428,7 @@ export default function MyTeamPage() {
                 
                 <button
                   onClick={() => document.getElementById('player-photo-upload-input')?.click()}
-                  className="flex items-center space-x-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                  className="flex items-center space-x-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors w-full justify-center"
                 >
                   <Upload className="h-4 w-4" />
                   <span>{newPlayerPhoto ? 'Cambiar imagen' : 'Seleccionar imagen'}</span>
@@ -1227,21 +1436,21 @@ export default function MyTeamPage() {
               </div>
             </div>
             
-            <div className="flex space-x-3">
+            <div className="flex flex-col space-y-3 md:flex-row md:space-y-0 md:space-x-3">
               <button
                 onClick={() => {
                   setShowPlayerPhotoModal(false)
                   setNewPlayerPhoto(null)
                   setCurrentPlayerId(null)
                 }}
-                className="flex-1 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+                className="flex-1 bg-gray-700 text-white py-3 px-4 rounded-lg hover:bg-gray-600 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handlePlayerPhotoUpload}
                 disabled={!newPlayerPhoto || saving}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 {saving ? (
                   <>
@@ -1260,7 +1469,7 @@ export default function MyTeamPage() {
       {/* Modal de agregar jugador */}
       {showAddPlayerModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 w-full max-w-md">
+          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">Agregar Nuevo Jugador</h3>
               <button
@@ -1344,7 +1553,7 @@ export default function MyTeamPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">Foto del jugador</label>
                 <div className="flex flex-col items-center space-y-4">
-                  <div className="w-24 h-24 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center">
+                  <div className="w-24 h-24 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center md:w-32 md:h-32">
                     {newPlayerPhoto ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img 
@@ -1353,7 +1562,7 @@ export default function MyTeamPage() {
                         className="w-full h-full object-cover" 
                       />
                     ) : (
-                      <Users className="h-12 w-12 text-gray-400" />
+                      <Users className="h-12 w-12 text-gray-400 md:h-16 md:w-16" />
                     )}
                   </div>
                   
@@ -1371,7 +1580,7 @@ export default function MyTeamPage() {
                   
                   <button
                     onClick={() => document.getElementById('new-player-photo-upload')?.click()}
-                    className="flex items-center space-x-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                    className="flex items-center space-x-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors w-full justify-center"
                   >
                     <Upload className="h-4 w-4" />
                     <span>{newPlayerPhoto ? 'Cambiar foto' : 'Seleccionar foto'}</span>
@@ -1380,7 +1589,7 @@ export default function MyTeamPage() {
               </div>
             </div>
             
-            <div className="flex space-x-3">
+            <div className="flex flex-col space-y-3 md:flex-row md:space-y-0 md:space-x-3">
               <button
                 onClick={() => {
                   setShowAddPlayerModal(false)
@@ -1388,14 +1597,14 @@ export default function MyTeamPage() {
                   setNewPlayerTouched(createInitialTouchedState())
                   setNewPlayerPhoto(null)
                 }}
-                className="flex-1 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+                className="flex-1 bg-gray-700 text-white py-3 px-4 rounded-lg hover:bg-gray-600 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={addPlayer}
                 disabled={saving || hasNewPlayerErrors}
-                className={`flex-1 py-2 px-4 rounded-lg transition-colors flex items-center justify-center ${
+                className={`flex-1 py-3 px-4 rounded-lg transition-colors flex items-center justify-center ${
                   saving || hasNewPlayerErrors
                     ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
                     : 'bg-green-600 text-white hover:bg-green-700'

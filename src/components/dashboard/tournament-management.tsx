@@ -15,10 +15,24 @@ import {
   Trash2,
   Copy,
   Eye,
-  Loader2
+  Loader2,
+  LayoutGrid,
+  GitBranch,
+  Check
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useTournaments } from '@/lib/hooks/use-tournaments'
 import { formatDate } from '@/lib/utils'
+
+type TournamentTypeOption = {
+  id: 'league' | 'cup' | 'hybrid'
+  label: string
+  description: string
+  highlights: string[]
+  formatLabel: string
+  icon: typeof Trophy
+  accent: string
+}
 
 const formatLabels = {
   single_elimination: 'Eliminación Simple',
@@ -41,12 +55,72 @@ const statusColors = {
   paused: 'bg-yellow-600 text-yellow-100'
 }
 
+function TournamentRulesPreview({ rules }: { rules: string }) {
+  let parsedRules;
+  try {
+    parsedRules = JSON.parse(rules);
+  } catch {
+    return null;
+  }
+
+  // Handle league_repechage format
+  if (parsedRules.type === "league_repechage" && parsedRules.notes) {
+    return (
+      <div className="text-xs text-gray-400">
+        <div className="flex items-center space-x-1">
+          <span>Clasificación:</span>
+          <span className="text-green-400">{parsedRules.directSlots} directos</span>
+          <span>•</span>
+          <span className="text-yellow-400">{parsedRules.repechageSlots} repechaje</span>
+          <span>•</span>
+          <span className="text-red-400">{parsedRules.eliminatedSlots} eliminados</span>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+const tournamentTypeOptions: TournamentTypeOption[] = [
+  {
+    id: 'league',
+    label: 'Liga',
+    description: 'Formato todos contra todos con tabla de posiciones y calendario balanceado.',
+    highlights: ['Fase regular completa', 'Tabla de posiciones', 'Rondas de ida y vuelta opcionales'],
+    formatLabel: 'Round Robin',
+    icon: LayoutGrid,
+    accent: 'from-sky-500 to-blue-600'
+  },
+  {
+    id: 'cup',
+    label: 'Copa',
+    description: 'Eliminación directa con fases de llaves y definición rápida del campeón.',
+    highlights: ['Llaves configurables', 'Partidos únicos o ida/vuelta', 'Posibilidad de tercer puesto'],
+    formatLabel: 'Eliminación Directa',
+    icon: Trophy,
+    accent: 'from-emerald-500 to-green-600'
+  },
+  {
+    id: 'hybrid',
+    label: 'Híbrido',
+    description: 'Combina grupos clasificatorios con fases finales eliminatorias.',
+    highlights: ['Grupos por rendimiento', 'Clasificación automática', 'Definición en formato copa'],
+    formatLabel: 'Grupos + Eliminación',
+    icon: GitBranch,
+    accent: 'from-purple-500 to-pink-500'
+  }
+]
+
 export function TournamentManagement() {
-  const { tournaments, loading, error, deleteTournament } = useTournaments()
+  const { tournaments, loading, error, deleteTournament, updateTournament } = useTournaments()
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [, setShowCreateModal] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [selectedTournamentType, setSelectedTournamentType] = useState<TournamentTypeOption | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string, type: 'success'|'error' } | null>(null)
 
   const filteredTournaments = tournaments.filter(tournament => {
@@ -58,18 +132,74 @@ export function TournamentManagement() {
 
   const handleDeleteTournament = async (id: string) => {
     if (!confirm('¿Estás seguro de que quieres eliminar este torneo?')) return
-    
-    try {
-      setDeletingId(id)
-      await deleteTournament(id)
-      setToast({ message: 'Torneo eliminado', type: 'success' })
-      setTimeout(() => setToast(null), 2000)
-    } catch {
-      setToast({ message: 'Error al eliminar el torneo', type: 'error' })
-      setTimeout(() => setToast(null), 2000)
-    } finally {
-      setDeletingId(null)
+
+  try {
+    setDeletingId(id)
+    await deleteTournament(id)
+    setToast({ message: 'Torneo eliminado', type: 'success' })
+    setTimeout(() => setToast(null), 2000)
+  } catch {
+    setToast({ message: 'Error al eliminar el torneo', type: 'error' })
+    setTimeout(() => setToast(null), 2000)
+  } finally {
+    setDeletingId(null)
+  }
+  }
+
+  const resolveMinimumTeams = (tournament: TournamentWithStats) => {
+    if (tournament.rules) {
+      try {
+        const parsed = JSON.parse(tournament.rules)
+        if (parsed && typeof parsed.minTeams === 'number') {
+          return parsed.minTeams
+        }
+      } catch (error) {
+        console.warn('No se pudo interpretar las reglas del torneo', error)
+      }
     }
+    return 2
+  }
+
+  const handleStartTournament = async (tournament: TournamentWithStats) => {
+    try {
+      setUpdatingStatusId(tournament.id)
+      const minTeams = resolveMinimumTeams(tournament)
+      const currentTeams = tournament.teams
+      const hasMinimum = currentTeams >= minTeams
+
+      const nextStatus = hasMinimum ? 'active' : 'paused'
+      await updateTournament(tournament.id, { status: nextStatus })
+
+      if (hasMinimum) {
+        setToast({ message: 'Torneo activado. Puedes generar el fixture.', type: 'success' })
+      } else {
+        setToast({
+          message: `El torneo quedó esperando cupo mínimo (${currentTeams}/${minTeams}).`,
+          type: 'success'
+        })
+      }
+    } catch (error) {
+      console.error('Error al actualizar estado del torneo', error)
+      setToast({ message: 'No se pudo actualizar el estado del torneo', type: 'error' })
+    } finally {
+      setTimeout(() => setToast(null), 2200)
+      setUpdatingStatusId(null)
+    }
+  }
+
+  const handleOpenCreateModal = () => {
+    setSelectedTournamentType(null)
+    setShowCreateModal(true)
+  }
+
+  const handleSelectTournamentType = (option: TournamentTypeOption) => {
+    setSelectedTournamentType(option)
+  }
+
+  const handleProceedToCreate = () => {
+    if (!selectedTournamentType) return
+    setShowCreateModal(false)
+    router.push(`/dashboard/tournaments/create?type=${selectedTournamentType.id}`)
   }
 
   if (loading) {
@@ -96,7 +226,99 @@ export function TournamentManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div 
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowCreateModal(false)}
+          />
+          <div className="relative w-full max-w-4xl bg-gray-900 border border-gray-800 rounded-3xl shadow-2xl p-6 md:p-8">
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Selecciona el tipo de torneo</h2>
+                <p className="text-gray-400 mt-1 text-sm">
+                  Elige el formato base que mejor se adapte a la competencia que vas a organizar.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-white rounded-full p-2 hover:bg-gray-800 transition-colors"
+                aria-label="Cerrar"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              {tournamentTypeOptions.map((option) => {
+                const Icon = option.icon
+                const isSelected = selectedTournamentType?.id === option.id
+
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleSelectTournamentType(option)}
+                    className={`relative text-left rounded-2xl border p-5 bg-gray-800/60 transition-all ${
+                      isSelected
+                        ? 'border-green-500/80 shadow-lg shadow-green-500/20'
+                        : 'border-gray-700 hover:border-green-500/60 hover:shadow-lg hover:shadow-green-500/10'
+                    }`}
+                  >
+                    <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${option.accent} mb-4`}>
+                      <Icon className="h-6 w-6 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-white mb-1">{option.label}</h3>
+                    <p className="text-sm text-gray-300 leading-relaxed">{option.description}</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {option.highlights.map((item) => (
+                        <span
+                          key={item}
+                          className="inline-flex items-center rounded-full border border-gray-700 bg-gray-800 px-2.5 py-1 text-xs text-gray-300"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-6 flex items-center justify-between text-sm text-gray-400">
+                      <span>
+                        Formato base: <span className="font-semibold text-white">{option.formatLabel}</span>
+                      </span>
+                      {isSelected && <Check className="h-5 w-5 text-green-400" />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-4 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleProceedToCreate}
+                disabled={!selectedTournamentType}
+                className={`px-4 py-2 rounded-lg transition-all ${
+                  selectedTournamentType
+                    ? 'bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-500/30'
+                    : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-6">
       {toast && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
           {toast.message}
@@ -109,7 +331,7 @@ export function TournamentManagement() {
           <p className="text-gray-400">Administra tus torneos de futsal</p>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={handleOpenCreateModal}
           className="flex items-center space-x-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg transform hover:scale-105"
         >
           <Plus className="h-5 w-5" />
@@ -237,6 +459,11 @@ export function TournamentManagement() {
                   {tournament.start_date ? formatDate(tournament.start_date) : 'No definido'}
                 </span>
               </div>
+              {tournament.rules && (
+                <div className="pt-2 border-t border-gray-700">
+                  <TournamentRulesPreview rules={tournament.rules} />
+                </div>
+              )}
             </div>
 
             {/* Progress Bar */}
@@ -259,10 +486,22 @@ export function TournamentManagement() {
 
             {/* Actions */}
             <div className="flex items-center space-x-2">
-              {tournament.status === 'draft' ? (
-                <button className="flex-1 flex items-center justify-center space-x-2 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
-                  <Play className="h-4 w-4" />
-                  <span>Iniciar</span>
+              {(tournament.status === 'draft' || tournament.status === 'paused') ? (
+                <button
+                  onClick={() => handleStartTournament(tournament)}
+                  disabled={updatingStatusId === tournament.id}
+                  className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-lg transition-colors ${
+                    updatingStatusId === tournament.id
+                      ? 'bg-gray-700 text-gray-300 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                >
+                  {updatingStatusId === tournament.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                  <span>{tournament.status === 'draft' ? 'Iniciar' : 'Verificar cupo'}</span>
                 </button>
               ) : tournament.status === 'active' ? (
                 <button className="flex-1 flex items-center justify-center space-x-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
@@ -316,7 +555,7 @@ export function TournamentManagement() {
           </p>
           {(!searchTerm && filterStatus === 'all') && (
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={handleOpenCreateModal}
               className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all"
             >
               Crear Mi Primer Torneo
@@ -324,8 +563,7 @@ export function TournamentManagement() {
           )}
         </motion.div>
       )}
-    </div>
+      </div>
+    </>
   )
 }
-
-
