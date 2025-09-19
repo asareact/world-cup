@@ -58,7 +58,7 @@ export default function Home() {
   const homeHref = role === 'superAdmin'
     ? '/dashboard'
     : role === 'capitan'
-      ? '/dashboard/teams'
+      ? '/dashboard/my-team'
       : '/dashboard/tournaments'
 
   const ctaLabel = role === 'superAdmin'
