@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDateTime } from '@/lib/utils'
 type MatchRow = {
   id: string
   scheduled_at: string | null
@@ -48,7 +49,7 @@ export function TournamentMatches({ tournament }: { tournament: { matches?: Matc
               {m.status === 'completed' ? (
                 <span className="text-white font-semibold">{m.home_score} - {m.away_score}</span>
               ) : m.scheduled_at ? (
-                new Date(m.scheduled_at).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                formatDateTime(m.scheduled_at)
               ) : 'Por definir'}
             </div>
           </div>
@@ -57,3 +58,6 @@ export function TournamentMatches({ tournament }: { tournament: { matches?: Matc
     </div>
   )
 }
+
+
+

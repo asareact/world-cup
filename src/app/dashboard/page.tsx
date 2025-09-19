@@ -3,37 +3,23 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
-import { DashboardOverview } from '@/components/dashboard/dashboard-overview'
-import { PublicTournamentsGrid } from '@/components/tournaments/public-tournaments-grid'
 
 export default function DashboardPage() {
-  const { user, loading, role } = useAuth()
   const router = useRouter()
+  const { user, role, loading } = useAuth()
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/')
+    // Redirigir basado en el rol del usuario
+    if (!loading && user) {
+      if (role === 'superAdmin') {
+        router.replace('/dashboard/overview')
+      } else {
+        // Para capitanes e invitados, mostrar torneos por defecto
+        router.replace('/dashboard/tournaments')
+      }
     }
-  }, [user, loading, router])
+  }, [user, role, loading, router])
 
-  // Nota: no redirigimos a capitan automáticamente para permitir acceso a "Torneos"
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-500"></div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
-  }
-
-  return (
-    <DashboardLayout>
-      {role === 'superAdmin' ? <DashboardOverview /> : <PublicTournamentsGrid />}
-    </DashboardLayout>
-  )
+  // Mientras se carga o se redirige, no mostrar nada
+  return null
 }

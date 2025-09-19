@@ -18,11 +18,12 @@ import { useTeams } from '@/lib/hooks/use-teams'
 import { useTournaments } from '@/lib/hooks/use-tournaments'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { formatDateTime } from '@/lib/utils'
 
 export function DashboardOverview() {
-  const { stats, upcomingMatches, loading: statsLoading } = useDashboardStats()
-  const { tournaments, loading: tournamentsLoading } = useTournaments()
-  const { teams } = useTeams()
+  const { stats, upcomingMatches, loading: statsLoading, error, refetch: refetchStats } = useDashboardStats()
+  const { tournaments, loading: tournamentsLoading, refetch: refetchTournaments } = useTournaments()
+  const { teams, refetch: refetchTeams } = useTeams()
   const router = useRouter()
   const { role } = useAuth()
 
@@ -79,6 +80,26 @@ export function DashboardOverview() {
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-green-500" />
         <span className="ml-3 text-white">Cargando datos...</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 bg-gray-800 rounded-2xl border border-gray-700">
+        <div className="text-red-400 mb-4">Error al cargar los datos</div>
+        <div className="text-gray-300 mb-6">{error}</div>
+        <button
+          onClick={() => {
+            // Reintentar cargar los datos
+            refetchStats();
+            refetchTournaments();
+            refetchTeams();
+          }}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
+          Reintentar
+        </button>
       </div>
     )
   }
@@ -263,12 +284,7 @@ export function DashboardOverview() {
                     <div className="flex items-center space-x-1">
                       <Clock className="h-3 w-3" />
                       <span>
-                        {match.date ? new Date(match.date).toLocaleDateString('es-ES', { 
-                          day: 'numeric', 
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }) : 'Por definir'}
+                        {match.date ? formatDateTime(match.date, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Por definir'}
                       </span>
                     </div>
                     <div className="flex items-center space-x-1">

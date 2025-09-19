@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
 // Types matching our Supabase schema
@@ -208,10 +209,15 @@ export class DatabaseService {
           id,
           name,
           position,
-          is_active
+          is_active,
+          is_captain,
+          photo_url,
+          jersey_number
         )
       `
       )
+      // Ordenar jugadores por nombre
+      .order('name', { foreignTable: 'players' })
       .order('created_at', { ascending: false })
 
     if (role === 'superAdmin') {
@@ -224,6 +230,7 @@ export class DatabaseService {
       query = query.eq('created_by', userId)
     }
 
+    // Desactivar cache usando opciones
     const { data, error } = await query
     if (error) throw error
     return data || []
@@ -305,12 +312,38 @@ export class DatabaseService {
   }
 
   async updatePlayer(id: string, updates: Partial<Player>) {
-    const { error } = await this.client
+    console.log('Actualizando jugador con ID:', id);
+    console.log('Datos a actualizar:', updates);
+    
+    // Verificar específicamente el jersey_number
+    if (updates.jersey_number !== undefined) {
+      console.log('Actualizando jersey_number a:', updates.jersey_number);
+    }
+    
+    // Primero, intentar la actualización
+    const { error: updateError } = await this.client
       .from('players')
       .update(updates)
       .eq('id', id)
 
+    if (updateError) {
+      console.error('Error actualizando jugador:', updateError);
+      throw updateError;
+    }
+    
+    console.log('Actualización completada exitosamente');
+    return { message: 'Jugador actualizado exitosamente' };
+  }
+
+  async getPlayerById(playerId: string) {
+    const { data, error } = await this.client
+      .from('players')
+      .select('*')
+      .eq('id', playerId)
+      .single()
+
     if (error) throw error
+    return data
   }
 
   async deletePlayer(id: string) {
@@ -559,16 +592,17 @@ export class DatabaseService {
   }
 
   // Profile operations
-  async getProfile(userId: string) {
+  async getProfile(userId: string, clientOverride?: SupabaseClient) {
+    const client = clientOverride ?? this.client
     // Try user_profiles first (some setups use this name), fallback to profiles
-    const { data, error } = await this.client
+    const { data, error } = await client
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
       .single()
 
     if (error) {
-      const fallback = await this.client
+      const fallback = await client
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -579,9 +613,10 @@ export class DatabaseService {
     return data
   }
 
-  async updateProfile(userId: string, updates: Partial<Profile>) {
+  async updateProfile(userId: string, updates: Partial<Profile>, clientOverride?: SupabaseClient) {
+    const client = clientOverride ?? this.client
     // Primero verificamos si el perfil existe
-    const { data: existingProfile, error: fetchError } = await this.client
+    const { data: existingProfile, error: fetchError } = await client
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -594,7 +629,7 @@ export class DatabaseService {
     
     // Si el perfil no existe, lo creamos primero
     if (!existingProfile) {
-      const { error: insertError } = await this.client
+      const { error: insertError } = await client
         .from('profiles')
         .insert({
           id: userId,
@@ -606,8 +641,8 @@ export class DatabaseService {
         throw new Error(`Error al crear el perfil: ${insertError.message}`)
       }
       
-      // Obtenemos el perfil recién creado
-      const { data: newProfile, error: selectError } = await this.client
+      // Obtenemos el perfil recien creado
+      const { data: newProfile, error: selectError } = await client
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -622,7 +657,7 @@ export class DatabaseService {
     }
     
     // Si el perfil existe, lo actualizamos
-    const { data, error } = await this.client
+    const { data, error } = await client
       .from('profiles')
       .update(updates)
       .eq('id', userId)
@@ -636,7 +671,7 @@ export class DatabaseService {
     // Verificamos que haya datos retornados
     if (!data || data.length === 0) {
       // Si no hay datos, obtenemos el perfil actualizado
-      const { data: updatedProfile, error: selectError } = await this.client
+      const { data: updatedProfile, error: selectError } = await client
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -707,3 +742,4 @@ export class DatabaseService {
 
 // Export singleton instance
 export const db = new DatabaseService()
+

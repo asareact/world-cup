@@ -1,15 +1,42 @@
-'use client'
+﻿'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
-import { supabase } from './supabase'
-import { db } from './database'
+import { createClient } from './supabase/client'
+import { apiClient } from './api'
+
+
+type UserRole = 'superAdmin' | 'capitan' | 'invitado'
+
+function normalizeRole(value: unknown): UserRole {
+  if (typeof value !== 'string') return 'invitado'
+  const normalized = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, '')
+
+  if (normalized === 'superadmin') return 'superAdmin'
+  if (normalized === 'capitan') return 'capitan'
+  return 'invitado'
+}
+
+function deriveRole(profileRole?: unknown, metadataRole?: unknown): UserRole {
+  const profileDerived = normalizeRole(profileRole)
+  if (profileDerived !== 'invitado') {
+    return profileDerived
+  }
+  return normalizeRole(metadataRole)
+}
+
+const supabase = createClient()
 
 type AuthContextType = {
   user: User | null
   session: Session | null
   loading: boolean
-  role: 'superAdmin' | 'capitan' | 'invitado'
+  role: UserRole
   signUp: (email: string, password: string, userData?: Record<string, string>) => Promise<{ error: AuthError | null }>
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<{ error: AuthError | null }>
@@ -23,7 +50,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  const [role, setRole] = useState<'superAdmin' | 'capitan' | 'invitado'>('invitado')
+  const [role, setRole] = useState<UserRole>('invitado')
+
+  const loadUserRole = async (currentUser: User | null) => {
+    if (!currentUser) {
+      console.log('[Auth] No user, setting role to invitado')
+      setRole('invitado')
+      return
+    }
+
+    try {
+      console.log('[Auth] Loading profile for user:', currentUser.id)
+      const profile = await apiClient.getProfile()
+      console.log('[Auth] Profile loaded:', profile)
+      const derivedRole = deriveRole(profile?.role, currentUser.user_metadata?.role)
+      console.log('[Auth] Derived role:', derivedRole)
+      setRole(derivedRole)
+    } catch (error) {
+      console.error('[Auth] failed to load profile via API:', error)
+      // En caso de error, establecer un rol por defecto pero permitir continuar
+      const fallbackRole = deriveRole(undefined, currentUser.user_metadata?.role)
+      console.log('[Auth] Using fallback role:', fallbackRole)
+      setRole(fallbackRole)
+    }
+  }
 
   useEffect(() => {
     // Clean up implicit OAuth hash to avoid exposing tokens in URL
@@ -35,16 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession()
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) {
-        try {
-          const profile = await db.getProfile(session.user.id)
-          setRole((profile?.role as 'superAdmin'|'capitan'|'invitado') || 'invitado')
-        } catch {
-          setRole('invitado')
-        }
-      } else {
-        setRole('invitado')
-      }
+      await loadUserRole(session?.user ?? null)
       setLoading(false)
     }
 
@@ -55,16 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
-        if (session?.user) {
-          try {
-            const profile = await db.getProfile(session.user.id)
-            setRole((profile?.role as 'superAdmin'|'capitan'|'invitado') || 'invitado')
-          } catch {
-            setRole('invitado')
-          }
-        } else {
-          setRole('invitado')
-        }
+        await loadUserRole(session?.user ?? null)
         setLoading(false)
         // After sign-in, if we had an implicit hash, ensure the URL is clean
         if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
@@ -133,9 +165,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       // Actualizar el perfil en la base de datos
-      const profileData = await db.updateProfile(user.id, updates)
+      await apiClient.updateProfile(updates)
       
-      // También actualizar los metadatos del usuario en Supabase Auth
+      // TambiÃ©n actualizar los metadatos del usuario en Supabase Auth
       const { error: authError } = await supabase.auth.updateUser({
         data: {
           ...(updates.full_name !== undefined && { full_name: updates.full_name })
@@ -144,7 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (authError) {
         console.error('Error updating auth metadata:', authError)
-        // No lanzamos error aquí porque la actualización del perfil ya tuvo éxito
+        // No lanzamos error aquÃ­ porque la actualizaciÃ³n del perfil ya tuvo Ã©xito
         // Solo registramos el error en la consola
       }
       
@@ -160,7 +192,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       })
       
-      return profileData
     } catch (error) {
       console.error('Error updating profile:', error)
       throw error
@@ -200,3 +231,6 @@ export const useAuth = () => {
   }
   return context
 }
+
+
+

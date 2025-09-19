@@ -35,7 +35,10 @@ export function useDashboardStats() {
   const [error, setError] = useState<string | null>(null)
 
   const fetchStats = useCallback(async () => {
-    if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
 
     try {
       setLoading(true)

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
+import { formatDate } from '@/lib/utils'
 import { db, Player, Team } from '@/lib/database'
 import { ArrowLeft, Users, Crown, Mail, Phone, Loader2 } from 'lucide-react'
 
@@ -81,7 +82,7 @@ export default function TeamDetailPage() {
                   <span className="text-gray-300">{team.contact_phone}</span>
                 </div>
               )}
-              <div className="text-sm text-gray-400">Creado el {new Date(team.created_at).toLocaleDateString('es-ES')}</div>
+              <div className="text-sm text-gray-400">Creado el {formatDate(team.created_at)}</div>
               <div>
                 <button onClick={() => router.push(`/dashboard/teams/${team.id}/edit`)} className="w-full bg-blue-600 text-white py-2 px-4 rounded-xl hover:bg-blue-700">Editar equipo</button>
               </div>
@@ -116,3 +117,5 @@ export default function TeamDetailPage() {
     </DashboardLayout>
   )
 }
+
+

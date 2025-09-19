@@ -1,13 +1,13 @@
-'use client'
+﻿'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { db, JoinRequest } from '@/lib/database'
 import { Check, X, Users } from 'lucide-react'
 
 type AdminJoinRequest = JoinRequest & {
-  team?: { id: string, name: string, logo_url: string | null }
-  tournament?: { id: string, name: string, creator_id: string }
+  team?: { id: string; name: string; logo_url: string | null }
+  tournament?: { id: string; name: string; creator_id: string }
 }
 
 export function JoinRequestsPanel() {
@@ -17,22 +17,24 @@ export function JoinRequestsPanel() {
   const [error, setError] = useState<string | null>(null)
   const [processing, setProcessing] = useState<string | null>(null)
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     if (!user) return
     try {
       setLoading(true)
       setError(null)
       const data = await db.getPendingJoinRequestsForAdmin(user.id, role === 'superAdmin')
       setRequests(data)
-    } catch (e) {
-      console.error(e)
+    } catch (err) {
+      console.error(err)
       setError('Error al cargar solicitudes')
     } finally {
       setLoading(false)
     }
-  }
+  }, [role, user])
 
-  useEffect(() => { fetchRequests() }, [user])
+  useEffect(() => {
+    fetchRequests()
+  }, [fetchRequests])
 
   const decision = async (id: string, approve: boolean) => {
     if (!user) return
@@ -41,8 +43,8 @@ export function JoinRequestsPanel() {
       if (approve) await db.approveJoinRequest(id, user.id)
       else await db.rejectJoinRequest(id, user.id)
       await fetchRequests()
-    } catch (e) {
-      console.error(e)
+    } catch (err) {
+      console.error(err)
       setError('No se pudo actualizar la solicitud')
     } finally {
       setProcessing(null)
@@ -98,3 +100,4 @@ export function JoinRequestsPanel() {
     </div>
   )
 }
+

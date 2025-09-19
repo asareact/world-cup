@@ -18,6 +18,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { useTournaments } from '@/lib/hooks/use-tournaments'
+import { formatDate } from '@/lib/utils'
 
 const formatLabels = {
   single_elimination: 'Eliminación Simple',
@@ -233,7 +234,7 @@ export function TournamentManagement() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-400">Inicio:</span>
                 <span className="text-white">
-                  {tournament.start_date ? new Date(tournament.start_date).toLocaleDateString('es-ES') : 'No definido'}
+                  {tournament.start_date ? formatDate(tournament.start_date) : 'No definido'}
                 </span>
               </div>
             </div>
@@ -326,3 +327,5 @@ export function TournamentManagement() {
     </div>
   )
 }
+
+

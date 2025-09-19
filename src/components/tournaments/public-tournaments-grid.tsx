@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { db, Tournament } from '@/lib/database'
 import { useRouter } from 'next/navigation'
+import { formatDate } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { Trophy, Users, Calendar, Eye, Loader2 } from 'lucide-react'
 
@@ -132,7 +133,7 @@ export function PublicTournamentsGrid() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-400">Inicio</span>
-                <span className="text-white">{t.start_date ? new Date(t.start_date).toLocaleDateString('es-ES') : 'No definido'}</span>
+                <span className="text-white">{t.start_date ? formatDate(t.start_date) : 'No definido'}</span>
               </div>
             </div>
 
@@ -151,4 +152,6 @@ export function PublicTournamentsGrid() {
     </div>
   )
 }
+
+
 

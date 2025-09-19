@@ -55,6 +55,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const getActiveItem = () => {
     if (pathname === '/dashboard') return 'dashboard'
+    
+    // Casos especiales para capitanes
+    if (role === 'capitan' && pathname === '/dashboard/my-team') return 'teams'
+    
     const pathSegments = pathname.split('/')
     return pathSegments[2] || 'dashboard'
   }
@@ -65,8 +69,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const filteredSidebarItems = !loading ? sidebarItems.filter((item) => {
     if (role === 'superAdmin') return true
     if (role === 'capitan') {
-      // Capitán: Torneos, Mi Equipo y Configuración
-      return item.id === 'tournaments' || item.id === 'teams' || item.id === 'settings'
+      // Capitán: Mi Equipo, Torneos y Configuración
+      return item.id === 'teams' || item.id === 'tournaments' || item.id === 'settings'
     }
     // Invitado: Torneos y Configuración
     return item.id === 'tournaments' || item.id === 'settings'
@@ -184,16 +188,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             {!loading && filteredSidebarItems.map((item) => {
               const isActive = activeItem === item.id
               return (
-                <Link
-                  key={item.id}
-                  href={(item.id === 'tournaments' && role !== 'superAdmin') ? '/dashboard' : item.href}
-                  className={`relative flex items-center space-x-3 px-4 py-3 rounded-xl transition-all group ${
-                    isActive
-                      ? 'bg-green-600 text-white shadow-lg'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  }`}
-                  onClick={() => setSidebarOpen(false)}
-                >
+                              <Link
+                key={item.id}
+                href={(item.id === 'tournaments' && role !== 'superAdmin') ? '/dashboard/tournaments' : 
+                      (item.id === 'teams' && role === 'capitan') ? '/dashboard/my-team' : 
+                      item.href}
+                className={`relative flex items-center space-x-3 px-4 py-3 rounded-xl transition-all group ${
+                  isActive
+                    ? 'bg-green-600 text-white shadow-lg'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                }`}
+                onClick={() => setSidebarOpen(false)}
+              >
                   <item.icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-green-400'}`} />
                   <span className="font-medium">{role === 'capitan' && item.id === 'teams' ? 'Mi Equipo' : item.label}</span>
                   {item.id === 'requests' && role === 'superAdmin' && pendingRequests > 0 && (

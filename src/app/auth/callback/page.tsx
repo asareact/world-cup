@@ -2,7 +2,9 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
+
+const supabase = createClient()
 
 function CallbackHandler() {
   const router = useRouter()
@@ -72,3 +74,5 @@ export default function AuthCallbackPage() {
     </Suspense>
   )
 }
+
+
