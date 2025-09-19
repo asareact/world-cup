@@ -8,9 +8,7 @@ import { db, Team, Player } from '@/lib/database'
 import { createClient } from '@/lib/supabase/client'
 import { 
   Users, 
-  UserPlus, 
   Edit3, 
-  Save, 
   X, 
   Mail, 
   Phone, 
@@ -31,8 +29,50 @@ const PLAYER_POSITIONS = [
   { value: 'pivote', label: 'Pivote' }
 ]
 
+type PlayerInTeam = Pick<Player, 'id'|'name'|'position'|'is_active'|'photo_url'|'jersey_number'> & { is_captain: boolean };
+
 type TeamWithPlayers = Team & { 
-  players?: (Pick<Player, 'id'|'name'|'position'|'is_active'|'photo_url'|'jersey_number'> & { is_captain: boolean })[] 
+  players?: PlayerInTeam[]
+}
+
+type PlayerFormTouched = {
+  name: boolean;
+  jersey_number: boolean;
+}
+
+const createEmptyNewPlayer = (): {
+  name: string;
+  jersey_number: string;
+  position: Player['position'];
+  birth_date: string;
+  photo_url: string | null;
+} => ({
+  name: '',
+  jersey_number: '',
+  position: null,
+  birth_date: '',
+  photo_url: null
+})
+
+const createInitialTouchedState = (): PlayerFormTouched => ({
+  name: false,
+  jersey_number: false
+})
+
+const hasDatabaseErrorCode = (error: unknown): error is { code: string } => {
+  return typeof error === 'object' && error !== null && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+}
+
+const parsePlayerPosition = (value: string): Player['position'] => {
+  if (value === '') {
+    return null
+  }
+
+  if (value === 'portero' || value === 'ala' || value === 'cierre' || value === 'pivote') {
+    return value
+  }
+
+  return null
 }
 
 export default function MyTeamPage() {
@@ -43,18 +83,31 @@ export default function MyTeamPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [editingField, setEditingField] = useState<string | null>(null)
+  const [editingField, setEditingField] = useState<keyof Team | null>(null)
   const [editValue, setEditValue] = useState('')
-  const [newPlayer, setNewPlayer] = useState({ name: '', jersey_number: '' })
-  const [addingPlayer, setAddingPlayer] = useState(false)
+  const [newPlayer, setNewPlayer] = useState(createEmptyNewPlayer())
+  const [newPlayerTouched, setNewPlayerTouched] = useState<PlayerFormTouched>(createInitialTouchedState())
   const [deletingPlayerId, setDeletingPlayerId] = useState<string | null>(null)
 
   // Estados para edición de jugadores
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null)
-  const [editingPlayerData, setEditingPlayerData] = useState({ name: '', position: '', photo_url: '', jersey_number: '' })
+  const [editingPlayerData, setEditingPlayerData] = useState<{
+    name: string;
+    position: Player['position'];
+    photo_url: string | null;
+    jersey_number: string;
+  }>({ name: '', position: null, photo_url: null, jersey_number: '' })
+  const [editingPlayerTouched, setEditingPlayerTouched] = useState<PlayerFormTouched>(createInitialTouchedState())
   const [newPlayerPhoto, setNewPlayerPhoto] = useState<File | null>(null)
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string>('')
   const [teamLogoFile, setTeamLogoFile] = useState<File | null>(null)
+  // Estados para modal de edición de logo
+  const [showLogoModal, setShowLogoModal] = useState(false)
+  // Estados para modal de foto de jugador
+  const [showPlayerPhotoModal, setShowPlayerPhotoModal] = useState(false)
+  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null)
+  // Estados para modal de agregar jugador
+  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false)
 
   useEffect(() => {
     const loadTeam = async () => {
@@ -87,17 +140,91 @@ export default function MyTeamPage() {
   }, [user, role])
 
   // Si no es capitán, redirigir
-  if (role !== 'capitan') {
-    useEffect(() => {
+  useEffect(() => {
+    if (!role) {
+      return
+    }
+
+    if (role !== 'capitan') {
       router.push('/dashboard')
-    }, [router])
+    }
+  }, [role, router])
+
+  if (role && role !== 'capitan') {
     return null
   }
 
   const players = (team?.players || []).filter(p => p.is_active)
   const captain = players.find(p => p.is_captain)
 
-  const startEdit = (field: string, value: string) => {
+  const normalizedNewPlayerName = newPlayer.name.trim()
+  const normalizedNewPlayerNameLower = normalizedNewPlayerName.toLowerCase()
+  const isNewPlayerNameDuplicate = normalizedNewPlayerName.length > 0 &&
+    players.some(p => p.name.trim().toLowerCase() === normalizedNewPlayerNameLower)
+  const newPlayerNameError = normalizedNewPlayerName.length === 0
+    ? 'El nombre es obligatorio'
+    : isNewPlayerNameDuplicate
+      ? 'Ya existe un jugador con ese nombre'
+      : null
+
+  const newPlayerJerseyText = newPlayer.jersey_number.trim()
+  const parsedNewPlayerJerseyNumber = newPlayerJerseyText ? parseInt(newPlayerJerseyText, 10) : Number.NaN
+  const newPlayerJerseyNumberValue = Number.isNaN(parsedNewPlayerJerseyNumber) ? null : parsedNewPlayerJerseyNumber
+  const newPlayerJerseyNumberError = (() => {
+    if (!newPlayerJerseyText) {
+      return 'El número de camiseta es obligatorio'
+    }
+
+    if (Number.isNaN(parsedNewPlayerJerseyNumber)) {
+      return 'Ingresa un número válido'
+    }
+
+    if (parsedNewPlayerJerseyNumber < 1 || parsedNewPlayerJerseyNumber > 99) {
+      return 'El número debe estar entre 1 y 99'
+    }
+
+    if (players.some(p => p.jersey_number === parsedNewPlayerJerseyNumber)) {
+      return 'Ya existe un jugador con ese número'
+    }
+
+    return null
+  })()
+
+  const hasNewPlayerErrors = Boolean(newPlayerNameError || newPlayerJerseyNumberError)
+
+  const otherPlayers = editingPlayerId ? players.filter(p => p.id !== editingPlayerId) : []
+  const normalizedEditingName = editingPlayerData.name.trim()
+  const normalizedEditingNameLower = normalizedEditingName.toLowerCase()
+  const editingNameError = editingPlayerId
+    ? normalizedEditingName.length === 0
+      ? 'El nombre es obligatorio'
+      : otherPlayers.some(p => p.name.trim().toLowerCase() === normalizedEditingNameLower)
+        ? 'Ya existe un jugador con ese nombre'
+        : null
+    : null
+
+  const editingJerseyText = editingPlayerData.jersey_number.trim()
+  const parsedEditingJerseyNumber = editingJerseyText ? parseInt(editingJerseyText, 10) : Number.NaN
+  const editingJerseyNumberValue = Number.isNaN(parsedEditingJerseyNumber) ? null : parsedEditingJerseyNumber
+  const editingJerseyNumberError = editingPlayerId
+    ? editingJerseyText.length === 0
+      ? 'El número de camiseta es obligatorio'
+      : Number.isNaN(parsedEditingJerseyNumber)
+        ? 'Ingresa un número válido'
+        : parsedEditingJerseyNumber < 1 || parsedEditingJerseyNumber > 99
+          ? 'El número debe estar entre 1 y 99'
+          : otherPlayers.some(p => p.jersey_number === parsedEditingJerseyNumber)
+            ? 'Ya existe un jugador con ese número'
+            : null
+    : null
+
+  const hasEditingErrors = Boolean(editingNameError || editingJerseyNumberError)
+  const showNewPlayerNameError = newPlayerTouched.name && Boolean(newPlayerNameError)
+  const showNewPlayerJerseyError = newPlayerTouched.jersey_number && Boolean(newPlayerJerseyNumberError)
+  const showEditingNameError = editingPlayerTouched.name && Boolean(editingNameError)
+  const showEditingJerseyError = editingPlayerTouched.jersey_number && Boolean(editingJerseyNumberError)
+
+  const startEdit = (field: keyof Team, value: string) => {
     setEditingField(field)
     setEditValue(value)
   }
@@ -134,70 +261,188 @@ export default function MyTeamPage() {
 
     try {
       setSaving(true)
-      // Aquí iría la lógica para subir la imagen
-      // Por ahora, simulamos la actualización
-      const updatedTeam = { ...team, logo_url: URL.createObjectURL(teamLogoFile) }
-      setTeam(updatedTeam)
+      // Subir la imagen al storage de Supabase
+      const path = `teams/${team.id}/logo.jpg`
+      const { error: upErr } = await supabase.storage.from('team-logos').upload(path, teamLogoFile, { 
+        contentType: 'image/jpeg', 
+        upsert: true 
+      })
+      
+      if (upErr) {
+        console.error('Error uploading team logo:', upErr)
+        setError('Error subiendo logo del equipo: ' + upErr.message)
+        return
+      }
+      
+      // Obtener la URL pública de la imagen
+      const { data } = supabase.storage.from('team-logos').getPublicUrl(path)
+      // Agregar timestamp para evitar cache
+      const timestamp = new Date().getTime()
+      const logoUrl = `${data.publicUrl}?v=${timestamp}`
+      
+      // Actualizar el equipo en la base de datos
+      const updatedTeamData = await db.updateTeam(team.id, { logo_url: logoUrl })
+      
+      // Actualizar el estado local
+      setTeam({ ...team, ...updatedTeamData, logo_url: logoUrl })
       setTeamLogoFile(null)
-      setEditingField(null)
+      
+      // Mostrar éxito brevemente y luego cerrar la modal
+      setTimeout(() => {
+        setShowLogoModal(false)
+      }, 1000)
     } catch (err) {
       console.error('Error uploading team logo:', err)
-      setError('Error al subir el logo del equipo')
+      setError('Error al subir el logo del equipo: ' + (err as Error).message)
     } finally {
       setSaving(false)
     }
   }
 
-  const addPlayer = async () => {
-    if (!team || !newPlayer.name.trim() || !newPlayer.jersey_number.trim()) return
+  const handlePlayerPhotoUpload = async () => {
+    if (!team || !newPlayerPhoto || !currentPlayerId) return
 
-    // Verificar si el número de camiseta ya existe
-    const jerseyNumber = parseInt(newPlayer.jersey_number);
-    const existingPlayer = players.find(p => p.jersey_number === jerseyNumber);
-    if (existingPlayer) {
-      setError('Ya existe un jugador con ese número de camiseta');
-      return;
+    try {
+      setSaving(true)
+      // Subir la imagen al storage de Supabase
+      const path = `teams/${team.id}/players/${currentPlayerId}.jpg`
+      const { error: upErr } = await supabase.storage.from('player-photos').upload(path, newPlayerPhoto, { 
+        contentType: 'image/jpeg', 
+        upsert: true 
+      })
+      
+      if (upErr) {
+        console.error('Error uploading player photo:', upErr)
+        setError('Error subiendo foto del jugador: ' + upErr.message)
+        return
+      }
+      
+      // Obtener la URL pública de la imagen
+      const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
+      // Agregar timestamp para evitar cache
+      const timestamp = new Date().getTime()
+      const photoUrl = `${data.publicUrl}?v=${timestamp}`
+      
+      // Actualizar el jugador en la base de datos
+      await db.updatePlayer(currentPlayerId, { photo_url: photoUrl })
+      
+      // Actualizar el estado local
+      const updatedPlayers = (team.players || []).map(p => 
+        p.id === currentPlayerId 
+          ? { ...p, photo_url: photoUrl } 
+          : p
+      )
+      
+      setTeam({ ...team, players: updatedPlayers })
+      
+      // Cerrar la modal
+      setShowPlayerPhotoModal(false)
+      setNewPlayerPhoto(null)
+      setCurrentPlayerId(null)
+    } catch (err) {
+      console.error('Error uploading player photo:', err)
+      setError('Error al subir la foto del jugador: ' + (err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+  const addPlayer = async () => {
+    if (!team) {
+      return
+    }
+
+    if (hasNewPlayerErrors || newPlayerJerseyNumberValue === null) {
+      setNewPlayerTouched({ name: true, jersey_number: true })
+      return
     }
 
     try {
-      setAddingPlayer(true)
+      setSaving(true)
+      
+      // Primero crear el jugador sin la foto
       const playerData = {
-        name: newPlayer.name,
-        jersey_number: jerseyNumber,
-        position: null,
+        name: normalizedNewPlayerName,
+        jersey_number: newPlayerJerseyNumberValue,
+        position: newPlayer.position,
+        birth_date: newPlayer.birth_date || null,
+        photo_url: null, // Inicialmente null, se actualizará después
         team_id: team.id,
         is_active: true,
         is_captain: players.length === 0 // El primer jugador es el capitán
       }
       
+      console.log('Creando jugador con datos:', playerData);
       const newPlayerData = await db.createPlayer(playerData)
+      console.log('Jugador creado:', newPlayerData);
+      
+      // Si hay una foto, subirla y actualizar el jugador
+      let finalPhotoUrl = null
+      if (newPlayerPhoto && newPlayerData.id) {
+        const path = `teams/${team.id}/players/${newPlayerData.id}.jpg`
+        console.log('Subiendo imagen a:', path);
+        const { error: upErr } = await supabase.storage.from('player-photos').upload(path, newPlayerPhoto, { 
+          contentType: 'image/jpeg', 
+          upsert: true 
+        })
+        
+        if (upErr) {
+          console.error('Error subiendo imagen:', upErr);
+          setError('Error subiendo foto: ' + upErr.message);
+        } else {
+          const { data } = supabase.storage.from('player-photos').getPublicUrl(path)
+          const timestamp = new Date().getTime()
+          finalPhotoUrl = `${data.publicUrl}?v=${timestamp}`
+          console.log('URL de imagen obtenida:', finalPhotoUrl);
+          
+          // Actualizar el jugador con la URL de la foto
+          console.log('Actualizando jugador con foto:', newPlayerData.id, finalPhotoUrl);
+          await db.updatePlayer(newPlayerData.id, { photo_url: finalPhotoUrl })
+        }
+      }
       
       // Actualizar la lista de jugadores
+      const playerWithPhoto = { 
+        ...newPlayerData, 
+        photo_url: finalPhotoUrl,
+        is_captain: players.length === 0 
+      }
+      
       setTeam({
         ...team,
-        players: [...(team.players || []), { ...newPlayerData, is_captain: players.length === 0 }]
+        players: [...(team.players || []), playerWithPhoto]
       })
       
-      // Resetear el formulario
-      setNewPlayer({ name: '', jersey_number: '' })
+      // Cerrar la modal y resetear el formulario
+      setShowAddPlayerModal(false)
+      setNewPlayer(createEmptyNewPlayer())
+      setNewPlayerTouched(createInitialTouchedState())
+      setNewPlayerPhoto(null)
     } catch (err) {
       console.error('Error adding player:', err)
-      setError('Error al agregar jugador')
+      // Mostrar mensaje de error más específico
+      if (hasDatabaseErrorCode(err) && err.code === '42501') {
+        setError('No tienes permisos para agregar jugadores. Contacta al administrador.');
+      } else if (err instanceof Error) {
+        setError('Error al agregar jugador: ' + err.message)
+      } else {
+        setError('Error al agregar jugador')
+      }
     } finally {
-      setAddingPlayer(false)
+      setSaving(false)
     }
   }
 
-  const startEditPlayer = (player: any) => {
+  const startEditPlayer = (player: PlayerInTeam) => {
     setEditingPlayerId(player.id)
     setEditingPlayerData({
       name: player.name,
-      position: player.position || '',
-      photo_url: player.photo_url || '',
+      position: player.position,
+      photo_url: player.photo_url ?? null,
       jersey_number: player.jersey_number?.toString() || ''
     })
+    setEditingPlayerTouched(createInitialTouchedState())
     setNewPlayerPhoto(null)
-    setPreviewPhotoUrl(player.photo_url || '')
+    setPreviewPhotoUrl(player.photo_url ?? '')
   }
 
   const handlePlayerPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -223,22 +468,17 @@ export default function MyTeamPage() {
       return;
     }
 
-    // Verificar si el número de camiseta ya existe (excluyendo el jugador actual)
-    const jerseyNumber = editingPlayerData.jersey_number ? parseInt(editingPlayerData.jersey_number) : null;
-    if (jerseyNumber !== null) {
-      const existingPlayer = players.find(p => p.id !== editingPlayerId && p.jersey_number === jerseyNumber);
-      if (existingPlayer) {
-        setError('Ya existe un jugador con ese número de camiseta');
-        return;
-      }
+    if (hasEditingErrors || editingJerseyNumberValue === null) {
+      setEditingPlayerTouched({ name: true, jersey_number: true })
+      return
     }
 
     try {
       // Actualizar datos del jugador
-      const updates: any = {
-        name: editingPlayerData.name,
-        position: editingPlayerData.position || null,
-        jersey_number: jerseyNumber
+      const updates: Partial<Player> = {
+        name: normalizedEditingName,
+        position: editingPlayerData.position,
+        jersey_number: editingJerseyNumberValue
       }
       
       console.log('Preparando actualización con datos:', updates);
@@ -270,11 +510,6 @@ export default function MyTeamPage() {
       console.log('Resultado de actualización:', result);
       console.log('Jugador actualizado exitosamente en la base de datos');
       
-      // Actualizar también editingPlayerData con los nuevos datos
-      if (updates.photo_url) {
-        setEditingPlayerData(prev => ({ ...prev, ...updates }))
-      }
-      
       // Pequeño delay para asegurar que los datos se propaguen
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -291,6 +526,11 @@ export default function MyTeamPage() {
         console.error('Error obteniendo jugador específico:', err);
       }
       
+      if (!user) {
+        setError('La sesión del usuario no es válida. Vuelve a iniciar sesión.')
+        return
+      }
+
       const updatedTeams = await db.getTeams(user.id, role);
       console.log('Equipos obtenidos:', updatedTeams);
       if (updatedTeams.length > 0) {
@@ -311,6 +551,7 @@ export default function MyTeamPage() {
       }
       
       setEditingPlayerId(null)
+      setEditingPlayerTouched(createInitialTouchedState())
       setNewPlayerPhoto(null)
       setPreviewPhotoUrl('')
       console.log('Estado actualizado localmente');
@@ -322,13 +563,14 @@ export default function MyTeamPage() {
 
   const cancelEditPlayer = () => {
     setEditingPlayerId(null)
+    setEditingPlayerTouched(createInitialTouchedState())
     setNewPlayerPhoto(null)
     setPreviewPhotoUrl('')
     // Restaurar la foto original en editingPlayerData
     if (editingPlayerId) {
       const player = players.find(p => p.id === editingPlayerId)
       if (player) {
-        setEditingPlayerData(prev => ({ ...prev, photo_url: player.photo_url || '' }))
+        setEditingPlayerData(prev => ({ ...prev, photo_url: player.photo_url ?? null }))
       }
     }
   }
@@ -484,18 +726,11 @@ export default function MyTeamPage() {
                   )}
                 </div>
                 <button
-                  onClick={() => document.getElementById('team-logo-input')?.click()}
+                  onClick={() => setShowLogoModal(true)}
                   className="absolute -bottom-2 -right-2 bg-gray-600 rounded-full p-1 hover:bg-gray-500 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Edit3 className="h-3 w-3 text-white" />
                 </button>
-                <input
-                  id="team-logo-input"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleTeamLogoChange}
-                />
               </div>
               <div className="flex-1">
                 {editingField === 'name' ? (
@@ -628,60 +863,18 @@ export default function MyTeamPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">Jugadores ({players.length})</h2>
             <button
-              onClick={() => setAddingPlayer(true)}
+              onClick={() => {
+                setNewPlayer(createEmptyNewPlayer())
+                setNewPlayerPhoto(null)
+                setNewPlayerTouched(createInitialTouchedState())
+                setShowAddPlayerModal(true)
+              }}
               className="flex items-center space-x-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm"
             >
               <Plus className="h-4 w-4" />
               <span>Agregar</span>
             </button>
           </div>
-
-          {/* Formulario para agregar jugador */}
-          {addingPlayer && (
-            <div className="mb-4 p-4 bg-gray-700/50 rounded-xl">
-              <h3 className="text-white font-medium mb-3">Agregar nuevo jugador</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <input
-                  type="text"
-                  placeholder="Nombre del jugador"
-                  value={newPlayer.name}
-                  onChange={(e) => setNewPlayer({...newPlayer, name: e.target.value})}
-                  className="bg-gray-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="number"
-                  placeholder="Número de camiseta"
-                  value={newPlayer.jersey_number}
-                  onChange={(e) => setNewPlayer({...newPlayer, jersey_number: e.target.value})}
-                  min="1"
-                  max="99"
-                  className="bg-gray-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <div className="flex space-x-2">
-                  <button
-                    onClick={addPlayer}
-                    disabled={addingPlayer || !newPlayer.name.trim() || !newPlayer.jersey_number.trim()}
-                    className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center"
-                  >
-                    {addingPlayer ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Check className="h-4 w-4" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setAddingPlayer(false)
-                      setNewPlayer({ name: '', jersey_number: '' })
-                    }}
-                    className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Tabla de jugadores */}
           {players.length === 0 ? (
@@ -706,43 +899,57 @@ export default function MyTeamPage() {
                     <tr key={player.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
                       <td className="py-3 px-4">
                         {editingPlayerId === player.id ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="relative">
-                              <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
-                                {previewPhotoUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img 
-                                    src={`${previewPhotoUrl}&v=${new Date().getTime()}`} 
-                                    alt={editingPlayerData.name} 
-                                    className="w-full h-full object-cover rounded-full" 
-                                  />
-                                ) : (
-                                  <span className="text-xs font-medium text-white">
-                                    {editingPlayerData.name.charAt(0).toUpperCase()}
-                                  </span>
-                                )}
+                          <div className="flex flex-col space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <div className="relative">
+                                <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+                                  {previewPhotoUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img 
+                                      src={`${previewPhotoUrl}&v=${new Date().getTime()}`} 
+                                      alt={editingPlayerData.name} 
+                                      className="w-full h-full object-cover rounded-full" 
+                                    />
+                                  ) : (
+                                    <span className="text-xs font-medium text-white">
+                                      {editingPlayerData.name.charAt(0).toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => document.getElementById(`player-photo-${player.id}`)?.click()}
+                                  className="absolute -bottom-1 -right-1 bg-gray-600 rounded-full p-0.5 hover:bg-gray-500"
+                                >
+                                  <Edit3 className="h-2 w-2 text-white" />
+                                </button>
+                                <input
+                                  id={`player-photo-${player.id}`}
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={handlePlayerPhotoChange}
+                                />
                               </div>
-                              <button
-                                onClick={() => document.getElementById(`player-photo-${player.id}`)?.click()}
-                                className="absolute -bottom-1 -right-1 bg-gray-600 rounded-full p-0.5 hover:bg-gray-500"
-                              >
-                                <Edit3 className="h-2 w-2 text-white" />
-                              </button>
                               <input
-                                id={`player-photo-${player.id}`}
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={handlePlayerPhotoChange}
+                                type="text"
+                                value={editingPlayerData.name}
+                                onChange={(e) => {
+                                  if (!editingPlayerTouched.name) {
+                                    setEditingPlayerTouched(prev => ({ ...prev, name: true }))
+                                  }
+                                  const value = e.target.value
+                                  setEditingPlayerData(prev => ({ ...prev, name: value }))
+                                }}
+                                onBlur={() => setEditingPlayerTouched(prev => ({ ...prev, name: true }))}
+                                className={`bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 border ${
+                                  showEditingNameError ? 'border-red-500 focus:ring-red-500' : 'border-transparent focus:ring-blue-500'
+                                }`}
+                                autoFocus
                               />
                             </div>
-                            <input
-                              type="text"
-                              value={editingPlayerData.name}
-                              onChange={(e) => setEditingPlayerData({...editingPlayerData, name: e.target.value})}
-                              className="bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              autoFocus
-                            />
+                            {showEditingNameError && editingNameError && (
+                              <p className="text-xs text-red-400">{editingNameError}</p>
+                            )}
                           </div>
                         ) : (
                           <div className="flex items-center space-x-2">
@@ -770,12 +977,24 @@ export default function MyTeamPage() {
                             <input
                               type="number"
                               value={editingPlayerData.jersey_number}
-                              onChange={(e) => setEditingPlayerData({...editingPlayerData, jersey_number: e.target.value})}
-                              className="bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              onChange={(e) => {
+                                if (!editingPlayerTouched.jersey_number) {
+                                  setEditingPlayerTouched(prev => ({ ...prev, jersey_number: true }))
+                                }
+                                const value = e.target.value
+                                setEditingPlayerData(prev => ({ ...prev, jersey_number: value }))
+                              }}
+                              onBlur={() => setEditingPlayerTouched(prev => ({ ...prev, jersey_number: true }))}
+                              className={`bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 border text-sm ${
+                                showEditingJerseyError ? 'border-red-500 focus:ring-red-500' : 'border-transparent focus:ring-blue-500'
+                              }`}
                               placeholder="N° camiseta"
                               min="1"
                               max="99"
                             />
+                            {showEditingJerseyError && editingJerseyNumberError && (
+                              <p className="text-xs text-red-400">{editingJerseyNumberError}</p>
+                            )}
                           </div>
                         ) : (
                           <span className="text-gray-300">{player.jersey_number || '—'}</span>
@@ -784,8 +1003,11 @@ export default function MyTeamPage() {
                       <td className="py-3 px-4">
                         {editingPlayerId === player.id ? (
                           <select
-                            value={editingPlayerData.position || ''}
-                            onChange={(e) => setEditingPlayerData({...editingPlayerData, position: e.target.value || null})}
+                            value={editingPlayerData.position ?? ''}
+                            onChange={(e) => setEditingPlayerData({
+                              ...editingPlayerData,
+                              position: parsePlayerPosition(e.target.value)
+                            })}
                             className="bg-gray-700 text-white px-2 py-1 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                           >
                             <option value="">Sin posición</option>
@@ -821,7 +1043,12 @@ export default function MyTeamPage() {
                           <div className="flex items-center justify-end space-x-1">
                             <button
                               onClick={saveEditPlayer}
-                              className="p-1 text-green-400 hover:bg-green-900/50 rounded"
+                              disabled={hasEditingErrors}
+                              className={`p-1 text-green-400 rounded ${
+                                hasEditingErrors
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : 'hover:bg-green-900/50'
+                              }`}
                             >
                               <Check className="h-4 w-4" />
                             </button>
@@ -862,6 +1089,331 @@ export default function MyTeamPage() {
           )}
         </div>
       </div>
+      
+      {/* Modal de edición de logo del equipo */}
+      {showLogoModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Actualizar Logo del Equipo</h3>
+              <button
+                onClick={() => {
+                  setShowLogoModal(false)
+                  setTeamLogoFile(null)
+                }}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="w-24 h-24 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center">
+                  {teamLogoFile ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img 
+                      src={URL.createObjectURL(teamLogoFile)} 
+                      alt="Nuevo logo" 
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : team?.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img 
+                      src={team.logo_url} 
+                      alt={team.name} 
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : (
+                    <Users className="h-12 w-12 text-gray-400" />
+                  )}
+                </div>
+                
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  id="logo-upload-input"
+                  onChange={handleTeamLogoChange}
+                />
+                
+                <button
+                  onClick={() => document.getElementById('logo-upload-input')?.click()}
+                  className="flex items-center space-x-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                  <span>{teamLogoFile ? 'Cambiar imagen' : 'Seleccionar imagen'}</span>
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowLogoModal(false)
+                  setTeamLogoFile(null)
+                }}
+                className="flex-1 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={uploadTeamLogo}
+                disabled={!teamLogoFile || saving}
+                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Guardando...
+                  </>
+                ) : (
+                  'Guardar cambios'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de edición de foto de jugador */}
+      {showPlayerPhotoModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Actualizar Foto del Jugador</h3>
+              <button
+                onClick={() => {
+                  setShowPlayerPhotoModal(false)
+                  setNewPlayerPhoto(null)
+                  setCurrentPlayerId(null)
+                }}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="w-24 h-24 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center">
+                  {newPlayerPhoto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img 
+                      src={URL.createObjectURL(newPlayerPhoto)} 
+                      alt="Nueva foto" 
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : (
+                    <Users className="h-12 w-12 text-gray-400" />
+                  )}
+                </div>
+                
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  id="player-photo-upload-input"
+                  onChange={handlePlayerPhotoChange}
+                />
+                
+                <button
+                  onClick={() => document.getElementById('player-photo-upload-input')?.click()}
+                  className="flex items-center space-x-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                  <span>{newPlayerPhoto ? 'Cambiar imagen' : 'Seleccionar imagen'}</span>
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowPlayerPhotoModal(false)
+                  setNewPlayerPhoto(null)
+                  setCurrentPlayerId(null)
+                }}
+                className="flex-1 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePlayerPhotoUpload}
+                disabled={!newPlayerPhoto || saving}
+                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Guardando...
+                  </>
+                ) : (
+                  'Guardar cambios'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de agregar jugador */}
+      {showAddPlayerModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Agregar Nuevo Jugador</h3>
+              <button
+                onClick={() => {
+                  setShowAddPlayerModal(false)
+                  setNewPlayer(createEmptyNewPlayer())
+                  setNewPlayerTouched(createInitialTouchedState())
+                  setNewPlayerPhoto(null)
+                }}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Nombre *</label>
+                <input
+                  type="text"
+                  value={newPlayer.name}
+                  onChange={(e) => {
+                    if (!newPlayerTouched.name) {
+                      setNewPlayerTouched(prev => ({ ...prev, name: true }))
+                    }
+                    setNewPlayer({ ...newPlayer, name: e.target.value })
+                  }}
+                  onBlur={() => setNewPlayerTouched(prev => ({ ...prev, name: true }))}
+                  className={`w-full bg-gray-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 border ${
+                    showNewPlayerNameError ? 'border-red-500 focus:ring-red-500' : 'border-transparent focus:ring-blue-500'
+                  }`}
+                  placeholder="Nombre completo del jugador"
+                />
+                {showNewPlayerNameError && newPlayerNameError && (
+                  <p className="mt-1 text-xs text-red-400">{newPlayerNameError}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Número de camiseta *</label>
+                <input
+                  type="number"
+                  value={newPlayer.jersey_number}
+                  onChange={(e) => {
+                    if (!newPlayerTouched.jersey_number) {
+                      setNewPlayerTouched(prev => ({ ...prev, jersey_number: true }))
+                    }
+                    setNewPlayer({ ...newPlayer, jersey_number: e.target.value })
+                  }}
+                  onBlur={() => setNewPlayerTouched(prev => ({ ...prev, jersey_number: true }))}
+                  min="1"
+                  max="99"
+                  className={`w-full bg-gray-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 border ${
+                    showNewPlayerJerseyError ? 'border-red-500 focus:ring-red-500' : 'border-transparent focus:ring-blue-500'
+                  }`}
+                  placeholder="1-99"
+                />
+                {showNewPlayerJerseyError && newPlayerJerseyNumberError && (
+                  <p className="mt-1 text-xs text-red-400">{newPlayerJerseyNumberError}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Posición</label>
+                <select
+                  value={newPlayer.position ?? ''}
+                  onChange={(e) => setNewPlayer({
+                    ...newPlayer,
+                    position: parsePlayerPosition(e.target.value)
+                  })}
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Sin posición</option>
+                  <option value="portero">Portero</option>
+                  <option value="ala">Ala</option>
+                  <option value="cierre">Cierre</option>
+                  <option value="pivote">Pivote</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Foto del jugador</label>
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="w-24 h-24 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center">
+                    {newPlayerPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img 
+                        src={URL.createObjectURL(newPlayerPhoto)} 
+                        alt="Foto del jugador" 
+                        className="w-full h-full object-cover" 
+                      />
+                    ) : (
+                      <Users className="h-12 w-12 text-gray-400" />
+                    )}
+                  </div>
+                  
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    id="new-player-photo-upload"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setNewPlayerPhoto(e.target.files[0])
+                      }
+                    }}
+                  />
+                  
+                  <button
+                    onClick={() => document.getElementById('new-player-photo-upload')?.click()}
+                    className="flex items-center space-x-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                  >
+                    <Upload className="h-4 w-4" />
+                    <span>{newPlayerPhoto ? 'Cambiar foto' : 'Seleccionar foto'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowAddPlayerModal(false)
+                  setNewPlayer(createEmptyNewPlayer())
+                  setNewPlayerTouched(createInitialTouchedState())
+                  setNewPlayerPhoto(null)
+                }}
+                className="flex-1 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={addPlayer}
+                disabled={saving || hasNewPlayerErrors}
+                className={`flex-1 py-2 px-4 rounded-lg transition-colors flex items-center justify-center ${
+                  saving || hasNewPlayerErrors
+                    ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Agregando...
+                  </>
+                ) : (
+                  'Agregar jugador'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   )
 }
