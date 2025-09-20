@@ -139,7 +139,13 @@ export function PublicTournamentsGrid() {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => router.push(`/tournaments/${t.id}`)}
+                onClick={() => {
+                  // Set navigation source as internal before navigating
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('tournamentNavigationSource', 'internal');
+                  }
+                  router.push(`/tournaments/${t.id}`);
+                }}
                 className="flex-1 flex items-center justify-center space-x-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
               >
                 <Eye className="h-4 w-4" />

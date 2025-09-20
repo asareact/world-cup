@@ -1,7 +1,7 @@
 'use client'
 
-import { useParams } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useState, useMemo } from 'react'
 import { useTournament } from '@/lib/hooks/use-tournament'
 import { TournamentHeader } from '@/components/tournaments/tournament-header'
 import type { Tournament } from '@/lib/database'
@@ -49,7 +49,6 @@ export default function TournamentPublicPage() {
   const { teams } = useTeams()
 
   const [tab, setTab] = useState('overview')
-  const [following, setFollowing] = useState(false)
   // Toasts not currently used on this page
 
   const t = (tournament || {}) as Partial<TournamentLite>
@@ -61,9 +60,7 @@ export default function TournamentPublicPage() {
   const myTeamOptions = useMemo(() => teams || [], [teams])
   const canJoin = role === 'capitan' && hasCapacity && myTeamOptions.length > 0
 
-  const handleFollow = () => setFollowing(v => !v)
-
-  // join handled via JoinRequestButton
+  const router = useRouter()
 
   if (loading) {
     return (
@@ -88,14 +85,16 @@ export default function TournamentPublicPage() {
         <TournamentHeader
           tournament={t as Tournament}
           teamsCount={teamsCount}
-          onFollow={handleFollow}
-          isFollowing={following}
           canJoin={canJoin}
+          role={role}
         />
 
         <TournamentTabs active={tab} onChange={setTab} />
 
-        {tab === 'overview' && <TournamentOverview tournament={tournament} />}
+        {tab === 'overview' && <TournamentOverview tournament={{
+          ...tournament,
+          rules: tournament.rules || undefined
+        }} />}
         {tab === 'matches' && <TournamentMatches tournament={tournament} />}
         {tab === 'standings' && (
           <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4 text-gray-300">

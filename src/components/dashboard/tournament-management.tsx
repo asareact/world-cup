@@ -331,13 +331,23 @@ export function TournamentManagement() {
           <h1 className="text-2xl font-bold text-white">Gestión de Torneos</h1>
           <p className="text-gray-400">Administra tus torneos de futsal</p>
         </div>
-        <button
-          onClick={handleOpenCreateModal}
-          className="flex items-center space-x-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg transform hover:scale-105"
-        >
-          <Plus className="h-5 w-5" />
-          <span>Crear Torneo</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          {/* View Public Tournaments link for superAdmins */}
+          <a
+            href="/dashboard/tournaments/public"
+            className="flex items-center space-x-2 bg-gray-700 text-white px-4 py-3 rounded-xl hover:bg-gray-600 transition-all"
+          >
+            <Eye className="h-4 w-4" />
+            <span>Ver Torneos Públicos</span>
+          </a>
+          <button
+            onClick={handleOpenCreateModal}
+            className="flex items-center space-x-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg transform hover:scale-105"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Crear Torneo</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

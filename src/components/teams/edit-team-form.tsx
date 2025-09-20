@@ -16,7 +16,8 @@ import {
   Upload,
   X,
   Edit,
-  Trash2
+  Trash2,
+  Shield
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTeams } from '@/lib/hooks/use-teams'
@@ -443,12 +444,14 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
           className="bg-gray-800 rounded-2xl p-6 border border-gray-700"
         >
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center border border-gray-600">
+            <div className="w-14 h-14 bg-gray-700 rounded-full overflow-hidden flex items-center justify-center border-2 border-gray-600">
               {logoPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
               ) : (
-                <Users className="h-6 w-6 text-gray-400" />
+                <div className="w-full h-full bg-cyan-500 flex items-center justify-center">
+                  <Shield className="h-6 w-6 text-white" />
+                </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
@@ -850,12 +853,14 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Logo</label>
                 <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-gray-800 rounded-xl overflow-hidden flex items-center justify-center border border-gray-700">
+                  <div className="w-16 h-16 bg-gray-800 rounded-full overflow-hidden flex items-center justify-center border-2 border-gray-700">
                     {logoPreview ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
                     ) : (
-                      <ImageIcon className="h-6 w-6 text-gray-400" />
+                      <div className="w-full h-full bg-rose-500 flex items-center justify-center">
+                        <ImageIcon className="h-6 w-6 text-white" />
+                      </div>
                     )}
                   </div>
                   <div>

@@ -1,17 +1,18 @@
 'use client'
 
-import { Trophy, Users, Calendar, MapPin, ShieldCheck } from 'lucide-react'
+import { Trophy, Users, Calendar, Play, Pause, CheckCircle, ShieldCheck, MapPin, Eye } from 'lucide-react'
 
 import type { Tournament } from '@/lib/database'
 import { formatDate } from '@/lib/utils'
 import { JoinRequestButton } from './join-request-button'
 
-export function TournamentHeader({ tournament, teamsCount, onFollow, isFollowing, canJoin }: {
+export function TournamentHeader({ tournament, teamsCount, canJoin, role }: {
   tournament: Tournament & { venue?: string }
   teamsCount: number,
   onFollow?: () => void,
   isFollowing?: boolean,
   canJoin?: boolean,
+  role?: string,
 }) {
   const statusColors: Record<string, string> = {
     draft: 'bg-gray-600 text-gray-200',
@@ -74,16 +75,18 @@ export function TournamentHeader({ tournament, teamsCount, onFollow, isFollowing
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {typeof onFollow === 'function' && (
-            <button
-              onClick={onFollow}
-              className="px-4 py-2 rounded-xl border border-gray-600 text-gray-200 hover:bg-gray-700"
-            >
-              {isFollowing ? 'Siguiendo' : 'Seguir Torneo'}
-            </button>
-          )}
           {canJoin && (
             <JoinRequestButton tournamentId={tournament.id} />
+          )}
+          {/* View Public Page button for captains and superAdmins */}
+          {(role === 'capitan' || role === 'superAdmin') && (
+            <button
+              onClick={() => window.open(`/tournaments/${tournament.id}/public`, '_blank')}
+              className="px-3 py-2 rounded-lg bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800 flex items-center gap-1 text-sm"
+            >
+              <Eye className="h-4 w-4" />
+              <span>Ver Pública</span>
+            </button>
           )}
         </div>
       </div>

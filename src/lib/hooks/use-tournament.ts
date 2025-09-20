@@ -1,13 +1,16 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { db } from '@/lib/database'
+import { db, Tournament, Match, Team } from '@/lib/database'
 import { supabase } from '@/lib/supabase'
 
-type TournamentShape = unknown
+interface TournamentWithDetails extends Tournament {
+  matches?: Match[]
+  tournament_teams?: Team[]
+}
 
 export function useTournament(tournamentId: string) {
-  const [tournament, setTournament] = useState<TournamentShape | null>(null)
+  const [tournament, setTournament] = useState<TournamentWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,20 +37,19 @@ export function useTournament(tournamentId: string) {
   return { tournament, loading, error, refetch: fetchTournament }
 }
 
-export async function getTopScorers(tournamentId: string, limit = 10) {
+export async function getLatestMatches(tournamentId: string, limit = 5) {
   try {
-    // player_stats joined with players and teams for display
     const { data, error } = await supabase
-      .from('player_stats')
-      .select(`goals, assists, yellow_cards, red_cards, matches_played, minutes_played,
-               player:players(id,name,team_id), team:teams!inner(id,name)`, { count: 'exact' })
+      .from('matches')
+      .select(`id, home_team_id, away_team_id, home_score, away_score, scheduled_at, status,
+               home_team:teams!home_team_id(name), away_team:teams!away_team_id(name)`)
       .eq('tournament_id', tournamentId)
-      .order('goals', { ascending: false })
+      .order('scheduled_at', { ascending: false })
       .limit(limit)
     if (error) throw error
     return data || []
   } catch (e) {
-    console.error('Error fetching top scorers:', e)
+    console.error('Error fetching latest matches:', e)
     return []
   }
 }
@@ -86,6 +88,40 @@ export async function getRecentResults(tournamentId: string, limit = 5): Promise
     return (data || []) as RecentResultRow[]
   } catch (e) {
     console.error('Error fetching recent results via RPC:', e)
+    return []
+  }
+}
+
+export type TopScorerRow = {
+  goals: number
+  assists?: number | null
+  yellow_cards?: number | null
+  red_cards?: number | null
+  matches_played?: number | null
+  minutes_played?: number | null
+  player?: { id?: string; name?: string; team_id?: string } | null
+  team?: { id?: string; name?: string } | null
+}
+
+export async function getTopScorers(tournamentId: string, limit = 10): Promise<TopScorerRow[]> {
+  try {
+    const { data, error } = await supabase
+      .from('player_stats')
+      .select(`goals, assists, yellow_cards, red_cards, matches_played, minutes_played,
+               player:players(id,name,team_id), team:teams!inner(id,name)`)
+      .eq('tournament_id', tournamentId)
+      .order('goals', { ascending: false })
+      .limit(limit)
+
+    if (error) {
+      throw error
+    }
+
+    return (data ?? []) as TopScorerRow[]
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Top scorers not available:', error)
+    }
     return []
   }
 }

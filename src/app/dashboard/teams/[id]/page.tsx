@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { formatDate } from '@/lib/utils'
 import { db, Player, Team } from '@/lib/database'
-import { ArrowLeft, Users, Crown, Mail, Phone, Loader2 } from 'lucide-react'
+import { ArrowLeft, Crown, Mail, Phone, Loader2, Shield } from 'lucide-react'
 
 type TeamWithPlayers = Team & { players?: Pick<Player, 'id'|'name'|'position'|'is_active'|'is_captain'>[] }
 
@@ -57,12 +57,14 @@ export default function TeamDetailPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 bg-gray-800 rounded-2xl p-6 border border-gray-700 space-y-4">
               <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center">
+                <div className="w-16 h-16 bg-gray-700 rounded-full overflow-hidden flex items-center justify-center border-2 border-gray-600">
                   {team.logo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={team.logo_url} alt={team.name} className="w-full h-full object-cover" />
                   ) : (
-                    <Users className="h-8 w-8 text-gray-400" />
+                    <div className="w-full h-full bg-yellow-500 flex items-center justify-center">
+                      <Shield className="h-8 w-8 text-white" />
+                    </div>
                   )}
                 </div>
                 <div>

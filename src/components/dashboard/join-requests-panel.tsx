@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { db, JoinRequest } from '@/lib/database'
-import { Check, X, Users } from 'lucide-react'
+import { Check, X, Shield } from 'lucide-react'
 
 type AdminJoinRequest = JoinRequest & {
   team?: { id: string; name: string; logo_url: string | null }
@@ -65,12 +65,14 @@ export function JoinRequestsPanel() {
         {requests.map((r) => (
           <div key={r.id} className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gray-700 overflow-hidden flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-gray-700 overflow-hidden flex items-center justify-center border border-gray-600">
                 {r.team?.logo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={r.team.logo_url} alt={r.team.name} className="w-full h-full object-cover" />
                 ) : (
-                  <Users className="h-4 w-4 text-gray-300" />
+                  <div className="w-full h-full bg-orange-500 flex items-center justify-center">
+                    <Shield className="h-4 w-4 text-white" />
+                  </div>
                 )}
               </div>
               <div>
