@@ -29,7 +29,7 @@ const placeholderColors = [
 ];
 
 export function TournamentMatches({ tournament }: { tournament: { matches?: MatchRow[] } }) {
-  const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set())
+  const [, setImageLoadErrors] = useState<Set<string>>(new Set())
   const matches = (tournament.matches || []).sort((a: MatchRow, b: MatchRow) => {
     return new Date(a.scheduled_at || 0).getTime() - new Date(b.scheduled_at || 0).getTime()
   })

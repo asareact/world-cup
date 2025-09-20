@@ -10,7 +10,8 @@ import {
   Award,
   Clock,
   MapPin,
-  Loader2
+  Loader2,
+  Shield
 } from 'lucide-react'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard-stats'
 import { JoinRequestsPanel } from './join-requests-panel'

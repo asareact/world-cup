@@ -16,7 +16,8 @@ import {
   Upload,
   X,
   Edit,
-  Trash2
+  Trash2,
+  Shield
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTeams } from '@/lib/hooks/use-teams'

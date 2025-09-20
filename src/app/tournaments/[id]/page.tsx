@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useMemo, useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTournament } from '@/lib/hooks/use-tournament'
 import { TournamentHeader } from '@/components/tournaments/tournament-header'
 import type { Tournament } from '@/lib/database'

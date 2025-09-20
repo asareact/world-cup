@@ -1,12 +1,12 @@
 'use client'
 
-import { Trophy, Users, Calendar, MapPin, ShieldCheck, Eye } from 'lucide-react'
+import { Trophy, Users, Calendar, Play, Pause, CheckCircle, ShieldCheck, MapPin, Eye } from 'lucide-react'
 
 import type { Tournament } from '@/lib/database'
 import { formatDate } from '@/lib/utils'
 import { JoinRequestButton } from './join-request-button'
 
-export function TournamentHeader({ tournament, teamsCount, onFollow, isFollowing, canJoin, role }: {
+export function TournamentHeader({ tournament, teamsCount, canJoin, role }: {
   tournament: Tournament & { venue?: string }
   teamsCount: number,
   onFollow?: () => void,

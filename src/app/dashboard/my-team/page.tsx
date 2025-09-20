@@ -17,7 +17,8 @@ import {
   Plus,
   Trash2,
   Check,
-  Upload
+  Upload,
+  Shield
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 

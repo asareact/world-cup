@@ -1,7 +1,6 @@
 'use client'
 
 import { Trophy, Users, Calendar, Target, Award, Shuffle } from 'lucide-react'
-import { useState, useEffect } from 'react'
 
 interface MobileNavigationProps {
   activeSection: string;

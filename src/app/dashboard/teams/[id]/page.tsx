@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { formatDate } from '@/lib/utils'
 import { db, Player, Team } from '@/lib/database'
-import { ArrowLeft, Users, Crown, Mail, Phone, Loader2 } from 'lucide-react'
+import { ArrowLeft, Crown, Mail, Phone, Loader2, Shield } from 'lucide-react'
 
 type TeamWithPlayers = Team & { players?: Pick<Player, 'id'|'name'|'position'|'is_active'|'is_captain'>[] }
 

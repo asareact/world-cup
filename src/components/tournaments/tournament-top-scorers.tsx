@@ -1,6 +1,6 @@
 'use client'
 
-import { Users, Target, Award } from 'lucide-react'
+import { Target, Users } from 'lucide-react'
 import Link from 'next/link'
 
 interface TopScorer {

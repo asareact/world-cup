@@ -1,6 +1,6 @@
 'use client'
 
-import { Users, Target, Award, Shield, Calendar } from 'lucide-react'
+import { Target, Award, Trophy, Shield, Calendar } from 'lucide-react'
 
 interface TopScorer {
   player_id: string

@@ -13,7 +13,8 @@ import {
   Trash2,
   UserPlus,
   Eye,
-  Loader2
+  Loader2,
+  Shield
 } from 'lucide-react'
 import { useTeams } from '@/lib/hooks/use-teams'
 import { db } from '@/lib/database'

@@ -62,17 +62,24 @@ const getTeamPlaceholderColor = (teamId: string) => {
   return TEAM_PLACEHOLDER_COLORS[index]
 }
 
-const extractTeamsFromEntries = (entries: any): Team[] => {
+interface TournamentTeamEntry {
+  id?: string;
+  teams?: Team | null;
+  team?: Team | null;
+  [key: string]: any;
+}
+
+const extractTeamsFromEntries = (entries: TournamentTeamEntry[] | null | undefined): Team[] => {
   if (!Array.isArray(entries)) return []
 
   return entries
-    .map((entry: any) => {
+    .map((entry) => {
       if (!entry) return null
       if (typeof entry === 'object' && 'teams' in entry && entry.teams) {
-        return entry.teams as Team
+        return entry.teams
       }
       if (typeof entry === 'object' && 'team' in entry && entry.team) {
-        return entry.team as Team
+        return entry.team
       }
       return entry as Team
     })

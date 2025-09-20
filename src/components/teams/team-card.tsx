@@ -1,6 +1,6 @@
 'use client'
 
-import { Users, Shield } from 'lucide-react'
+import { Shield } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface Player {

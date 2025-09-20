@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { db, JoinRequest } from '@/lib/database'
-import { Check, X, Users } from 'lucide-react'
+import { Check, X, Shield } from 'lucide-react'
 
 type AdminJoinRequest = JoinRequest & {
   team?: { id: string; name: string; logo_url: string | null }

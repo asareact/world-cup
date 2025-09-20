@@ -1,6 +1,6 @@
 'use client'
 
-import { Calendar, Clock } from 'lucide-react'
+import { Target, Clock } from 'lucide-react'
 import { formatDate, formatDateTime } from '@/lib/utils'
 import Link from 'next/link'
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Trophy, Users, Calendar, Target, Zap, Star, Award, Sparkles } from 'lucide-react'
 
 const floatingIcons = [
