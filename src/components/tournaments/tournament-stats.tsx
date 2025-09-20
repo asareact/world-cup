@@ -1,15 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getTopScorers } from '@/lib/hooks/use-tournament'
+import { getTopScorers, TopScorerRow } from '@/lib/hooks/use-tournament'
 
-type ScorerRow = { goals: number, assists: number, player?: { id: string, name: string }, team?: { id: string, name: string } }
+type ScorerRow = Pick<TopScorerRow, 'goals' | 'assists'> & {
+  player?: { id?: string; name?: string }
+  team?: { id?: string; name?: string }
+}
 
 export function TournamentStats({ tournamentId }: { tournamentId: string }) {
   const [scorers, setScorers] = useState<ScorerRow[]>([])
 
   useEffect(() => {
-    getTopScorers(tournamentId, 10).then((rows) => setScorers(rows as unknown as ScorerRow[]))
+    getTopScorers(tournamentId, 10).then(rows => {
+      setScorers(rows as ScorerRow[])
+    })
   }, [tournamentId])
 
   return (

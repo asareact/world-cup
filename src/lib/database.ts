@@ -190,7 +190,9 @@ export class DatabaseService {
           name,
           position,
           is_active,
-          is_captain
+          is_captain,
+          photo_url,
+          jersey_number
         )
       `)
       .eq('id', id)
