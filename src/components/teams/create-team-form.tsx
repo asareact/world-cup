@@ -241,12 +241,14 @@ export function CreateTeamForm() {
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Logo (opcional)</label>
               <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center border border-gray-600">
+                <div className="w-16 h-16 bg-gray-700 rounded-full overflow-hidden flex items-center justify-center border-2 border-gray-600">
                   {logoPreview ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={logoPreview} alt="logo preview" className="w-full h-full object-cover" />
                   ) : (
-                    <ImageIcon className="h-6 w-6 text-gray-400" />
+                    <div className="w-full h-full bg-violet-500 flex items-center justify-center">
+                      <ImageIcon className="h-6 w-6 text-white" />
+                    </div>
                   )}
                 </div>
                 <div>

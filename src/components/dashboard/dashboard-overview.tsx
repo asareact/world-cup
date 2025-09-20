@@ -323,12 +323,14 @@ export function DashboardOverview() {
           <div className="flex flex-wrap gap-4">
             {teams.slice(0, 8).map(team => (
               <div key={team.id} className="flex flex-col items-center w-16">
-                <div className="w-12 h-12 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center">
+                <div className="w-12 h-12 bg-gray-700 rounded-full overflow-hidden flex items-center justify-center border-2 border-gray-600">
                   {team.logo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={team.logo_url} alt={team.name} className="w-full h-full object-cover" />
                   ) : (
-                    <Users className="h-5 w-5 text-gray-400" />
+                    <div className="w-full h-full bg-pink-500 flex items-center justify-center">
+                      <Shield className="h-5 w-5 text-white" />
+                    </div>
                   )}
                 </div>
                 <div className="mt-1 text-xs text-gray-300 line-clamp-1 text-center w-full" title={team.name}>{team.name}</div>

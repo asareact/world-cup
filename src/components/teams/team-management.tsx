@@ -217,12 +217,14 @@ export function TeamManagement() {
               {/* Team Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start space-x-3 flex-1">
-                  <div className="w-10 h-10 bg-gray-700 rounded-lg overflow-hidden flex items-center justify-center">
+                  <div className="w-10 h-10 bg-gray-700 rounded-full overflow-hidden flex items-center justify-center border border-gray-600">
                     {team.logo_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={team.logo_url} alt={team.name} className="w-full h-full object-cover" />
                     ) : (
-                      <Users className="h-5 w-5 text-gray-400" />
+                      <div className="w-full h-full bg-indigo-500 flex items-center justify-center">
+                        <Shield className="h-5 w-5 text-white" />
+                      </div>
                     )}
                   </div>
                   <div className="flex-1">

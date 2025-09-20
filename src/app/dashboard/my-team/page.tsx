@@ -717,12 +717,14 @@ export default function MyTeamPage() {
             {/* Logo y nombre */}
             <div className="flex items-start space-x-4">
               <div className="relative group">
-                <div className="w-16 h-16 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0">
+                <div className="w-16 h-16 bg-gray-700 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 border-2 border-gray-600">
                   {team.logo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={team.logo_url} alt={team.name} className="w-full h-full object-cover" />
                   ) : (
-                    <Users className="h-8 w-8 text-gray-400" />
+                    <div className="w-full h-full bg-green-500 flex items-center justify-center">
+                      <Shield className="h-8 w-8 text-white" />
+                    </div>
                   )}
                 </div>
                 <button
@@ -1318,7 +1320,7 @@ export default function MyTeamPage() {
             
             <div className="mb-6">
               <div className="flex flex-col items-center space-y-4">
-                <div className="w-24 h-24 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center md:w-32 md:h-32">
+                <div className="w-24 h-24 bg-gray-700 rounded-full overflow-hidden flex items-center justify-center md:w-32 md:h-32 border-2 border-gray-600">
                   {teamLogoFile ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img 

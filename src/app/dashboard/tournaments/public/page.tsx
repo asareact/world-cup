@@ -1,10 +1,10 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { useTournaments } from '@/lib/hooks/use-tournaments'
 import { formatDate } from '@/lib/utils'
-import { Search, Filter, Trophy, Users, Calendar, Eye, Loader2 } from 'lucide-react'
+import { Search, Filter, Trophy, Users, Calendar, Eye, Loader2, ExternalLink } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 const statusLabels = {
@@ -22,8 +22,8 @@ const statusColors = {
 }
 
 const formatLabels = {
-  single_elimination: 'Eliminación Simple',
-  double_elimination: 'Eliminación Doble',
+  single_elimination: 'EliminaciÃ³n Simple',
+  double_elimination: 'EliminaciÃ³n Doble',
   round_robin: 'Todos contra Todos',
   groups: 'Fase de Grupos'
 }
@@ -95,6 +95,12 @@ export default function PublicTournamentsPage() {
     )
   }
 
+  const handleVisitTournament = (id: string) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('tournamentNavigationSource', 'external')
+    }
+    router.push(`/tournaments/${id}/public`)
+  }
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -242,13 +248,28 @@ export default function PublicTournamentsPage() {
               )}
 
               {/* Actions */}
-              <button
-                onClick={() => router.push(`/tournaments/${tournament.id}`)}
-                className="w-full flex items-center justify-center space-x-2 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Eye className="h-4 w-4" />
-                <span>Ver Detalles</span>
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => handleVisitTournament(tournament.id)}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 py-2 px-4 text-sm font-semibold text-white shadow-lg transition hover:from-green-600 hover:to-green-700 hover:shadow-green-500/40"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span>Visitar sitio del torneo</span>
+                </button>
+                <button
+                  onClick={() => {
+                    // Set navigation source as internal before navigating
+                    if (typeof window !== 'undefined') {
+                      sessionStorage.setItem('tournamentNavigationSource', 'internal');
+                    }
+                    router.push(`/tournaments/${tournament.id}`);
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800/80 py-2 px-4 text-sm font-medium text-white transition hover:border-green-500/60 hover:bg-gray-800"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span>Ver Detalles</span>
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -272,3 +293,11 @@ export default function PublicTournamentsPage() {
     </DashboardLayout>
   )
 }
+
+
+
+
+
+
+
+
