@@ -14,7 +14,8 @@ import {
   User,
   Plus,
   Home,
-  MessageSquare
+  MessageSquare,
+  FileText
 } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
@@ -28,6 +29,7 @@ const sidebarItems = [
   { icon: Users, label: 'Equipos', href: '/dashboard/teams', id: 'teams' },
   { icon: Calendar, label: 'Partidos', href: '/dashboard/matches', id: 'matches' },
   { icon: BarChart3, label: 'Estadísticas', href: '/dashboard/stats', id: 'stats' },
+  { icon: FileText, label: 'Reglas', href: '/dashboard/rules', id: 'rules' },
   // Visible para superAdmin vía filtrado
   { icon: MessageSquare, label: 'Solicitudes', href: '/dashboard/requests', id: 'requests' },
   { icon: Settings, label: 'Configuración', href: '/dashboard/settings', id: 'settings' },
@@ -89,11 +91,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const filteredSidebarItems = !loading ? sidebarItems.filter((item) => {
     if (role === 'superAdmin') return true
     if (role === 'capitan') {
-      // Capitán: Mi Equipo, Torneos y Configuración
-      return item.id === 'teams' || item.id === 'tournaments' || item.id === 'settings'
+      // Capitán: Mi Equipo, Torneos, Reglas y Configuración
+      return item.id === 'teams' || item.id === 'tournaments' || item.id === 'rules' || item.id === 'settings'
     }
-    // Invitado: Torneos y Configuración
-    return item.id === 'tournaments' || item.id === 'settings'
+    // Invitado: Torneos, Reglas y Configuración
+    return item.id === 'tournaments' || item.id === 'rules' || item.id === 'settings'
   }) : []
 
   useEffect(() => {
