@@ -10,10 +10,10 @@ export interface TournamentAnchorLink {
 
 export function TournamentPublicLayout({
   children,
-  anchors,
+  anchors = [],
 }: {
   children: React.ReactNode
-  anchors: TournamentAnchorLink[]
+  anchors?: TournamentAnchorLink[]
 }) {
   const pathname = usePathname()
   const tournamentId = pathname.split('/')[2] // Extract tournament ID from path
@@ -30,7 +30,7 @@ export function TournamentPublicLayout({
           </div>
           {/* Desktop Navigation */}
           <nav className="hidden items-center gap-1 text-sm font-medium text-gray-300 md:flex">
-            {anchors.map(anchor => (
+            {Array.isArray(anchors) && anchors.map(anchor => (
               <a 
                 key={anchor.href} 
                 href={anchor.href} 

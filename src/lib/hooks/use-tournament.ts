@@ -42,7 +42,7 @@ export async function getLatestMatches(tournamentId: string, limit = 5) {
     const { data, error } = await supabase
       .from('matches')
       .select(`id, home_team_id, away_team_id, home_score, away_score, scheduled_at, status,
-               home_team:teams!home_team_id(name), away_team:teams!away_team_id(name)`)
+               home_team:teams!home_team_id(id, name), away_team:teams!away_team_id(id, name)`)
       .eq('tournament_id', tournamentId)
       .order('scheduled_at', { ascending: false })
       .limit(limit)
@@ -108,7 +108,7 @@ export async function getTopScorers(tournamentId: string, limit = 10): Promise<T
     const { data, error } = await supabase
       .from('player_stats')
       .select(`goals, assists, yellow_cards, red_cards, matches_played, minutes_played,
-               player:players(id,name,team_id), team:teams!inner(id,name)`)
+               player:players(id,name,team_id,teams(name))`)
       .eq('tournament_id', tournamentId)
       .order('goals', { ascending: false })
       .limit(limit)

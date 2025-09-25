@@ -1,43 +1,65 @@
 'use client'
 
-import { Trophy, Users, Calendar, Target, Award, Shuffle } from 'lucide-react'
+import { Trophy, Users, Calendar, Target, Award, Shuffle, BarChart3 } from 'lucide-react'
+
+interface Anchor {
+  href: string;
+  label: string;
+}
 
 interface MobileNavigationProps {
+  anchors: Anchor[];
   activeSection: string;
-  onSectionChange: (section: string) => void;
+  onSectionChange: (href: string) => void;
 }
 
 export function MobileNavigation({ 
+  anchors = [],
   activeSection,
   onSectionChange 
 }: MobileNavigationProps) {
-  const sections = [
-    { id: 'overview', label: 'Inicio', icon: Trophy },
-    { id: 'standings', label: 'Tabla', icon: Users },
-    { id: 'groups', label: 'Grupos', icon: Calendar },
-    { id: 'repechage', label: 'Repechaje', icon: Shuffle },
-    { id: 'top-scorers', label: 'Goleadores', icon: Target },
-    { id: 'ideal-5', label: 'Ideal 5', icon: Award },
-  ]
+  // Map anchors to sections with icons
+  const sections = Array.isArray(anchors) ? anchors.map(anchor => {
+    // Extract section from href for active state comparison
+    const section = anchor.href.includes('?section=') 
+      ? anchor.href.split('?section=')[1] 
+      : anchor.href.includes('/calendar') 
+        ? 'calendar' 
+        : ''
+    
+    // Determine icon based on label
+    let Icon = Trophy
+    if (anchor.label === 'Tabla') Icon = Users
+    else if (anchor.label === 'Grupos') Icon = Calendar
+    else if (anchor.label === 'Repechaje') Icon = Shuffle
+    else if (anchor.label === 'Goleadores') Icon = Target
+    else if (anchor.label === 'Ideal 5') Icon = Award
+    else if (anchor.label === 'Estadísticas') Icon = BarChart3
+    
+    return {
+      href: anchor.href,
+      label: anchor.label,
+      icon: Icon,
+      section
+    }
+  }) : []
 
-  const handleSectionChange = (sectionId: string) => {
-    // Update URL hash
-    window.location.hash = sectionId
-    // Call parent handler
-    onSectionChange(sectionId)
+  const handleAnchorClick = (href: string, section: string) => {
+    // Call parent handler with full href
+    onSectionChange(href)
   }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 z-40 md:hidden">
       <div className="flex overflow-x-auto py-2 px-2 hide-scrollbar">
-        {sections.map((section) => {
+        {Array.isArray(sections) && sections.map((section) => {
           const Icon = section.icon
-          const isActive = activeSection === section.id
+          const isActive = activeSection === section.section
           
           return (
             <button
-              key={section.id}
-              onClick={() => handleSectionChange(section.id)}
+              key={section.href}
+              onClick={() => handleAnchorClick(section.href, section.section)}
               className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg flex-shrink-0 min-w-[70px] transition-colors ${
                 isActive
                   ? 'bg-green-600 text-white'

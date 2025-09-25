@@ -4,14 +4,44 @@ import { TournamentAnimatedLoader } from '@/components/tournaments/tournament-an
 import { TournamentLatestResults } from '@/components/tournaments/tournament-latest-results'
 import { TournamentPublicLayout } from '@/components/tournaments/tournament-public-layout'
 import { TournamentTeamDetails } from '@/components/tournaments/tournament-team-details'
+import { TournamentMatchStats } from '@/components/tournaments/tournament-match-stats'
+import { TournamentStatsOverview } from '@/components/tournaments/tournament-stats-overview'
+
+// Add custom scrollbar styles
+const customScrollbarStyles = `
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #1f2937; /* gray-800 */
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #4b5563; /* gray-600 */
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #6b7280; /* gray-500 */
+  }
+  
+  /* For Firefox */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #1f2937;
+  }
+`
 import { TournamentTopLeaders } from '@/components/tournaments/tournament-top-leaders'
 import { TournamentTopScorers } from '@/components/tournaments/tournament-top-scorers'
 import { getLatestMatches, getTopScorers, useTournament } from '@/lib/hooks/use-tournament'
-import { Calendar, Shuffle, Target, Trophy, Shield, Users } from 'lucide-react'
+import { Calendar, Shuffle, Target, Trophy, Shield, Users, BarChart3, Square } from 'lucide-react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 // Mobile-optimized navigation tabs
 import { MobileNavigation } from '@/components/tournaments/mobile-navigation'
 import { useEffect, useState } from 'react'
+import { Match } from '@/lib/database'
 
 
 interface Team {
@@ -20,15 +50,7 @@ interface Team {
   logo_url?: string | null
 }
 
-interface Match {
-  id: string
-  home_team: { name: string } | null
-  away_team: { name: string } | null
-  home_score: number | null
-  away_score: number | null
-  scheduled_at: string | null
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
-}
+
 
 interface TopScorer {
   player_id: string
@@ -54,9 +76,9 @@ const TEAM_PLACEHOLDER_COLORS = [
   'bg-cyan-500'
 ] as const
 
-const getTeamPlaceholderColor = (teamId: string) => {
+const getTeamPlaceholderColor = (teamId: string | undefined | null) => {
   if (!teamId) return TEAM_PLACEHOLDER_COLORS[0]
-  const numericId = parseInt(teamId, 36)
+  const numericId = parseInt(teamId as string, 36)
   if (Number.isNaN(numericId)) return TEAM_PLACEHOLDER_COLORS[0]
   const index = Math.abs(numericId) % TEAM_PLACEHOLDER_COLORS.length
   return TEAM_PLACEHOLDER_COLORS[index]
@@ -83,15 +105,132 @@ const extractTeamsFromEntries = (entries: TournamentTeamEntry[] | null | undefin
       }
       return entry as Team
     })
-    .filter((team): team is Team => Boolean(team && team.id))
+    .filter((team): team is Team => Boolean(team && team?.id))
 }
+
+interface StandingsEntry {
+  position: number
+  team: Team
+  played: number
+  points: number
+  goalsFor: number
+  goalsAgainst: number
+  goalDifference: number
+}
+
+// Interface for generated schedule items
+interface ScheduleItem {
+  id: string
+  date: string
+  matches: Match[]
+}
+
+const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] => {
+  // Initialize standings for all teams
+  const standingsMap: Record<string, StandingsEntry> = {};
+  
+  teams.forEach(team => {
+    if (!team?.id) return; // Skip if team id is undefined
+    
+    standingsMap[team.id] = {
+      position: 0, // Will be calculated later
+      team,
+      played: 0,
+      points: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      goalDifference: 0
+    };
+  });
+
+  // Process completed matches to update stats
+  matches
+    .filter(match => match?.status === 'completed' && match?.home_score !== null && match?.away_score !== null)
+    .forEach(match => {
+      if (!match?.home_team || !match?.away_team) return;
+      
+      // Get the team IDs from the match objects, or find by name if ID is missing
+      let homeTeamId = match.home_team?.id || '';
+      let awayTeamId = match.away_team?.id || '';
+      
+      // If no ID, find team by name in our teams array
+      if (!homeTeamId && match.home_team?.name) {
+        const matchingTeam = teams.find(t => t.name === match.home_team?.name);
+        homeTeamId = matchingTeam?.id || '';
+      }
+      
+      if (!awayTeamId && match.away_team?.name) {
+        const matchingTeam = teams.find(t => t.name === match.away_team?.name);
+        awayTeamId = matchingTeam?.id || '';
+      }
+      
+      if (!homeTeamId || !awayTeamId) return;
+      
+      const homeScore = match.home_score ?? 0;
+      const awayScore = match.away_score ?? 0;
+      
+      // Update home team stats
+      if (standingsMap[homeTeamId]) {
+        standingsMap[homeTeamId].played += 1;
+        standingsMap[homeTeamId].goalsFor += homeScore;
+        standingsMap[homeTeamId].goalsAgainst += awayScore;
+        standingsMap[homeTeamId].goalDifference = 
+          standingsMap[homeTeamId].goalsFor - standingsMap[homeTeamId].goalsAgainst;
+        
+        // Calculate points based on match result
+        if (homeScore > awayScore) {
+          standingsMap[homeTeamId].points += 3; // Home win
+        } else if (homeScore === awayScore) {
+          standingsMap[homeTeamId].points += 1; // Draw
+        }
+      }
+      
+      // Update away team stats
+      if (standingsMap[awayTeamId]) {
+        standingsMap[awayTeamId].played += 1;
+        standingsMap[awayTeamId].goalsFor += awayScore;
+        standingsMap[awayTeamId].goalsAgainst += homeScore;
+        standingsMap[awayTeamId].goalDifference = 
+          standingsMap[awayTeamId].goalsFor - standingsMap[awayTeamId].goalsAgainst;
+        
+        // Calculate points based on match result
+        if (awayScore > homeScore) {
+          standingsMap[awayTeamId].points += 3; // Away win
+        } else if (awayScore === homeScore) {
+          standingsMap[awayTeamId].points += 1; // Draw
+        }
+      }
+    });
+
+  // Convert to array and sort by points, then by goal difference, then by goals scored
+  let standingsArray = Object.values(standingsMap).filter(entry => entry !== undefined) as StandingsEntry[];
+  
+  standingsArray = standingsArray.sort((a, b) => {
+    if (!a || !b) return 0; // Handle undefined entries
+    if (b.points !== a.points) return b.points - a.points; // Higher points first
+    if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference; // Higher goal difference first
+    return b.goalsFor - a.goalsFor; // Higher goals for first
+  });
+
+  // Assign positions based on sorted order
+  standingsArray.forEach((entry, index) => {
+    if (entry) {
+      entry.position = index + 1;
+    }
+  });
+
+  return standingsArray;
+};
+
 // Mobile-optimized team logos banner
 const MobileTeamLogosBanner = ({ 
   teams,
-  tournamentId
+  tournamentId,
+  onTeamClick
 }: { 
   teams: Team[]
   tournamentId?: string
+  onTeamClick: (teamId: string) => void
 }) => {
   // Track logos that fail to load
   const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set())
@@ -103,45 +242,37 @@ const MobileTeamLogosBanner = ({
   return (
     <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-4 mb-4 md:p-6 md:mb-8">
       <h2 className="text-lg font-semibold text-white mb-4">Equipos Participantes</h2>
-      <div className="flex flex-wrap gap-3 justify-center">
-        {teams.map((team) => (
-          <div 
-            key={team.id}
-            className="relative cursor-pointer group"
-            onClick={() => {
-              if (tournamentId) {
-                window.location.href = `/teams/${team.id}?tournament=${tournamentId}`
-              }
-            }}
-          >
-            <div className="w-14 h-14 md:w-16 md:h-16 bg-gray-800 rounded-full flex items-center justify-center border-2 border-gray-700 overflow-hidden shadow-lg">
-              {team.logo_url && team.logo_url !== '' && !imageLoadErrors.has(team.id) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img 
-                  src={team.logo_url} 
-                  alt={team.name} 
-                  className="w-full h-full object-cover"
-                  onError={() => handleImageError(team.id)}
-                />
-              ) : (
-                <div className={`w-full h-full ${getTeamPlaceholderColor(team.id)} flex items-center justify-center`}>
-                  <Shield className="h-6 w-6 md:h-8 md:w-8 text-white" />
-                </div>
-              )}
-            </div>
-            {/* Team name caption for mobile, tooltip for desktop */}
-            <div className="mt-1 text-xs text-gray-300 text-center truncate w-full max-w-[4rem] md:hidden">
-              {team.name}
-            </div>
-            <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 px-2 py-1 rounded-lg text-xs text-white whitespace-nowrap z-50 opacity-0 transition-opacity duration-200 group-hover:opacity-100 hidden md:block">
-              <div className="relative">
+      <div className="flex overflow-x-auto pb-2 -mx-2 px-2">
+        <div className="flex gap-4 w-full min-w-max">
+          {teams.map((team) => (
+            <div 
+              key={team.id}
+              className="flex-shrink-0 flex flex-col items-center cursor-pointer"
+              onClick={() => {
+                onTeamClick(team.id);
+              }}
+            >
+              <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center border-2 border-gray-700 overflow-hidden shadow-lg">
+                {team.logo_url && team.logo_url !== '' && !imageLoadErrors.has(team.id) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img 
+                    src={team.logo_url} 
+                    alt={team.name} 
+                    className="w-full h-full object-cover"
+                    onError={() => handleImageError(team.id)}
+                  />
+                ) : (
+                  <div className={`w-full h-full ${getTeamPlaceholderColor(team.id)} flex items-center justify-center`}>
+                    <Shield className="h-8 w-8 text-white" />
+                  </div>
+                )}
+              </div>
+              <div className="mt-2 text-xs text-gray-300 text-center max-w-[4rem] truncate">
                 {team.name}
-                {/* Tooltip arrow */}
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-3 border-r-3 border-t-3 border-l-transparent border-r-transparent border-t-gray-800"></div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -157,8 +288,8 @@ const MobileTournamentOverview = ({
   teams?: any[];
   matches?: any[];
 }) => {
-  const playedPercentage = tournament.matches_count > 0 
-    ? Math.round((tournament.played_matches / tournament.matches_count) * 100) 
+  const playedPercentage = tournament?.matches_count && tournament?.matches_count > 0 
+    ? Math.round((tournament?.played_matches / tournament?.matches_count) * 100) 
     : 0
 
   return (
@@ -167,11 +298,11 @@ const MobileTournamentOverview = ({
       <div className="bg-gradient-to-r from-gray-900 to-gray-800 border border-gray-700 rounded-2xl p-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-white">{tournament.name}</h1>
+            <h1 className="text-xl font-bold text-white">{tournament?.name || 'Torneo de Fútbol'}</h1>
             <p className="text-gray-400 text-sm mt-1">
-              {tournament.status === 'active' ? 'Torneo en curso' : 
-               tournament.status === 'completed' ? 'Torneo finalizado' :
-               tournament.status === 'paused' ? 'Torneo pausado' : 'PrÃ³ximamente'}
+              {tournament?.status === 'active' ? 'Torneo en curso' : 
+               tournament?.status === 'completed' ? 'Torneo finalizado' :
+               tournament?.status === 'paused' ? 'Torneo pausado' : 'Próximamente'}
             </p>
           </div>
           
@@ -179,7 +310,7 @@ const MobileTournamentOverview = ({
             <div className="flex items-center space-x-1 text-gray-300">
               <Calendar className="h-4 w-4" />
               <span>
-                {tournament.start_date ? new Date(tournament.start_date).toLocaleDateString() : 'Por definir'}
+                {tournament?.start_date ? new Date(tournament.start_date).toLocaleDateString() : 'Por definir'}
               </span>
             </div>
           </div>
@@ -198,8 +329,8 @@ const MobileTournamentOverview = ({
             />
           </div>
           <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
-            <span>{tournament.played_matches} jugados</span>
-            <span>{tournament.matches_count} totales</span>
+            <span>{tournament?.played_matches || 0} jugados</span>
+            <span>{tournament?.matches_count || 0} totales</span>
           </div>
         </div>
         
@@ -207,14 +338,14 @@ const MobileTournamentOverview = ({
         <div className="mt-3 pt-3 border-t border-gray-700">
           <div className="flex items-center justify-between">
             <span className="text-gray-400 text-sm">Equipos registrados</span>
-            <span className="text-white font-medium">{tournament.teams_count}</span>
+            <span className="text-white font-medium">{tournament?.teams_count || 0}</span>
           </div>
         </div>
       </div>
       
       {/* Quick Links Grid - Mobile Optimized */}
       <div>
-        <h2 className="text-lg font-semibold text-white mb-3">Acceso RÃ¡pido</h2>
+        <h2 className="text-lg font-semibold text-white mb-3">Acceso Rápido</h2>
         <div className="grid grid-cols-2 gap-3">
           {[
             { href: '#standings', label: 'Tabla', icon: Trophy, color: 'green' },
@@ -246,13 +377,13 @@ const MobileTournamentOverview = ({
       </div>
       
       {/* No Results Message - Mobile Optimized */}
-      {tournament.played_matches === 0 && (
+      {tournament?.played_matches === 0 && (
         <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 text-center">
           <Calendar className="h-12 w-12 text-gray-600 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-white mb-2">Â¡PrÃ³ximamente!</h3>
+          <h3 className="text-lg font-semibold text-white mb-2">¡Próximamente!</h3>
           <p className="text-gray-400 text-sm">
-            Este torneo aÃºn no tiene resultados disponibles. 
-            Â¡Vuelve pronto para ver las estadÃ­sticas!
+            Este torneo aún no tiene resultados disponibles. 
+            ¡Vuelve pronto para ver las estadísticas!
           </p>
         </div>
       )}
@@ -263,17 +394,18 @@ const MobileTournamentOverview = ({
 const DesktopTeamAvatarRail = ({
   teams,
   tournamentId,
+  onTeamClick,
 }: {
   teams: Team[]
   tournamentId?: string
+  onTeamClick: (teamId: string) => void
 }) => {
   const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set())
 
   if (!teams.length) return null
 
-  const maxVisible = 12
+  const maxVisible = 14
   const visibleTeams = teams.slice(0, maxVisible)
-  const hiddenCount = Math.max(teams.length - visibleTeams.length, 0)
 
   const handleImageError = (teamId: string) => {
     setImageLoadErrors((prev) => {
@@ -284,47 +416,43 @@ const DesktopTeamAvatarRail = ({
   }
 
   const handleTeamRedirect = (teamId: string) => {
-    if (tournamentId) {
-      window.location.href = `/teams/${teamId}?tournament=${tournamentId}`
-    }
+    onTeamClick(teamId);
   }
 
   return (
     <div className="hidden md:block">
-      <div className="mb-10 flex flex-wrap items-center justify-center gap-6 rounded-3xl border border-gray-900 bg-gray-900/60 px-8 py-6">
+      <div className="mb-10 flex flex-wrap items-center justify-center gap-4">
         {visibleTeams.map((team) => (
-          <button
-            key={team.id}
-            type="button"
-            onClick={() => handleTeamRedirect(team.id)}
-            className="group relative flex h-16 w-16 items-center justify-center rounded-full border border-gray-800 bg-gray-950/70 shadow-lg shadow-black/20 transition hover:-translate-y-1 hover:border-green-500/60 hover:shadow-green-500/20"
-            aria-label={`Ver detalles de ${team.name}`}
-          >
-            {team.logo_url && team.logo_url !== '' && !imageLoadErrors.has(team.id) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={team.logo_url as string}
-                alt={team.name}
-                className="h-full w-full rounded-full object-cover"
-                onError={() => handleImageError(team.id)}
-              />
-            ) : (
-              <div className={`flex h-full w-full items-center rounded-full border border-gray-800 justify-center ${getTeamPlaceholderColor(team.id)}`}>
-                <Shield className="h-10 w-10 text-white" />
+          <div key={team.id} className="relative group">
+            <button
+              type="button"
+              onClick={() => handleTeamRedirect(team.id)}
+              className="flex h-14 w-14 items-center justify-center rounded-full shadow-lg shadow-black/20 transition hover:-translate-y-1 hover:border-green-500/60 hover:shadow-green-500/20"
+              aria-label={`Ver detalles de ${team.name}`}
+            >
+              {team.logo_url && team.logo_url !== '' && !imageLoadErrors.has(team.id) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={team.logo_url as string}
+                  alt={team.name}
+                  className="h-full w-full rounded-full object-cover"
+                  onError={() => handleImageError(team.id)}
+                />
+              ) : (
+                <div className={`flex h-full w-full items-center rounded-full justify-center ${getTeamPlaceholderColor(team.id)}`}>
+                  <Shield className="h-8 w-8 text-white" />
+                </div>
+              )}
+            </button>
+            <div className="absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+              <div className="relative bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 min-w-max shadow-lg shadow-black/30">
+                <div className="text-xs font-semibold text-white whitespace-nowrap">{team.name}</div>
+                <div className="text-xs text-gray-400 whitespace-nowrap">Haz clic para ver</div>
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 bg-gray-900/95 border-t border-l border-gray-700"></div>
               </div>
-            )}
-            <div className="pointer-events-none absolute left-1/2 top-full z-50 hidden w-40 -translate-x-1/2 translate-y-3 rounded-xl border border-gray-800 bg-gray-950/95 px-3 py-2 text-center shadow-xl shadow-black/40 opacity-0 transition duration-200 group-hover:block group-hover:opacity-100">
-              <span className="block text-xs font-semibold text-white">{team.name}</span>
-              <span className="mt-1 block text-xs text-gray-400">Haz clic para ver</span>
-              <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rotate-45 border border-gray-800 bg-gray-950"></span>
             </div>
-          </button>
-        ))}
-        {hiddenCount > 0 && (
-          <div className="flex h-16 w-16 items-center justify-center rounded-full border border-gray-800 bg-gray-900 text-sm font-semibold text-gray-300">
-            +{hiddenCount}
           </div>
-        )}
+        ))}
       </div>
     </div>
   )
@@ -342,6 +470,9 @@ const DesktopTournamentLanding = ({
   topScorers?: TopScorer[]
   onNavigate: (section: string) => void
 }) => {
+  const router = useRouter()
+  const params = useParams<{ id: string }>()
+  const tournamentId = params?.id
   const totalTeams = teams.length
   const normalizedMatches: Match[] = Array.isArray(matches) ? (matches.filter(Boolean) as Match[]) : []
   const playedMatches = normalizedMatches.filter((match) => match?.status === 'completed').length
@@ -371,7 +502,14 @@ const DesktopTournamentLanding = ({
     : 'Fecha por definir'
 
   const handleNavigate = (target: string) => {
-    onNavigate(target)
+    if (target === 'calendar') {
+      // Navigate to the calendar page
+      if (tournamentId && typeof tournamentId === 'string') {
+        router.push(`/tournaments/${encodeURIComponent(tournamentId)}/public/calendar`)
+      }
+    } else {
+      onNavigate(target)
+    }
   }
 
   const quickLinks = [
@@ -388,22 +526,34 @@ const DesktopTournamentLanding = ({
       icon: Users,
     },
     {
+      section: 'calendar',
+      title: 'Calendario',
+      description: 'Consulta las fechas de los partidos.',
+      icon: Calendar,
+    },
+    {
       section: 'repechage',
       title: 'Repechaje',
       description: 'Controla las llaves adicionales.',
       icon: Shuffle,
     },
     {
-      section: 'top-scorers',
+      section: 'match-stats', // Redirigido de top-scorers
       title: 'Goleadores',
       description: 'Ranking de anotadores del torneo.',
       icon: Target,
     },
     {
-      section: 'ideal-5',
+      section: 'match-stats', // Redirigido de ideal-5
       title: 'Ideal 5',
       description: 'Seleccion de quinteto destacado.',
       icon: Shield,
+    },
+    {
+      section: 'match-stats',
+      title: 'Estadísticas',
+      description: 'Estadísticas detalladas de partidos.',
+      icon: BarChart3,
     },
   ]
 
@@ -445,10 +595,10 @@ const DesktopTournamentLanding = ({
               </button>
               <button
                 type="button"
-                onClick={() => handleNavigate('top-scorers')}
+                onClick={() => handleNavigate('match-stats')}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-500/60 px-5 py-3 text-sm font-semibold text-green-200 transition hover:border-green-400 hover:bg-green-500/10 hover:text-white"
               >
-                Goleadores
+                Estadísticas
               </button>
             </div>
           </div>
@@ -485,18 +635,22 @@ const DesktopTournamentLanding = ({
               key={item.section}
               type="button"
               onClick={() => handleNavigate(item.section)}
-              className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-6 text-left transition hover:border-green-500/40 hover:bg-gray-900"
+              className="group rounded-2xl border border-gray-800 bg-gray-900/70 p-6 text-left transition hover:border-green-500/40 hover:bg-gray-900 flex flex-col h-full"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex justify-between items-start flex-shrink-0">
                 <div className="rounded-xl bg-green-500/10 p-3 text-green-300 transition group-hover:bg-green-500/20">
                   <Icon className="h-5 w-5" />
                 </div>
               </div>
-              <h3 className="mt-4 text-lg font-semibold text-white">{item.title}</h3>
-              <p className="mt-2 text-sm text-gray-400">{item.description}</p>
-              <span className="mt-4 inline-flex items-center text-sm font-medium text-green-300 group-hover:text-green-200">
-                Ver seccion
-              </span>
+              <div className="flex flex-col flex-grow justify-between">
+                <div className="mt-4">
+                  <h3 className="text-lg font-semibold text-white">{item.title}</h3>
+                  <p className="mt-2 text-sm text-gray-400">{item.description}</p>
+                </div>
+                <span className="mt-4 inline-flex items-center text-sm font-medium text-green-300 group-hover:text-green-200">
+                  Ver seccion
+                </span>
+              </div>
             </button>
           )
         })}
@@ -576,24 +730,49 @@ export default function TournamentPublicPage() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [teamDetails, setTeamDetails] = useState<any>(null)
   const [teamPlayers, setTeamPlayers] = useState<any[]>([])
+  interface LatestResultsMatch {
+    id: string
+    home_team: { name: string } | null
+    away_team: { name: string } | null
+    home_score: number | null
+    away_score: number | null
+    scheduled_at: string | null
+    status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+  }
+  
   const [topScorers, setTopScorers] = useState<TopScorer[]>([])
-  const [latestMatches, setLatestMatches] = useState<Match[]>([])
+  const [latestMatches, setLatestMatches] = useState<LatestResultsMatch[]>([])
   
   // Get active section from URL query parameter or default to overview
   const section = searchParams.get('section') || 'overview'
+  
+  // Determine active section for mobile navigation
+  const mobileActiveSection = section
   
   // Define navigation anchors for both mobile and desktop
   const anchors = [
     { href: `?section=overview`, label: 'Inicio' },
     { href: `?section=standings`, label: 'Tabla' },
     { href: `?section=groups`, label: 'Grupos' },
+    { href: `/tournaments/${tournamentId}/public/calendar`, label: 'Calendario' },
     { href: `?section=repechage`, label: 'Repechaje' },
-    { href: `?section=top-scorers`, label: 'Goleadores' },
-    { href: `?section=ideal-5`, label: 'Ideal 5' },
+    { href: `?section=match-stats`, label: 'Goleadores' }, // Redirigido a estadísticas
+    { href: `?section=match-stats`, label: 'Ideal 5' }, // Redirigido a estadísticas
+    { href: `?section=match-stats`, label: 'Estadísticas' },
   ]
   
   // Mobile navigation handler
-  const handleSectionChange = (newSection: string) => {
+  const handleSectionChange = (href: string) => {
+    // Check if it's a calendar link (external URL)
+    if (href.startsWith('/')) {
+      // Navigate to the calendar page
+      router.push(href)
+      return
+    }
+    
+    // Handle regular section changes
+    const section = href.split('=')[1] || 'overview'
+    
     // Set navigation source as internal
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('tournamentNavigationSource', 'internal');
@@ -601,7 +780,7 @@ export default function TournamentPublicPage() {
     
     // Update URL without full page reload
     const url = new URL(window.location.href)
-    url.searchParams.set('section', newSection)
+    url.searchParams.set('section', section)
     window.history.pushState({}, '', url.toString())
     // Trigger section change
     window.dispatchEvent(new Event('popstate'))
@@ -644,8 +823,8 @@ export default function TournamentPublicPage() {
         const mappedScorers: TopScorer[] = rows.map((row: any) => ({
           player_id: row.player?.id || '',
           player_name: row.player?.name || 'Jugador desconocido',
-          team_name: row.team?.name || 'Equipo desconocido',
-          team_id: row.team?.id || '',
+          team_name: row.player?.teams?.name || 'Equipo desconocido', // Corregido: accediendo a través de player
+          team_id: row.player?.team_id || '', // Usamos el team_id directamente de player
           goals: row.goals || 0,
           player_photo_url: row.player?.photo_url || null
         })).filter((scorer: TopScorer) => scorer.player_id && scorer.player_name);
@@ -658,8 +837,19 @@ export default function TournamentPublicPage() {
       
       // Fetch latest matches
       getLatestMatches(tournamentId, 5).then((data: any) => {
-        setLatestMatches(data || [])
-      }).catch((err: any) => {
+        // Transform the data to match the component's expected format
+        const transformedMatches = (data || []).map((match: any) => ({
+          id: match.id,
+          home_team: match.home_team ? { name: match.home_team.name } : null,
+          away_team: match.away_team ? { name: match.away_team.name } : null,
+          home_score: match.home_score,
+          away_score: match.away_score,
+          scheduled_at: match.scheduled_at,
+          status: match.status
+        }));
+        setLatestMatches(transformedMatches)
+        
+        }).catch((err: any) => {
         console.error('Error fetching latest matches:', err)
         setLatestMatches([])
       })
@@ -677,6 +867,65 @@ export default function TournamentPublicPage() {
     }
   }
   
+  const fetchTeamDetails = async (teamId: string) => {
+    if (!teamId) return;
+    
+    try {
+      // Fetch team details
+      const response = await fetch(`/api/teams/${teamId}`);
+      if (!response.ok) throw new Error('Failed to fetch team');
+      
+      const teamData = await response.json();
+      
+      // For now, set the basic team data with placeholders
+      // In a real implementation, this would come from a backend API
+      const teamStats = {
+        id: teamData.id,
+        name: teamData.name,
+        logo_url: teamData.logo_url,
+        wins: teamData.wins || 0,
+        draws: teamData.draws || 0,
+        losses: teamData.losses || 0,
+        goals_for: teamData.goals_for || 0,
+        goals_against: teamData.goals_against || 0,
+        points: teamData.points || 0,
+        position: teamData.position || 0
+      };
+      
+      // Fetch team players
+      const playersResponse = await fetch(`/api/teams/${teamId}/players`);
+      if (playersResponse.ok) {
+        const playersData = await playersResponse.json();
+        setTeamPlayers(playersData || []);
+      } else {
+        setTeamPlayers([]);
+      }
+      
+      setTeamDetails(teamStats);
+      setSelectedTeamId(teamId);
+    } catch (error) {
+      console.error('Error fetching team details:', error);
+      // Set basic team data from existing tournament teams as fallback
+      const tournamentTeam = extractTeamsFromEntries(tournament?.tournament_teams).find(t => t.id === teamId);
+      if (tournamentTeam) {
+        setTeamDetails({
+          id: tournamentTeam.id,
+          name: tournamentTeam.name,
+          logo_url: tournamentTeam.logo_url,
+          wins: 0, // Placeholder
+          draws: 0, // Placeholder
+          losses: 0, // Placeholder
+          goals_for: 0, // Placeholder
+          goals_against: 0, // Placeholder
+          points: 0, // Placeholder
+          position: 0 // Placeholder
+        });
+        setTeamPlayers([]);
+      }
+      setSelectedTeamId(teamId);
+    }
+  };
+
   const handleCloseTeamDetails = () => {
     setSelectedTeamId(null)
     setTeamDetails(null)
@@ -741,12 +990,14 @@ export default function TournamentPublicPage() {
     <TournamentPublicLayout anchors={anchors}>
       {/* Mobile Navigation - Hidden on desktop */}
       <MobileNavigation 
+        anchors={anchors}
         activeSection={section} 
         onSectionChange={handleSectionChange} 
       />
       <DesktopTeamAvatarRail
         teams={tournamentTeams}
         tournamentId={tournamentId}
+        onTeamClick={fetchTeamDetails}
       />
       
       <div className="grid grid-cols-1 gap-4 pb-20 md:pb-0 md:gap-6 md:grid-cols-4">
@@ -758,6 +1009,7 @@ export default function TournamentPublicPage() {
                 <MobileTeamLogosBanner 
                   teams={tournamentTeams} 
                   tournamentId={tournamentId}
+                  onTeamClick={fetchTeamDetails}
                 />
                 <MobileTournamentOverview 
                   tournament={{
@@ -788,29 +1040,143 @@ export default function TournamentPublicPage() {
           {section === 'standings' && (
             <div id="standings" className="bg-gray-900/50 border border-gray-800 rounded-2xl p-4 md:p-6">
               <h2 className="text-xl font-bold text-white mb-4">Tabla de Posiciones</h2>
-              <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-800 mb-4">
-                  <Trophy className="h-8 w-8 text-gray-500" />
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">Tabla de Posiciones</h3>
-                <p className="text-gray-400 mb-4">La tabla de posiciones se mostrarÃ¡ aquÃ­ una vez que comience el torneo.</p>
-                <div className="bg-gray-800/50 rounded-xl p-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-400">Equipos registrados</span>
-                      <span className="text-white font-medium">{tournament?.tournament_teams?.length || 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-400">Estado del torneo</span>
-                      <span className="text-white font-medium capitalize">
-                        {tournament?.status === 'active' ? 'En curso' : 
-                         tournament?.status === 'completed' ? 'Finalizado' :
-                         tournament?.status === 'paused' ? 'Pausado' : 'PrÃ³ximamente'}
-                      </span>
+              {(tournament?.tournament_teams?.length || 0) >= 9 ? (
+                <div className="overflow-x-auto">
+                  {/* Desktop Table */}
+                  <div className="hidden md:block">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-700">
+                          <th className="py-3 px-4 text-left text-gray-400 font-medium text-sm">Pos</th>
+                          <th className="py-3 px-4 text-left text-gray-400 font-medium text-sm">Equipo</th>
+                          <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">PJ</th>
+                          <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">Pts</th>
+                          <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">GF</th>
+                          <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">GC</th>
+                          <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">DG</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {calculateStandings(
+                          extractTeamsFromEntries(tournament?.tournament_teams) || [],
+                          tournament?.matches || []
+                        ).map((entry) => (
+                          entry ? (
+                          <tr 
+                            key={entry.team?.id || `standings-${entry.position}`} 
+                            className="border-b border-gray-800 hover:bg-gray-800/30 transition-colors cursor-pointer"
+                            onClick={() => {
+                              if (entry?.team?.id) {
+                                fetchTeamDetails(entry.team.id);
+                              }
+                            }}
+                          >
+                            <td className="py-3 px-4 text-gray-300 font-medium">{entry.position || 0}</td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center">
+                                <div className="w-8 h-8 rounded-full overflow-hidden mr-3">
+                                  {entry?.team?.logo_url ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img 
+                                      src={entry.team.logo_url} 
+                                      alt={entry.team.name || 'Equipo'} 
+                                      className="w-full h-full object-cover" 
+                                    />
+                                  ) : (
+                                    <div className={`w-full h-full flex items-center justify-center ${getTeamPlaceholderColor(entry.team?.id || '')}`}>
+                                      <Shield className="h-4 w-4 text-white" />
+                                    </div>
+                                  )}
+                                </div>
+                                <span className="text-white font-medium">{entry.team?.name || 'Equipo desconocido'}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-center text-gray-300">{entry.played || 0}</td>
+                            <td className="py-3 px-4 text-center text-white font-bold">{entry.points || 0}</td>
+                            <td className="py-3 px-4 text-center text-gray-300">{entry.goalsFor || 0}</td>
+                            <td className="py-3 px-4 text-center text-gray-300">{entry.goalsAgainst || 0}</td>
+                            <td className="py-3 px-4 text-center text-gray-300 font-medium">{entry.goalDifference !== undefined && entry.goalDifference >= 0 ? '+' : ''}{entry.goalDifference || 0}</td>
+                          </tr>
+                          ) : null
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {/* Mobile Table */}
+                  <div className="md:hidden">
+                    <div className="space-y-3">
+                      {calculateStandings(
+                        extractTeamsFromEntries(tournament?.tournament_teams) || [],
+                        tournament?.matches || []
+                      ).map((entry) => (
+                        entry ? (
+                        <div 
+                          key={entry.team?.id || `standings-${entry.position}`} 
+                          className="bg-gray-800/50 rounded-xl p-3 flex items-center justify-between hover:bg-gray-800 transition-colors cursor-pointer"
+                          onClick={() => {
+                              fetchTeamDetails(entry.team.id);
+                            }}
+                        >
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
+                              {entry?.team?.logo_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img 
+                                  src={entry.team.logo_url} 
+                                  alt={entry.team.name || 'Equipo'} 
+                                  className="w-full h-full object-cover" 
+                                />
+                              ) : (
+                                <div className={`w-full h-full flex items-center justify-center ${getTeamPlaceholderColor(entry.team?.id || '')}`}>
+                                  <Shield className="h-5 w-5 text-white" />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-medium text-white text-sm">{entry.position || 0}</div>
+                              <div className="text-xs text-gray-400">PJ: {entry.played || 0} | Pts: {entry.points || 0}</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-medium text-white">{entry.goalsFor || 0}:{entry.goalsAgainst || 0}</div>
+                            <div className="text-xs text-gray-400">DG: {entry.goalDifference !== undefined && entry.goalDifference >= 0 ? '+' : ''}{entry.goalDifference || 0}</div>
+                          </div>
+                        </div>
+                        ) : null
+                      ))}
                     </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-800 mb-4">
+                    <Trophy className="h-8 w-8 text-gray-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Tabla de Posiciones</h3>
+                  <p className="text-gray-400 mb-4">La tabla de posiciones se mostrará aquí una vez que haya al menos 9 equipos inscritos.</p>
+                  <div className="bg-gray-800/50 rounded-xl p-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">Equipos registrados</span>
+                        <span className="text-white font-medium">{tournament?.tournament_teams?.length || 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">Equipos necesarios</span>
+                        <span className="text-white font-medium">9</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">Estado del torneo</span>
+                        <span className="text-white font-medium capitalize">
+                          {tournament?.status === 'active' ? 'En curso' : 
+                           tournament?.status === 'completed' ? 'Finalizado' :
+                           tournament?.status === 'paused' ? 'Pausado' : 'Próximamente'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           
@@ -822,7 +1188,7 @@ export default function TournamentPublicPage() {
                   <Users className="h-8 w-8 text-gray-500" />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Fase de Grupos</h3>
-                <p className="text-gray-400 mb-4">La fase de grupos se organizarÃ¡ cuando se complete el registro de equipos.</p>
+                <p className="text-gray-400 mb-4">La fase de grupos se organizará cuando se complete el registro de equipos.</p>
                 <div className="bg-gray-800/50 rounded-xl p-4 max-w-md mx-auto">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
@@ -853,7 +1219,7 @@ export default function TournamentPublicPage() {
                   <Shuffle className="h-8 w-8 text-gray-500" />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Repechaje</h3>
-                <p className="text-gray-400 mb-4">El repechaje se activarÃ¡ cuando concluya la fase de grupos.</p>
+                <p className="text-gray-400 mb-4">El repechaje se activará cuando concluya la fase de grupos.</p>
                 <div className="bg-gray-800/50 rounded-xl p-4 max-w-md mx-auto">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
@@ -872,11 +1238,19 @@ export default function TournamentPublicPage() {
           
           {(section === 'top-scorers' || section === 'ideal-5') && (
             <div id={section === 'top-scorers' ? 'top-scorers' : 'ideal-5'}>
-              <TournamentTopLeaders 
-                topScorers={topScorers}
-                topAssists={[]}
-                ideal5={[]}
-              />
+              <TournamentStatsOverview tournamentId={tournamentId || ''} />
+              <div className="mt-8">
+                <TournamentMatchStats tournamentId={tournamentId || ''} />
+              </div>
+            </div>
+          )}
+          
+          {section === 'match-stats' && (
+            <div id="match-stats">
+              <TournamentStatsOverview tournamentId={tournamentId || ''} />
+              <div className="mt-8">
+                <TournamentMatchStats tournamentId={tournamentId || ''} />
+              </div>
             </div>
           )}
         </div>
