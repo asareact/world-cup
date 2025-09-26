@@ -75,6 +75,18 @@ export function TournamentTopScorersTable({ tournamentId }: TournamentTopScorers
         const aValue = a[sortConfig.key];
         const bValue = b[sortConfig.key];
         
+        // Handle null or undefined values
+        if (aValue == null && bValue == null) return 0;
+        if (aValue == null) return sortConfig.direction === 'asc' ? 1 : -1; // null values go to end when ascending
+        if (bValue == null) return sortConfig.direction === 'asc' ? -1 : 1; // null values go to end when ascending
+        
+        // For string comparison
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          const comparison = aValue.localeCompare(bValue);
+          return sortConfig.direction === 'asc' ? comparison : -comparison;
+        }
+        
+        // For number comparison
         if (aValue < bValue) {
           return sortConfig.direction === 'asc' ? -1 : 1;
         }

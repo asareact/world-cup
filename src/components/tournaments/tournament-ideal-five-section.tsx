@@ -117,11 +117,11 @@ export function TournamentIdealFiveSection() {
         </h3>
         <div className="bg-black/30 rounded-lg p-4 mb-4">
           <code className="text-green-400 text-lg font-mono block text-center">
-            Puntos = (Goles × 5) + (Asistencias × 4) + (Paradas × 0.5) + (Robos × 1.5) + (Tiros Bloqueados × 2) - (Amarillas × 1) - (Rojas × 3)
-          </code>
+            {'Puntos = (Goles × 5) + (Asistencias × 4) + (Paradas × 0.5) + (Robos × 1.5) + (Tiros Bloqueados × 2) - (Amarillas × 1) - (Rojas × 3)'}
+            </code>
         </div>
         <p className="text-gray-300 text-center text-sm">
-          Esta fórmula permite un ranking multifacético de "jugadores más influyentes" considerando todos los aspectos del juego
+          Esta fórmula permite un ranking multifacético de &quot;jugadores más influyentes&quot; considerando todos los aspectos del juego
         </p>
       </div>
 
