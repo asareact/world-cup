@@ -170,7 +170,7 @@ const MobileTournamentOverview = ({
       y: 0,
       opacity: 1,
       transition: {
-        type: "spring",
+        type: "spring" as const,
         stiffness: 100,
         damping: 12
       }
@@ -265,7 +265,7 @@ const MobileTournamentOverview = ({
                       <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
                         {match.home_team && teamLookup.get(match.home_team.name)?.logo_url ? (
                           <img 
-                            src={teamLookup.get(match.home_team.name)!.logo_url} 
+                            src={teamLookup.get(match.home_team.name)!.logo_url!} 
                             alt={match.home_team.name} 
                             className="w-full h-full object-cover"
                           />
@@ -294,7 +294,7 @@ const MobileTournamentOverview = ({
                       <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
                         {match.away_team && teamLookup.get(match.away_team.name)?.logo_url ? (
                           <img 
-                            src={teamLookup.get(match.away_team.name)!.logo_url} 
+                            src={teamLookup.get(match.away_team.name)!.logo_url!} 
                             alt={match.away_team.name} 
                             className="w-full h-full object-cover"
                           />
@@ -501,7 +501,7 @@ const DesktopTournamentOverview = ({
       y: 0,
       opacity: 1,
       transition: {
-        type: "spring",
+        type: "spring" as const,
         stiffness: 80,
         damping: 10
       }
@@ -514,7 +514,7 @@ const DesktopTournamentOverview = ({
       scale: 1,
       opacity: 1,
       transition: {
-        type: "spring",
+        type: "spring" as const,
         stiffness: 100,
         damping: 15
       }

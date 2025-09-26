@@ -20,6 +20,9 @@ import { MobileSidebarWrapper } from '@/components/tournaments/MobileSideWrapper
 import { TournamentLatestResults } from '@/components/tournaments/tournament-latest-results'
 import { TournamentStatsOverview } from '@/components/tournaments/tournament-stats-overview'
 import { TournamentTopScorers } from '@/components/tournaments/tournament-top-scorers'
+import { TournamentTopScorersTable } from '@/components/tournaments/tournament-top-scorers-table'
+import { TournamentIdealFiveSection } from '@/components/tournaments/tournament-ideal-five-section'
+import { TournamentRulesSection } from '@/components/tournaments/tournament-rules-section'
 import { Team } from '@/lib/database'
 import { getLatestMatches, getTopScorers, useTournament } from '@/lib/hooks/use-tournament'
 
@@ -84,12 +87,11 @@ export default function TournamentPublicPage() {
   const anchors = [
     { href: `?section=overview`, label: 'Inicio' },
     { href: `?section=standings`, label: 'Tabla' },
-    // { href: `?section=groups`, label: 'Grupos' }, // Hidden for now
     { href: `/tournaments/${tournamentId}/public/calendar`, label: 'Calendario' },
-    // { href: `?section=repechage`, label: 'Repechaje' }, // Hidden for now
+    { href: `?section=match-stats`, label: 'Estadísticas' },
     { href: `?section=top-scorers`, label: 'Goleadores' },
     { href: `?section=ideal-5`, label: 'Ideal 5' },
-    { href: `?section=match-stats`, label: 'Estadísticas' },
+    { href: `?section=rules`, label: 'Reglas' },
   ]
 
   // Mobile navigation handler
@@ -364,9 +366,25 @@ export default function TournamentPublicPage() {
             />
           )} */}
 
-          {(section === 'match-stats' || section === 'top-scorers' || section === 'ideal-5') && (
+          {section === 'match-stats' && (
             <TournamentStatsOverview
               tournamentId={tournamentId || ''}
+            />
+          )}
+          
+          {section === 'top-scorers' && (
+            <TournamentTopScorersTable
+              tournamentId={tournamentId || ''}
+            />
+          )}
+          
+          {section === 'ideal-5' && (
+            <TournamentIdealFiveSection />
+          )}
+          
+          {section === 'rules' && (
+            <TournamentRulesSection 
+              rules={tournament?.rules || ''} 
             />
           )}
         </div>

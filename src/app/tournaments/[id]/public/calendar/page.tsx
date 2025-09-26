@@ -2,6 +2,7 @@
 
 import { TournamentRoundCalendar } from '@/components/tournaments/calendar'
 import { TournamentPublicLayout } from '@/components/tournaments/tournament-public-layout'
+import { MobileNavigation } from '@/components/tournaments/mobile-navigation'
 import { useAuth } from '@/lib/auth-context'
 import type { Team } from '@/lib/database'
 import { useTournament } from '@/lib/hooks/use-tournament'
@@ -84,19 +85,53 @@ export default function TournamentCalendarPage() {
   }
 
   const tournamentTeams = extractTeamsFromEntries(tournament?.tournament_teams)
+  
+  // Define navigation anchors for both mobile and desktop
+  const anchors = [
+    { href: `/tournaments/${tournamentId}/public?section=overview`, label: 'Inicio' },
+    { href: `/tournaments/${tournamentId}/public?section=standings`, label: 'Tabla' },
+    { href: `/tournaments/${tournamentId}/public/calendar`, label: 'Calendario' },
+    { href: `/tournaments/${tournamentId}/public?section=match-stats`, label: 'Estadísticas' },
+    { href: `/tournaments/${tournamentId}/public?section=top-scorers`, label: 'Goleadores' },
+    { href: `/tournaments/${tournamentId}/public?section=ideal-5`, label: 'Ideal 5' },
+    { href: `/tournaments/${tournamentId}/public?section=rules`, label: 'Reglas' },
+  ];
+  
+  // Mobile navigation handler
+  const handleSectionChange = (href: string) => {
+    // Check if it's a calendar link (external URL)
+    if (href.startsWith('/')) {
+      // Navigate to the calendar page
+      window.location.href = href;
+      return
+    }
+
+    // Handle regular section changes
+    const section = href.split('=')[1] || 'overview'
+
+    // Set navigation source as internal
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('tournamentNavigationSource', 'internal');
+    }
+
+    // Update URL without full page reload
+    const url = new URL(window.location.href)
+    url.searchParams.set('section', section)
+    window.history.pushState({}, '', url.toString())
+    // Trigger section change
+    window.dispatchEvent(new Event('popstate'))
+  }
 
   return (
-    <TournamentPublicLayout anchors={[
-      { href: `/tournaments/${tournamentId}/public?section=overview`, label: 'Inicio' },
-      { href: `/tournaments/${tournamentId}/public?section=standings`, label: 'Tabla' },
-      { href: `/tournaments/${tournamentId}/public?section=groups`, label: 'Grupos' },
-      { href: `/tournaments/${tournamentId}/public/calendar`, label: 'Calendario' },
-      { href: `/tournaments/${tournamentId}/public?section=repechage`, label: 'Repechaje' },
-      { href: `/tournaments/${tournamentId}/public?section=top-scorers`, label: 'Goleadores' },
-      { href: `/tournaments/${tournamentId}/public?section=ideal-5`, label: 'Ideal 5' },
-      { href: `/tournaments/${tournamentId}/public?section=match-stats`, label: 'Estadísticas' },
-    ]}>
-      <div className="max-w-6xl mx-auto">
+    <TournamentPublicLayout anchors={anchors}>
+      {/* Mobile Navigation - Hidden on desktop */}
+      <MobileNavigation
+        anchors={anchors}
+        activeSection="calendar"
+        onSectionChange={handleSectionChange}
+      />
+      
+      <div className="max-w-6xl mx-auto pb-20 md:pb-0">
         <div className="mb-6">
           <h1 className="text-2xl md:text-3xl font-bold text-white">
             Calendario - {tournament.name}

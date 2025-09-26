@@ -71,11 +71,13 @@ export interface MatchEvent {
   match_id: string
   player_id: string | null
   team_id: string | null
+  assist_player_id?: string | null
   event_type: 'goal' | 'yellow_card' | 'red_card' | 'substitution' | 'own_goal' | 'assist'
   minute: number | null
   description: string | null
-  player?: { id: string; name: string } | null
-  team?: { id: string; name: string } | null
+  player?: { name: string; photo_url: string | null; team_id: string } | { name: string; photo_url: string | null; team_id: string }[] | null
+  assist_player?: { name: string; photo_url: string | null; team_id: string } | { name: string; photo_url: string | null; team_id: string }[] | null
+  team?: { name: string } | { name: string }[] | null
   created_at: string
 }
 

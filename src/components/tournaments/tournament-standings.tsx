@@ -63,9 +63,22 @@ const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] =
       
       // Ensure both teams exist in standings
       if (!standingsMap[homeTeamId]) {
+        // Find the full team object from the teams array to ensure all required Team properties
+        const fullHomeTeam = teams.find(t => t.id === match.home_team?.id);
         standingsMap[homeTeamId] = {
           position: 0,
-          team: match.home_team,
+          team: fullHomeTeam || {
+            id: match.home_team?.id || '',
+            name: match.home_team?.name || 'Equipo desconocido',
+            logo_url: match.home_team?.logo_url || null,
+            description: null,
+            captain_id: null,
+            created_by: '',
+            contact_email: null,
+            contact_phone: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
           played: 0,
           points: 0,
           goalsFor: 0,
@@ -75,9 +88,22 @@ const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] =
       }
       
       if (!standingsMap[awayTeamId]) {
+        // Find the full team object from the teams array to ensure all required Team properties
+        const fullAwayTeam = teams.find(t => t.id === match.away_team?.id);
         standingsMap[awayTeamId] = {
           position: 0,
-          team: match.away_team,
+          team: fullAwayTeam || {
+            id: match.away_team?.id || '',
+            name: match.away_team?.name || 'Equipo desconocido',
+            logo_url: match.away_team?.logo_url || null,
+            description: null,
+            captain_id: null,
+            created_by: '',
+            contact_email: null,
+            contact_phone: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
           played: 0,
           points: 0,
           goalsFor: 0,

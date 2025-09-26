@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X, User, Users, Calendar as CalendarIcon, Goal, Square, RotateCcw } from 'lucide-react'
 import type { MatchEvent } from '@/lib/database'
 
@@ -212,7 +213,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
   const homeTeamEvents = matchEvents.filter(event => event.team_id === match.home_team_id)
   const awayTeamEvents = matchEvents.filter(event => event.team_id === match.away_team_id)
 
-  // Separate goals, cards, and assists
+  // Separate events by type
   const getTeamEventsByType = (events: MatchEvent[], type: string) => {
     return events.filter(event => event.event_type === type)
   }
@@ -279,11 +280,11 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
     return ''
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-2xl max-w-md w-full max-h-[95vh] overflow-hidden flex flex-col shadow-2xl md:hidden">
+  const modalContent = (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-2xl max-w-md w-full h-[95vh] max-h-[95vh] overflow-hidden flex flex-col shadow-2xl md:hidden">
         {/* Contenido con scroll completo */}
-        <div className="overflow-y-auto flex-grow p-4">
+        <div className="overflow-y-auto p-4 flex-1">
           {/* Header con botón de cierre */}
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-300 bg-clip-text text-transparent">
@@ -453,15 +454,26 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                 </div>
               ) : currentPlayersWithEvents.length > 0 ? (
                 <div className="space-y-1">
-                  {currentPlayersWithEvents.map((player) => (
-                    player.events.map((event, idx) => (
-                      <div key={`${player.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
+                  {/* Mostrar todos los eventos del equipo en orden cronológico */}
+                  {(() => {
+                    // Obtener todos los eventos del equipo actual y ordenarlos cronológicamente
+                    const teamEvents = currentTeamEvents
+                      .slice() // Hacer una copia para no modificar el original
+                      .sort((a, b) => {
+                        if (a.minute === null && b.minute === null) return 0;
+                        if (a.minute === null) return 1;
+                        if (b.minute === null) return -1;
+                        return a.minute - b.minute;
+                      });
+                    
+                    return teamEvents.map((event, idx) => (
+                      <div key={`${event.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
                         <div className="flex items-center">
                           <div className="mr-3">
                             {getEventIcon(event.event_type)}
                           </div>
                           <span className="text-white text-sm font-medium">
-                            {player.name}
+                            {event.player?.name || 'Jugador desconocido'}
                           </span>
                         </div>
                         <div className="flex items-center">
@@ -477,8 +489,8 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                           )}
                         </div>
                       </div>
-                    ))
-                  ))}
+                    ));
+                  })()}
                 </div>
               ) : (
                 <div className="text-gray-500 text-center py-4 italic">
@@ -657,15 +669,26 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                   </div>
                 ) : homePlayersWithEvents.length > 0 ? (
                   <div className="space-y-1">
-                    {homePlayersWithEvents.map((player) => (
-                      player.events.map((event, idx) => (
-                        <div key={`${player.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
+                    {/* Mostrar todos los eventos del equipo local en orden cronológico */}
+                    {(() => {
+                      // Obtener todos los eventos del equipo local y ordenarlos cronológicamente
+                      const teamEvents = homeTeamEvents
+                        .slice() // Hacer una copia para no modificar el original
+                        .sort((a, b) => {
+                          if (a.minute === null && b.minute === null) return 0;
+                          if (a.minute === null) return 1;
+                          if (b.minute === null) return -1;
+                          return a.minute - b.minute;
+                        });
+                      
+                      return teamEvents.map((event, idx) => (
+                        <div key={`${event.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
                           <div className="flex items-center">
                             <div className="mr-3">
                               {getEventIcon(event.event_type)}
                             </div>
                             <span className="text-white text-sm font-medium">
-                              {player.name}
+                              {event.player?.name || 'Jugador desconocido'}
                             </span>
                           </div>
                           <div className="flex items-center">
@@ -681,8 +704,8 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                             )}
                           </div>
                         </div>
-                      ))
-                    ))}
+                      ));
+                    })()}
                   </div>
                 ) : (
                   <div className="text-gray-500 text-center py-6 italic">
@@ -735,15 +758,26 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                   </div>
                 ) : awayPlayersWithEvents.length > 0 ? (
                   <div className="space-y-1">
-                    {awayPlayersWithEvents.map((player) => (
-                      player.events.map((event, idx) => (
-                        <div key={`${player.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
+                    {/* Mostrar todos los eventos del equipo visitante en orden cronológico */}
+                    {(() => {
+                      // Obtener todos los eventos del equipo visitante y ordenarlos cronológicamente
+                      const teamEvents = awayTeamEvents
+                        .slice() // Hacer una copia para no modificar el original
+                        .sort((a, b) => {
+                          if (a.minute === null && b.minute === null) return 0;
+                          if (a.minute === null) return 1;
+                          if (b.minute === null) return -1;
+                          return a.minute - b.minute;
+                        });
+                      
+                      return teamEvents.map((event, idx) => (
+                        <div key={`${event.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
                           <div className="flex items-center">
                             <div className="mr-3">
                               {getEventIcon(event.event_type)}
                             </div>
                             <span className="text-white text-sm font-medium">
-                              {player.name}
+                              {event.player?.name || 'Jugador desconocido'}
                             </span>
                           </div>
                           <div className="flex items-center">
@@ -759,8 +793,8 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                             )}
                           </div>
                         </div>
-                      ))
-                    ))}
+                      ));
+                    })()}
                   </div>
                 ) : (
                   <div className="text-gray-500 text-center py-6 italic">
@@ -774,4 +808,12 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
       </div>
     </div>
   )
+
+  // Render the modal content using createPortal to ensure it overlays the entire screen
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body)
+  }
+  
+  // Fallback if document is not available (server-side)
+  return modalContent
 }

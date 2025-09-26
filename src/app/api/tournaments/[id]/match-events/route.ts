@@ -122,7 +122,7 @@ export async function POST(
     }
 
     // Parse the request body
-    const body: Omit<MatchEvent, 'id' | 'created_at'> = await request.json()
+    const body: Omit<MatchEvent, 'id' | 'created_at'> & { assist_player_id?: string | null } = await request.json()
     
     // Verify the match belongs to this tournament
     const { data: match, error: matchError } = await supabase

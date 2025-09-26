@@ -105,9 +105,12 @@ export function useTournamentStats(tournamentId: string) {
           if (!event) return
           
           const playerId = event.player_id
-          const playerName = event.player?.name || 'Jugador desconocido'
-          const teamName = event.team?.name || 'Equipo desconocido'
-          const playerPhoto = event.player?.photo_url
+          // Type assertion to handle potential array or object structure from Supabase join
+          const playerData = Array.isArray(event.player) ? event.player[0] : event.player
+          const teamData = Array.isArray(event.team) ? event.team[0] : event.team
+          const playerName = playerData?.name || 'Jugador desconocido'
+          const teamName = teamData?.name || 'Equipo desconocido'
+          const playerPhoto = playerData?.photo_url
           const teamId = event.team_id || ''
 
           switch (event.event_type) {
@@ -196,9 +199,12 @@ export function useTournamentStats(tournamentId: string) {
             )
             if (assistEvent) {
               const assistPlayerId = event.assist_player_id
-              const assistPlayerName = assistEvent.player?.name || 'Jugador desconocido'
-              const assistTeamName = assistEvent.team?.name || 'Equipo desconocido'
-              const assistPhoto = assistEvent.player?.photo_url
+              // Type assertion to handle potential array or object structure from Supabase join
+              const assistPlayerData = Array.isArray(assistEvent.player) ? assistEvent.player[0] : assistEvent.player
+              const assistTeamData = Array.isArray(assistEvent.team) ? assistEvent.team[0] : assistEvent.team
+              const assistPlayerName = assistPlayerData?.name || 'Jugador desconocido'
+              const assistTeamName = assistTeamData?.name || 'Equipo desconocido'
+              const assistPhoto = assistPlayerData?.photo_url
               const assistTeamId = assistEvent.team_id || ''
               
               if (assistCount[assistPlayerId]) {
@@ -347,9 +353,12 @@ async function fetchTournamentStats(
       if (!event) return
       
       const playerId = event.player_id
-      const playerName = event.player?.name || 'Jugador desconocido'
-      const teamName = event.team?.name || 'Equipo desconocido'
-      const playerPhoto = event.player?.photo_url
+      // Type assertion to handle potential array or object structure from Supabase join
+      const playerData = Array.isArray(event.player) ? event.player[0] : event.player
+      const teamData = Array.isArray(event.team) ? event.team[0] : event.team
+      const playerName = playerData?.name || 'Jugador desconocido'
+      const teamName = teamData?.name || 'Equipo desconocido'
+      const playerPhoto = playerData?.photo_url
       const teamId = event.team_id || ''
 
       switch (event.event_type) {
@@ -361,7 +370,7 @@ async function fetchTournamentStats(
             goalCount[playerId] = { 
               count: 1, 
               team_name: teamName, 
-              team_id, 
+              team_id: teamId, 
               player_name: playerName,
               player_photo_url: playerPhoto
             }
@@ -375,7 +384,7 @@ async function fetchTournamentStats(
             goalCount[playerId] = { 
               count: 1, 
               team_name: teamName, 
-              team_id, 
+              team_id: teamId, 
               player_name: playerName,
               player_photo_url: playerPhoto
             }
@@ -389,7 +398,7 @@ async function fetchTournamentStats(
             assistCount[playerId] = { 
               count: 1, 
               team_name: teamName, 
-              team_id, 
+              team_id: teamId, 
               player_name: playerName,
               player_photo_url: playerPhoto
             }
@@ -404,7 +413,7 @@ async function fetchTournamentStats(
               yellow: 1, 
               red: 0,
               team_name: teamName, 
-              team_id, 
+              team_id: teamId, 
               player_name: playerName,
               player_photo_url: playerPhoto
             }
@@ -419,7 +428,7 @@ async function fetchTournamentStats(
               yellow: 0, 
               red: 1,
               team_name: teamName, 
-              team_id, 
+              team_id: teamId, 
               player_name: playerName,
               player_photo_url: playerPhoto
             }
@@ -442,9 +451,12 @@ async function fetchTournamentStats(
           // Buscamos información del jugador que asistió
           const assistPlayerEvent = events.find(e => e && e.player_id === assistPlayerId)
           if (assistPlayerEvent) {
-            const assistPlayerName = assistPlayerEvent.player?.name || 'Jugador desconocido'
-            const assistTeamName = assistPlayerEvent.team?.name || 'Equipo desconocido'
-            const assistPhoto = assistPlayerEvent.player?.photo_url
+            // Type assertion to handle potential array or object structure from Supabase join
+            const assistPlayerData = Array.isArray(assistPlayerEvent.player) ? assistPlayerEvent.player[0] : assistPlayerEvent.player
+            const assistTeamData = Array.isArray(assistPlayerEvent.team) ? assistPlayerEvent.team[0] : assistPlayerEvent.team
+            const assistPlayerName = assistPlayerData?.name || 'Jugador desconocido'
+            const assistTeamName = assistTeamData?.name || 'Equipo desconocido'
+            const assistPhoto = assistPlayerData?.photo_url
             const assistTeamId = assistPlayerEvent.team_id || ''
             
             if (assistCount[assistPlayerId]) {

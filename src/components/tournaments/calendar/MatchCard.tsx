@@ -46,23 +46,23 @@ export function MatchCard({ match, teams, onViewDetails }: MatchCardProps) {
       {/* Match Teams - Teams on sides with score perfectly centered */}
       <div className="flex items-center justify-between">
         {/* Home Team - Left side */}
-        <div className="flex items-center space-x-3 flex-1 min-w-0">
+        <div className="flex items-center space-x-2 flex-1 min-w-0">
           {homeTeam?.logo_url ? (
             <img 
               src={homeTeam.logo_url} 
               alt={homeTeam.name} 
-              className="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-blue-500/30"
+              className="w-8 h-8 rounded-full object-cover flex-shrink-0 border-2 border-blue-500/30"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 border-2 border-blue-500/30">
-              <span className="text-white font-bold text-sm">
-                {homeTeam?.name ? homeTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 border-2 border-blue-500/30">
+              <span className="text-white font-bold text-xs">
+                {homeTeam?.name ? homeTeam.name.replace(/\s+/g, '').substring(0, 3).toUpperCase() : 'TBD'}
               </span>
             </div>
           )}
           <div className="min-w-0">
             <p className="text-white font-medium text-sm sm:hidden truncate">
-              {homeTeam?.name ? homeTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
+              {homeTeam?.name ? homeTeam.name.replace(/\s+/g, '').substring(0, 3).toUpperCase() : 'TBD'}
             </p>
             <p className="text-white font-medium hidden sm:block text-base truncate">
               {homeTeam?.name || 'TBD'}
@@ -70,22 +70,22 @@ export function MatchCard({ match, teams, onViewDetails }: MatchCardProps) {
           </div>
         </div>
         
-        {/* Score in center - Perfectly centered with fixed width */}
-        <div className="mx-4 flex-shrink-0">
+        {/* Score in center - Perfectly centered with smaller width on mobile */}
+        <div className="mx-2 flex-shrink-0">
           {match.status === 'completed' ? (
-            <div className="text-2xl sm:text-3xl font-bold text-green-400 min-w-[80px] text-center">
-              {match.home_score} - {match.away_score}
+            <div className="text-lg sm:text-2xl font-bold text-green-400 min-w-[50px] text-center">
+              {match.home_score}-{match.away_score}
             </div>
           ) : (
-            <span className="text-gray-400 text-base sm:text-lg font-medium min-w-[80px] text-center block">VS</span>
+            <span className="text-gray-400 text-sm sm:text-base font-medium min-w-[50px] text-center block">VS</span>
           )}
         </div>
         
         {/* Away Team - Right side */}
-        <div className="flex items-center space-x-3 flex-1 min-w-0 justify-end">
+        <div className="flex items-center space-x-2 flex-1 min-w-0 justify-end">
           <div className="min-w-0 text-right">
             <p className="text-white font-medium text-sm sm:hidden truncate">
-              {awayTeam?.name ? awayTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
+              {awayTeam?.name ? awayTeam.name.replace(/\s+/g, '').substring(0, 3).toUpperCase() : 'TBD'}
             </p>
             <p className="text-white font-medium hidden sm:block text-base truncate">
               {awayTeam?.name || 'TBD'}
@@ -95,12 +95,12 @@ export function MatchCard({ match, teams, onViewDetails }: MatchCardProps) {
             <img 
               src={awayTeam.logo_url} 
               alt={awayTeam.name} 
-              className="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-red-500/30"
+              className="w-8 h-8 rounded-full object-cover flex-shrink-0 border-2 border-red-500/30"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center flex-shrink-0 border-2 border-red-500/30">
-              <span className="text-white font-bold text-sm">
-                {awayTeam?.name ? awayTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center flex-shrink-0 border-2 border-red-500/30">
+              <span className="text-white font-bold text-xs">
+                {awayTeam?.name ? awayTeam.name.replace(/\s+/g, '').substring(0, 3).toUpperCase() : 'TBD'}
               </span>
             </div>
           )}
