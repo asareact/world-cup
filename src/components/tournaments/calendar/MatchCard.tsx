@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Match, Team } from '@/lib/database'
-import { Clock, Users } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import { getNormalizedCubanTime } from '@/lib/utils/time-utils'
 
 interface MatchCardProps {
@@ -17,88 +17,100 @@ export function MatchCard({ match, teams, onViewDetails }: MatchCardProps) {
   const awayTeam = Array.isArray(teams) ? teams.find(team => team.id === match.away_team_id) : null
 
   // Get match time
-  const originalTime = match.scheduled_at ? match.scheduled_at.split('T')[1].substring(0, 5) : 'Por definir'
   const normalizedTime = match.scheduled_at ? getNormalizedCubanTime(match.scheduled_at) : 'Por definir'
 
   return (
     <div 
-      className="p-4 rounded-xl border border-gray-600 bg-gradient-to-r from-gray-700/50 to-gray-800/50 hover:from-gray-600/50 hover:to-gray-700/50 transition-all duration-200 shadow-md hover:shadow-lg"
+      className="bg-gradient-to-br from-gray-800/80 to-gray-900/60 border border-gray-700/50 rounded-2xl p-4 transition-all duration-200 hover:shadow-lg hover:shadow-gray-900/30 cursor-pointer"
+      onClick={() => onViewDetails(match)}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between">
-        <div className="flex items-center justify-between sm:justify-start mb-3 sm:mb-0">
-          <div className="flex items-center bg-gray-800/60 px-3 py-1.5 rounded-lg">
-            <Clock className="h-4 w-4 text-green-400 mr-2 flex-shrink-0" />
-            <span className="font-semibold text-white">{normalizedTime}</span>
-          </div>
+      {/* Header with time and status - Centered for both mobile and desktop */}
+      <div className="flex items-center justify-center mb-4">
+        <div className="flex items-center bg-gray-700/60 px-3 py-1.5 rounded-lg">
+          <Clock className="h-4 w-4 text-green-400 mr-2" />
+          <span className="text-white font-medium text-sm">{normalizedTime}</span>
         </div>
+        <div className="ml-3">
+          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+            match.status === 'completed' ? 'bg-green-900/50 text-green-300' :
+            match.status === 'in_progress' ? 'bg-yellow-900/50 text-yellow-300' :
+            'bg-blue-900/50 text-blue-300'
+          }`}>
+            {match.status === 'completed' ? 'Finalizado' : 
+             match.status === 'in_progress' ? 'En juego' : 
+             'Pendiente'}
+          </span>
+        </div>
+      </div>
 
-        <div className="flex-1 min-w-0 mx-4">
-          <div className="flex items-center">
-            <div className="flex items-center flex-1 min-w-0">
-              {homeTeam?.logo_url ? (
-                <img 
-                  src={homeTeam.logo_url} 
-                  alt={homeTeam.name} 
-                  className="w-8 h-8 rounded-full object-cover mr-2 flex-shrink-0"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center mr-2 flex-shrink-0">
-                  <span className="text-white text-xs font-bold">
-                    {homeTeam?.name?.charAt(0) || 'T'}
-                  </span>
-                </div>
-              )}
-              <span className="text-white font-medium truncate flex-1 min-w-0">
-                {homeTeam?.name || 'TBD'}
+      {/* Match Teams - Teams on sides with score perfectly centered */}
+      <div className="flex items-center justify-between">
+        {/* Home Team - Left side */}
+        <div className="flex items-center space-x-3 flex-1 min-w-0">
+          {homeTeam?.logo_url ? (
+            <img 
+              src={homeTeam.logo_url} 
+              alt={homeTeam.name} 
+              className="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-blue-500/30"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 border-2 border-blue-500/30">
+              <span className="text-white font-bold text-sm">
+                {homeTeam?.name ? homeTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
               </span>
             </div>
-            
-            <span className="text-green-400 font-bold mx-3 flex-shrink-0 text-lg">vs</span>
-            
-            <div className="flex items-center flex-1 min-w-0 justify-end">
-              <span className="text-white font-medium truncate flex-1 min-w-0 text-right">
-                {awayTeam?.name || 'TBD'}
-              </span>
-              {awayTeam?.logo_url ? (
-                <img 
-                  src={awayTeam.logo_url} 
-                  alt={awayTeam.name} 
-                  className="w-8 h-8 rounded-full object-cover ml-2 flex-shrink-0"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center ml-2 flex-shrink-0">
-                  <span className="text-white text-xs font-bold">
-                    {awayTeam?.name?.charAt(0) || 'T'}
-                  </span>
-                </div>
-              )}
-            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-white font-medium text-sm sm:hidden truncate">
+              {homeTeam?.name ? homeTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
+            </p>
+            <p className="text-white font-medium hidden sm:block text-base truncate">
+              {homeTeam?.name || 'TBD'}
+            </p>
           </div>
         </div>
         
-        <div className="min-w-[80px] text-center">
+        {/* Score in center - Perfectly centered with fixed width */}
+        <div className="mx-4 flex-shrink-0">
           {match.status === 'completed' ? (
-            <div className="text-xl font-bold text-green-400 bg-green-900/30 px-3 py-1 rounded-lg">
+            <div className="text-2xl sm:text-3xl font-bold text-green-400 min-w-[80px] text-center">
               {match.home_score} - {match.away_score}
             </div>
           ) : (
-            <div className="text-sm font-medium min-w-[80px]">
-              {match.status === 'in_progress' ? (
-                <span className="text-yellow-400 bg-yellow-900/30 px-2.5 py-1 rounded-full">En juego</span>
-              ) : (
-                <span className="text-blue-400 bg-blue-900/30 px-2.5 py-1 rounded-full">Pendiente</span>
-              )}
+            <span className="text-gray-400 text-base sm:text-lg font-medium min-w-[80px] text-center block">VS</span>
+          )}
+        </div>
+        
+        {/* Away Team - Right side */}
+        <div className="flex items-center space-x-3 flex-1 min-w-0 justify-end">
+          <div className="min-w-0 text-right">
+            <p className="text-white font-medium text-sm sm:hidden truncate">
+              {awayTeam?.name ? awayTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
+            </p>
+            <p className="text-white font-medium hidden sm:block text-base truncate">
+              {awayTeam?.name || 'TBD'}
+            </p>
+          </div>
+          {awayTeam?.logo_url ? (
+            <img 
+              src={awayTeam.logo_url} 
+              alt={awayTeam.name} 
+              className="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-red-500/30"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center flex-shrink-0 border-2 border-red-500/30">
+              <span className="text-white font-bold text-sm">
+                {awayTeam?.name ? awayTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
+              </span>
             </div>
           )}
         </div>
       </div>
       
-      <button 
-        onClick={() => onViewDetails(match)}
-        className="mt-3 w-full py-2 text-blue-400 hover:text-blue-300 transition-colors text-sm font-medium underline decoration-transparent hover:decoration-blue-400"
-      >
-        Ver detalles
-      </button>
+      {/* "Ver detalles" button is now handled by the whole card being clickable */}
+      <div className="mt-4 pt-3 border-t border-gray-700/50 flex justify-center">
+        <span className="text-blue-400 text-xs font-medium">Ver detalles →</span>
+      </div>
     </div>
   )
 }

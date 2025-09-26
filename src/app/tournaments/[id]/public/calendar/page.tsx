@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
-import { useTournament } from '@/lib/hooks/use-tournament'
-import { useAuth } from '@/lib/auth-context'
-import { TournamentPublicLayout } from '@/components/tournaments/tournament-public-layout'
-import { Loader2 } from 'lucide-react'
-import type { Team, Match } from '@/lib/database'
 import { TournamentRoundCalendar } from '@/components/tournaments/calendar'
+import { TournamentPublicLayout } from '@/components/tournaments/tournament-public-layout'
+import { useAuth } from '@/lib/auth-context'
+import type { Team } from '@/lib/database'
+import { useTournament } from '@/lib/hooks/use-tournament'
+import { Loader2 } from 'lucide-react'
+import { useParams } from 'next/navigation'
 
 export default function TournamentCalendarPage() {
   const params = useParams<{ id: string }>()
@@ -95,6 +94,7 @@ export default function TournamentCalendarPage() {
       { href: `/tournaments/${tournamentId}/public?section=repechage`, label: 'Repechaje' },
       { href: `/tournaments/${tournamentId}/public?section=top-scorers`, label: 'Goleadores' },
       { href: `/tournaments/${tournamentId}/public?section=ideal-5`, label: 'Ideal 5' },
+      { href: `/tournaments/${tournamentId}/public?section=match-stats`, label: 'Estadísticas' },
     ]}>
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">

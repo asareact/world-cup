@@ -1,6 +1,7 @@
-'use client'
+'use client';
 
-import { Trophy, Users, Calendar, Target, Award, Shuffle, BarChart3 } from 'lucide-react'
+import { useState } from 'react';
+import { Calendar, Trophy, Users, Shuffle, Target, Award, BarChart3 } from 'lucide-react';
 
 interface Anchor {
   href: string;
@@ -63,7 +64,7 @@ export function MobileNavigation({
               className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg flex-shrink-0 min-w-[70px] transition-colors ${
                 isActive
                   ? 'bg-green-600 text-white'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
               }`}
             >
               <Icon className="h-5 w-5 mb-1" />

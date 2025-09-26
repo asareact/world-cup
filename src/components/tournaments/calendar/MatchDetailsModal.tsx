@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, User, Users, Calendar as CalendarIcon } from 'lucide-react'
+import { X, User, Users, Calendar as CalendarIcon, Goal, Square, RotateCcw } from 'lucide-react'
+import type { MatchEvent } from '@/lib/database'
 
 // Assuming Match and Team interfaces are defined locally or imported differently
 interface Match {
@@ -14,6 +15,7 @@ interface Match {
   scheduled_at: string | null
   venue: string | null
   round_name: string | null
+  tournament_id: string | null
   // Add other properties as needed
 }
 
@@ -35,6 +37,21 @@ interface Player {
   id?: string
   name?: string
   is_captain?: boolean
+}
+
+// Define extended MatchEvent interface with assist player information
+interface ExtendedMatchEvent {
+  id: string
+  match_id: string
+  player_id: string | null
+  team_id: string | null
+  event_type: 'goal' | 'yellow_card' | 'red_card' | 'substitution' | 'own_goal' | 'assist'
+  minute: number | null
+  description: string | null
+  player?: { id: string; name: string } | null
+  team?: { id: string; name: string } | null
+  assist_player?: { id: string; name: string } | null // Added for assists
+  created_at: string
 }
 
 // Helper function to load and sort team players
@@ -102,24 +119,55 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
   const [homeTeamPlayers, setHomeTeamPlayers] = useState<Player[]>([])
   const [awayTeamPlayers, setAwayTeamPlayers] = useState<Player[]>([])
   const [loadingPlayers, setLoadingPlayers] = useState({ home: true, away: true })
+  const [matchEvents, setMatchEvents] = useState<ExtendedMatchEvent[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(true)
   const [activeTab, setActiveTab] = useState<'home' | 'away'>('home')
 
-  // Load players when match changes
+  // Load players and events when match changes
   useEffect(() => {
     if (match && isOpen) {
-      loadTeamPlayers()
+      loadMatchData()
     }
   }, [match, isOpen])
 
-  const loadTeamPlayers = async () => {
+  const loadMatchData = async () => {
     if (!match) return
 
     // Reset loading states
     setLoadingPlayers({ home: true, away: true })
+    
+    // Don't load events if match status is 'scheduled' (pending)
+    if (match.status === 'scheduled') {
+      setLoadingEvents(false)
+      setMatchEvents([])
+    } else {
+      setLoadingEvents(true)
+    }
+    
     setHomeTeamPlayers([])
     setAwayTeamPlayers([])
+    setMatchEvents([])
 
     try {
+      // Load match events only if match is not scheduled (pending)
+      if (match.tournament_id && match.status !== 'scheduled') {
+        try {
+          const response = await fetch(`/api/tournaments/${match.tournament_id}/match-events`)
+          if (response.ok) {
+            const events = await response.json()
+            // Filter events to only include those for this specific match
+            const filteredEvents = events.filter((event: ExtendedMatchEvent) => event.match_id === match.id)
+            setMatchEvents(filteredEvents)
+          }
+        } catch (error) {
+          console.error('Error loading match events:', error)
+        } finally {
+          setLoadingEvents(false)
+        }
+      } else {
+        setLoadingEvents(false)
+      }
+
       // Load home team players
       if (match.home_team_id) {
         try {
@@ -148,8 +196,9 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
         setLoadingPlayers(prev => ({ ...prev, away: false }))
       }
     } catch (error) {
-      console.error('Error loading team players:', error)
+      console.error('Error loading match data:', error)
       setLoadingPlayers({ home: false, away: false })
+      setLoadingEvents(false)
     }
   }
 
@@ -159,10 +208,76 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
   const homeTeam = teams?.find(team => team.id === match.home_team_id) || null
   const awayTeam = teams?.find(team => team.id === match.away_team_id) || null
 
+  // Group events by team
+  const homeTeamEvents = matchEvents.filter(event => event.team_id === match.home_team_id)
+  const awayTeamEvents = matchEvents.filter(event => event.team_id === match.away_team_id)
+
+  // Separate goals, cards, and assists
+  const getTeamEventsByType = (events: MatchEvent[], type: string) => {
+    return events.filter(event => event.event_type === type)
+  }
+
+  // Separate players with events 
+  const getPlayersWithEvents = (teamId: string | null, events: ExtendedMatchEvent[]) => {
+    if (!teamId) return []
+    
+    // Sort events by minute to ensure chronological order
+    const sortedEvents = [...events].sort((a, b) => {
+      if (a.minute === null && b.minute === null) return 0;
+      if (a.minute === null) return 1;
+      if (b.minute === null) return -1;
+      return a.minute - b.minute;
+    });
+    
+    // Get unique players who had events
+    const playerIds = Array.from(new Set(sortedEvents.map(event => event.player_id).filter(id => id !== null))) as string[]
+    
+    // For each player, collect all their events (already sorted)
+    return playerIds.map(playerId => {
+      const playerEvents = sortedEvents.filter(event => event.player_id === playerId)
+      const player = playerEvents[0]?.player || { name: 'Jugador desconocido' }
+      return {
+        id: playerId,
+        name: player.name,
+        events: playerEvents
+      }
+    })
+  }
+
+  // Get players with events for each team
+  const homePlayersWithEvents = getPlayersWithEvents(match.home_team_id, homeTeamEvents)
+  const awayPlayersWithEvents = getPlayersWithEvents(match.away_team_id, awayTeamEvents)
+
   // Get current players based on active tab
   const currentPlayers = activeTab === 'home' ? homeTeamPlayers : awayTeamPlayers
   const currentTeam = activeTab === 'home' ? homeTeam : awayTeam
+  const currentTeamEvents = activeTab === 'home' ? homeTeamEvents : awayTeamEvents
+  const currentPlayersWithEvents = activeTab === 'home' ? homePlayersWithEvents : awayPlayersWithEvents
   const isLoading = activeTab === 'home' ? loadingPlayers.home : loadingPlayers.away
+
+  // Function to get icon for event type
+  const getEventIcon = (eventType: string) => {
+    switch (eventType) {
+      case 'goal':
+        return <Goal className="h-4 w-4 text-green-500" />
+      case 'own_goal':
+        return <RotateCcw className="h-4 w-4 text-red-500" />
+      case 'yellow_card':
+        return <Square className="h-4 w-4 text-yellow-500" />
+      case 'red_card':
+        return <Square className="h-4 w-4 text-red-500" />
+      default:
+        return <User className="h-3 w-3 text-gray-400" />
+    }
+  }
+
+  // Function to get assist info for a goal
+  const getAssistInfo = (event: ExtendedMatchEvent) => {
+    if (event.event_type === 'goal' && event.assist_player) {
+      return ` (asist: ${event.assist_player.name})`
+    }
+    return ''
+  }
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -197,7 +312,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                 ) : (
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center border-2 border-blue-500/30 mb-2">
                     <span className="text-white font-bold text-xl">
-                      {homeTeam?.name?.charAt(0) || 'T'}
+                      {homeTeam?.name ? homeTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
                     </span>
                   </div>
                 )}
@@ -228,7 +343,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                 ) : (
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center border-2 border-red-500/30 mb-2">
                     <span className="text-white font-bold text-xl">
-                      {awayTeam?.name?.charAt(0) || 'T'}
+                      {awayTeam?.name ? awayTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
                     </span>
                   </div>
                 )}
@@ -293,7 +408,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
             </button>
           </div>
           
-          {/* Lista de jugadores del equipo activo */}
+          {/* Eventos del equipo activo */}
           <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700/50 shadow-lg">
             <div className="flex items-center mb-3 pb-2 border-b border-gray-700/30">
               {currentTeam?.logo_url ? (
@@ -305,7 +420,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
               ) : (
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center mr-2">
                   <span className="text-white font-bold text-sm">
-                    {currentTeam?.name?.charAt(0) || 'T'}
+                    {currentTeam?.name ? currentTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
                   </span>
                 </div>
               )}
@@ -321,40 +436,53 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
               </span>
             </div>
             
+            {/* Eventos del equipo (goles, tarjetas) */}
             <div className="space-y-2">
-              <h5 className="text-gray-400 font-medium text-sm uppercase tracking-wide">Jugadores</h5>
-              {isLoading ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {[...Array(6)].map((_, idx) => (
-                    <div key={idx} className="flex items-center py-2 px-3 rounded-lg bg-gray-700/30 animate-pulse">
-                      <div className="w-6 h-6 rounded-full bg-gray-700 mr-2 flex-shrink-0"></div>
-                      <div className="h-3 bg-gray-700 rounded flex-1"></div>
+              <h5 className="text-gray-400 font-medium text-sm uppercase tracking-wide">Eventos</h5>
+              {loadingEvents ? (
+                <div className="space-y-2">
+                  {[...Array(3)].map((_, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 animate-pulse">
+                      <div className="flex items-center">
+                        <div className="mr-3 w-4 h-4 rounded-full bg-gray-600"></div>
+                        <div className="h-4 bg-gray-600 rounded flex-1 max-w-[100px]"></div>
+                      </div>
+                      <div className="h-3 bg-gray-600 rounded w-10"></div>
                     </div>
                   ))}
                 </div>
-              ) : currentPlayers.length > 0 ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {currentPlayers.map((player, idx) => (
-                    <div key={player.id || idx} className="flex items-center py-2 px-3 rounded-lg hover:bg-gray-700/30 transition-colors">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-2 flex-shrink-0 ${
-                        player.is_captain ? 'bg-gradient-to-br from-yellow-500 to-orange-500' : 'bg-gray-700'
-                      }`}>
-                        <User className="h-3 w-3 text-white" />
+              ) : currentPlayersWithEvents.length > 0 ? (
+                <div className="space-y-1">
+                  {currentPlayersWithEvents.map((player) => (
+                    player.events.map((event, idx) => (
+                      <div key={`${player.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
+                        <div className="flex items-center">
+                          <div className="mr-3">
+                            {getEventIcon(event.event_type)}
+                          </div>
+                          <span className="text-white text-sm font-medium">
+                            {player.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center">
+                          {event.minute && (
+                            <span className="text-gray-400 text-xs mr-2">
+                              {event.minute}&apos;
+                            </span>
+                          )}
+                          {event.event_type === 'goal' && event.assist_player && (
+                            <span className="text-gray-500 text-xs italic">
+                              (asist: {event.assist_player.name})
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-white text-sm font-medium truncate">
-                        {player.name || `Jugador ${idx + 1}`}
-                      </span>
-                      {player.is_captain && (
-                        <span className="ml-1 px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 text-xs font-medium rounded-full whitespace-nowrap">
-                          Cap
-                        </span>
-                      )}
-                    </div>
+                    ))
                   ))}
                 </div>
               ) : (
                 <div className="text-gray-500 text-center py-4 italic">
-                  No hay jugadores registrados
+                  No hay eventos registrados
                 </div>
               )}
             </div>
@@ -396,7 +524,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                     ) : (
                       <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center border-4 border-blue-500/30 shadow-xl">
                         <span className="text-white font-bold text-3xl">
-                          {homeTeam?.name?.charAt(0) || 'T'}
+                          {homeTeam?.name ? homeTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
                         </span>
                       </div>
                     )}
@@ -437,7 +565,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                     ) : (
                       <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center border-4 border-red-500/30 shadow-xl">
                         <span className="text-white font-bold text-3xl">
-                          {awayTeam?.name?.charAt(0) || 'T'}
+                          {awayTeam?.name ? awayTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
                         </span>
                       </div>
                     )}
@@ -500,7 +628,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center mr-3">
                     <span className="text-white font-bold">
-                      {homeTeam?.name?.charAt(0) || 'T'}
+                      {homeTeam?.name ? homeTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
                     </span>
                   </div>
                 )}
@@ -512,40 +640,53 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                 </span>
               </div>
               
-              <div className="space-y-3">
-                <h5 className="text-gray-400 font-medium text-sm uppercase tracking-wide">Jugadores</h5>
-                {loadingPlayers.home ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {[...Array(6)].map((_, idx) => (
-                      <div key={idx} className="flex items-center py-2 px-3 rounded-lg bg-gray-700/30 animate-pulse">
-                        <div className="w-6 h-6 rounded-full bg-gray-700 mr-2 flex-shrink-0"></div>
-                        <div className="h-3 bg-gray-700 rounded flex-1"></div>
+              {/* Eventos del equipo local */}
+              <div className="space-y-2">
+                <h5 className="text-gray-400 font-medium text-sm uppercase tracking-wide">Eventos</h5>
+                {loadingEvents ? (
+                  <div className="space-y-2">
+                    {[...Array(3)].map((_, idx) => (
+                      <div key={idx} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 animate-pulse">
+                        <div className="flex items-center">
+                          <div className="mr-3 w-4 h-4 rounded-full bg-gray-600"></div>
+                          <div className="h-4 bg-gray-600 rounded flex-1 max-w-[120px]"></div>
+                        </div>
+                        <div className="h-3 bg-gray-600 rounded w-10"></div>
                       </div>
                     ))}
                   </div>
-                ) : homeTeamPlayers.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {homeTeamPlayers.map((player, idx) => (
-                      <div key={player.id || idx} className="flex items-center py-2 px-3 rounded-lg hover:bg-gray-700/30 transition-colors">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-2 flex-shrink-0 ${
-                          player.is_captain ? 'bg-gradient-to-br from-yellow-500 to-orange-500' : 'bg-gray-700'
-                        }`}>
-                          <User className="h-3 w-3 text-white" />
+                ) : homePlayersWithEvents.length > 0 ? (
+                  <div className="space-y-1">
+                    {homePlayersWithEvents.map((player) => (
+                      player.events.map((event, idx) => (
+                        <div key={`${player.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
+                          <div className="flex items-center">
+                            <div className="mr-3">
+                              {getEventIcon(event.event_type)}
+                            </div>
+                            <span className="text-white text-sm font-medium">
+                              {player.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center">
+                            {event.minute && (
+                              <span className="text-gray-400 text-xs mr-2">
+                                {event.minute}&apos;
+                              </span>
+                            )}
+                            {event.event_type === 'goal' && event.assist_player && (
+                              <span className="text-gray-500 text-xs italic">
+                                (asist: {event.assist_player.name})
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-white text-sm font-medium truncate">
-                          {player.name || `Jugador ${idx + 1}`}
-                        </span>
-                        {player.is_captain && (
-                          <span className="ml-2 px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 text-xs font-medium rounded-full whitespace-nowrap">
-                            Cap
-                          </span>
-                        )}
-                      </div>
+                      ))
                     ))}
                   </div>
                 ) : (
-                  <div className="text-gray-500 text-center py-4 italic">
-                    No hay jugadores registrados
+                  <div className="text-gray-500 text-center py-6 italic">
+                    No hay eventos registrados
                   </div>
                 )}
               </div>
@@ -564,7 +705,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center mr-3">
                       <span className="text-white font-bold">
-                        {awayTeam?.name?.charAt(0) || 'T'}
+                        {awayTeam?.name ? awayTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
                       </span>
                     </div>
                   )}
@@ -577,40 +718,53 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                 </span>
               </div>
               
-              <div className="space-y-3">
-                <h5 className="text-gray-400 font-medium text-sm uppercase tracking-wide">Jugadores</h5>
-                {loadingPlayers.away ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {[...Array(6)].map((_, idx) => (
-                      <div key={idx} className="flex items-center py-2 px-3 rounded-lg bg-gray-700/30 animate-pulse">
-                        <div className="w-6 h-6 rounded-full bg-gray-700 mr-2 flex-shrink-0"></div>
-                        <div className="h-3 bg-gray-700 rounded flex-1"></div>
+              {/* Eventos del equipo visitante */}
+              <div className="space-y-2">
+                <h5 className="text-gray-400 font-medium text-sm uppercase tracking-wide">Eventos</h5>
+                {loadingEvents ? (
+                  <div className="space-y-2">
+                    {[...Array(3)].map((_, idx) => (
+                      <div key={idx} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 animate-pulse">
+                        <div className="flex items-center">
+                          <div className="mr-3 w-4 h-4 rounded-full bg-gray-600"></div>
+                          <div className="h-4 bg-gray-600 rounded flex-1 max-w-[120px]"></div>
+                        </div>
+                        <div className="h-3 bg-gray-600 rounded w-10"></div>
                       </div>
                     ))}
                   </div>
-                ) : awayTeamPlayers.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {awayTeamPlayers.map((player, idx) => (
-                      <div key={player.id || idx} className="flex items-center py-2 px-3 rounded-lg hover:bg-gray-700/30 transition-colors">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-2 flex-shrink-0 ${
-                          player.is_captain ? 'bg-gradient-to-br from-yellow-500 to-orange-500' : 'bg-gray-700'
-                        }`}>
-                          <User className="h-3 w-3 text-white" />
+                ) : awayPlayersWithEvents.length > 0 ? (
+                  <div className="space-y-1">
+                    {awayPlayersWithEvents.map((player) => (
+                      player.events.map((event, idx) => (
+                        <div key={`${player.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
+                          <div className="flex items-center">
+                            <div className="mr-3">
+                              {getEventIcon(event.event_type)}
+                            </div>
+                            <span className="text-white text-sm font-medium">
+                              {player.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center">
+                            {event.minute && (
+                              <span className="text-gray-400 text-xs mr-2">
+                                {event.minute}&apos;
+                              </span>
+                            )}
+                            {event.event_type === 'goal' && event.assist_player && (
+                              <span className="text-gray-500 text-xs italic">
+                                (asist: {event.assist_player.name})
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-white text-sm font-medium truncate">
-                          {player.name || `Jugador ${idx + 1}`}
-                        </span>
-                        {player.is_captain && (
-                          <span className="ml-2 px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 text-xs font-medium rounded-full whitespace-nowrap">
-                            Cap
-                          </span>
-                        )}
-                      </div>
+                      ))
                     ))}
                   </div>
                 ) : (
-                  <div className="text-gray-500 text-center py-4 italic">
-                    No hay jugadores registrados
+                  <div className="text-gray-500 text-center py-6 italic">
+                    No hay eventos registrados
                   </div>
                 )}
               </div>

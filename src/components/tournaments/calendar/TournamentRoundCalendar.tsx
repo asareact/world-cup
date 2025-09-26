@@ -197,36 +197,35 @@ export function TournamentRoundCalendar({
   }
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+    <div className="bg-gray-900/40 border border-gray-800/50 rounded-2xl p-4 sm:p-5 backdrop-blur-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-3">
         <div className="flex items-center">
-          <div className="relative">
-            <div className="absolute inset-0 bg-green-500 rounded-full blur-md opacity-30"></div>
-            <CalendarIcon className="h-7 w-7 text-green-400 mr-3 relative" />
+          <div className="mr-3 p-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl">
+            <CalendarIcon className="h-6 w-6 text-white" />
           </div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-300 bg-clip-text text-transparent">
+          <h2 className="text-xl font-bold text-white">
             Calendario de Partidos
           </h2>
         </div>
         
         {isAdmin && (
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap sm:flex-nowrap gap-2">
             {isEditing ? (
               <>
                 <button
                   onClick={saveSchedule}
                   disabled={isLoading}
-                  className="flex items-center px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:transform-none shadow-md"
+                  className="flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50"
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  Guardar Calendario
+                  <span className="text-sm">Guardar</span>
                 </button>
                 <button
                   onClick={() => setIsEditing(false)}
-                  className="flex items-center px-5 py-2.5 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all transform hover:scale-[1.02] shadow-md"
+                  className="flex items-center px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all"
                 >
                   <X className="h-4 w-4 mr-2" />
-                  Cancelar
+                  <span className="text-sm">Cancelar</span>
                 </button>
               </>
             ) : (
@@ -287,10 +286,10 @@ export function TournamentRoundCalendar({
                     alert('No hay equipos registrados para generar el calendario');
                   }
                 }}
-                className="flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:scale-[1.02] shadow-md"
+                className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all"
               >
                 <Edit3 className="h-4 w-4 mr-2" />
-                Generar Calendario
+                <span className="text-sm">Generar</span>
               </button>
             )}
           </div>
@@ -298,17 +297,14 @@ export function TournamentRoundCalendar({
       </div>
       
       {rounds.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="relative inline-block mb-6">
-            <div className="absolute -inset-4 bg-green-500/20 rounded-2xl blur-lg"></div>
-            <div className="relative bg-gray-800/50 p-5 rounded-2xl border border-gray-700">
-              <CalendarIcon className="h-12 w-12 text-green-500 mx-auto" />
-            </div>
+        <div className="text-center py-10">
+          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center mb-4">
+            <CalendarIcon className="h-8 w-8 text-white" />
           </div>
-          <h3 className="text-xl font-bold text-white mb-3">No hay partidos programados</h3>
-          <p className="text-gray-400 max-w-md mx-auto">
+          <h3 className="text-lg font-bold text-white mb-2">No hay partidos programados</h3>
+          <p className="text-gray-400 max-w-md mx-auto text-sm">
             {isAdmin 
-              ? "Haz clic en 'Generar Calendario' para crear el calendario de partidos" 
+              ? "Haz clic en 'Generar' para crear el calendario de partidos" 
               : "El calendario de partidos estará disponible próximamente"}
           </p>
         </div>
@@ -332,8 +328,8 @@ export function TournamentRoundCalendar({
       
       {/* Info box for non-admin users */}
       {!isAdmin && rounds.length > 0 && (
-        <div className="mt-6 p-4 bg-blue-900/20 border border-blue-800/50 rounded-lg">
-          <p className="text-blue-300 text-sm">
+        <div className="mt-5 p-3 bg-blue-900/20 border border-blue-800/30 rounded-lg">
+          <p className="text-blue-300 text-xs">
             <strong>Nota:</strong> Esta vista es solo lectura. 
             Los horarios y fechas pueden ser modificados por los administradores.
           </p>
