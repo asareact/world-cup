@@ -8,6 +8,9 @@ interface StandingsEntry {
   position: number
   team: Team
   played: number
+  wins: number
+  draws: number
+  losses: number
   points: number
   goalsFor: number
   goalsAgainst: number
@@ -45,6 +48,9 @@ const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] =
       position: 0, // Will be calculated later
       team,
       played: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
       points: 0,
       goalsFor: 0,
       goalsAgainst: 0,
@@ -80,6 +86,9 @@ const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] =
             updated_at: new Date().toISOString(),
           },
           played: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
           points: 0,
           goalsFor: 0,
           goalsAgainst: 0,
@@ -105,6 +114,9 @@ const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] =
             updated_at: new Date().toISOString(),
           },
           played: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
           points: 0,
           goalsFor: 0,
           goalsAgainst: 0,
@@ -128,14 +140,20 @@ const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] =
       standingsMap[awayTeamId].goalsAgainst += homeGoals;
       standingsMap[awayTeamId].goalDifference = standingsMap[awayTeamId].goalsFor - standingsMap[awayTeamId].goalsAgainst;
       
-      // Update points (3 for win, 1 for draw, 0 for loss)
+      // Update points (3 for win, 1 for draw, 0 for loss) and match results
       if (homeGoals > awayGoals) {
         standingsMap[homeTeamId].points += 3; // Home win
+        standingsMap[homeTeamId].wins += 1;
+        standingsMap[awayTeamId].losses += 1;
       } else if (homeGoals < awayGoals) {
         standingsMap[awayTeamId].points += 3; // Away win
+        standingsMap[awayTeamId].wins += 1;
+        standingsMap[homeTeamId].losses += 1;
       } else {
         standingsMap[homeTeamId].points += 1; // Draw
         standingsMap[awayTeamId].points += 1; // Draw
+        standingsMap[homeTeamId].draws += 1;
+        standingsMap[awayTeamId].draws += 1;
       }
     });
 
@@ -220,6 +238,9 @@ export function TournamentStandings({
               <th className="py-3 px-4 text-left text-gray-400 font-medium text-sm">Pos</th>
               <th className="py-3 px-4 text-left text-gray-400 font-medium text-sm">Equipo</th>
               <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">PJ</th>
+              <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">G</th>
+              <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">E</th>
+              <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">P</th>
               <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">Pts</th>
               <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">GF</th>
               <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">GC</th>
@@ -265,6 +286,9 @@ export function TournamentStandings({
                   </div>
                 </td>
                 <td className="py-3 px-4 text-center text-gray-300">{entry.played}</td>
+                <td className="py-3 px-4 text-center text-gray-300">{entry.wins}</td>
+                <td className="py-3 px-4 text-center text-gray-300">{entry.draws}</td>
+                <td className="py-3 px-4 text-center text-gray-300">{entry.losses}</td>
                 <td className="py-3 px-4 text-center text-white font-bold">{entry.points}</td>
                 <td className="py-3 px-4 text-center text-gray-300">{entry.goalsFor}</td>
                 <td className="py-3 px-4 text-center text-gray-300">{entry.goalsAgainst}</td>
