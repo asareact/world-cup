@@ -392,6 +392,21 @@ export class DatabaseService {
     return data || []
   }
 
+  async getAllMatches() {
+    const { data, error } = await this.client
+      .from('matches')
+      .select(`
+        *,
+        home_team:teams!matches_home_team_id_fkey(id, name, logo_url),
+        away_team:teams!matches_away_team_id_fkey(id, name, logo_url),
+        tournament:tournaments(id, name)
+      `)
+      .order('scheduled_at', { ascending: true })
+
+    if (error) throw error
+    return data || []
+  }
+
   async createMatch(match: Omit<Match, 'id' | 'created_at' | 'updated_at'>) {
     const { data, error } = await this.client
       .from('matches')
@@ -409,6 +424,28 @@ export class DatabaseService {
       .update(updates)
       .eq('id', id)
       .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async getMatchWithPlayers(matchId: string) {
+    const { data, error } = await this.client
+      .from('matches')
+      .select(`
+        *,
+        home_team:teams!matches_home_team_id_fkey(
+          *,
+          players(*)
+        ),
+        away_team:teams!matches_away_team_id_fkey(
+          *,
+          players(*)
+        ),
+        tournament:tournaments(id, name)
+      `)
+      .eq('id', matchId)
       .single()
 
     if (error) throw error
@@ -554,6 +591,24 @@ export class DatabaseService {
       .single()
     if (error) throw error
     return data as JoinRequest
+  }
+
+  // Match finalization
+  async saveMatchResults(matchId: string, homeScore: number, awayScore: number, events: unknown[], playerIds: string[]) {
+    const { error } = await this.client.rpc('finalize_match', {
+      p_match_id: matchId,
+      p_home_score: homeScore,
+      p_away_score: awayScore,
+      p_events: events,
+      p_player_ids: playerIds,
+    });
+
+    if (error) {
+      console.error('Error finalizing match:', error);
+      throw error;
+    }
+
+    return { message: 'Match finalized successfully' };
   }
 
   // Dashboard statistics

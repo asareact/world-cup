@@ -92,10 +92,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (role === 'superAdmin') return true
     if (role === 'capitan') {
       // Capitán: Mi Equipo, Torneos, Reglas y Configuración
-      return item.id === 'teams' || item.id === 'tournaments' || item.id === 'rules' || item.id === 'settings'
+      return ['teams', 'tournaments', 'rules', 'settings'].includes(item.id)
+    }
+    if (role === 'arbitro') {
+      // Árbitro: Partidos, Torneos, Reglas y Configuración
+      return ['matches', 'tournaments', 'rules', 'settings'].includes(item.id)
     }
     // Invitado: Torneos, Reglas y Configuración
-    return item.id === 'tournaments' || item.id === 'rules' || item.id === 'settings'
+    return ['tournaments', 'rules', 'settings'].includes(item.id)
   }) : []
 
   useEffect(() => {
