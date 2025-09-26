@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Trophy, Users, Calendar, Shuffle, Target, Award, BarChart3, Square } from 'lucide-react';
 import { Team, Match } from '@/lib/database';
 
@@ -162,12 +162,28 @@ export function TournamentStandings({
   matches,
   onTeamClick
 }: TournamentStandingsProps) {
-  const [activeTab, setActiveTab] = useState<'overall' | 'home' | 'away'>('overall');
-  
   // Calculate overall standings
   const overallStandings = useMemo(() => {
     return calculateStandings(teams, matches);
   }, [teams, matches]);
+
+  // Determine classification status based on position
+  const getClassificationStatus = (position: number, totalTeams: number) => {
+    if (position <= 6) return 'qualified'; // Direct qualification (green)
+    else if (position <= 10) return 'repechaje'; // Repechaje (yellow)
+    else if (position >= totalTeams - 2) return 'eliminated'; // Direct elimination (red)
+    else return 'normal';
+  };
+
+  // Get classification color based on status
+  const getClassificationColor = (status: string) => {
+    switch (status) {
+      case 'qualified': return 'bg-green-500';
+      case 'repechaje': return 'bg-yellow-500';
+      case 'eliminated': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
 
   return (
     <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-4 md:p-6">
@@ -178,20 +194,22 @@ export function TournamentStandings({
         <p className="text-gray-400 mt-2">
           Sigue la clasificación de los equipos en tiempo real
         </p>
-      </div>
-      
-      {/* Tabs for different standings views */}
-      <div className="flex border-b border-gray-700 mb-6">
-        <button
-          className={`py-2 px-4 font-medium text-sm ${
-            activeTab === 'overall' 
-              ? 'text-green-400 border-b-2 border-green-400' 
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-          onClick={() => setActiveTab('overall')}
-        >
-          General
-        </button>
+        
+        {/* Legend for classification indicators */}
+        <div className="flex flex-wrap gap-4 mt-3">
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+            <span className="text-xs text-gray-400">Clasificados directos</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+            <span className="text-xs text-gray-400">Repechaje</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+            <span className="text-xs text-gray-400">Eliminados</span>
+          </div>
+        </div>
       </div>
       
       {/* Standings Table */}
@@ -209,13 +227,22 @@ export function TournamentStandings({
             </tr>
           </thead>
           <tbody>
-            {overallStandings.map((entry) => (
+            {overallStandings.map((entry) => {
+              const classificationStatus = getClassificationStatus(entry.position, overallStandings.length);
+              const classificationColor = getClassificationColor(classificationStatus);
+              
+              return (
               <tr 
                 key={entry.team.id} 
-                className="border-b border-gray-800 hover:bg-gray-800/30 transition-colors cursor-pointer"
+                className={`border-b border-gray-800 hover:bg-gray-800/30 transition-colors cursor-pointer ${classificationStatus === 'qualified' ? 'bg-green-900/10' : 
+                 classificationStatus === 'repechaje' ? 'bg-yellow-900/10' : 
+                 classificationStatus === 'eliminated' ? 'bg-red-900/10' : ''}`}
                 onClick={() => onTeamClick(entry.team.id)}
               >
-                <td className="py-3 px-4 text-gray-300 font-medium">{entry.position}</td>
+                <td className="py-3 px-4 text-gray-300 font-medium flex items-center">
+                    <div className={`w-1 h-6 ${classificationColor} rounded-full mr-3`}></div>
+                    {entry.position}
+                  </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center">
                     <div className="w-8 h-8 rounded-full overflow-hidden mr-3">
@@ -245,7 +272,7 @@ export function TournamentStandings({
                   {entry.goalDifference >= 0 ? '+' : ''}{entry.goalDifference}
                 </td>
               </tr>
-            ))}
+              )})}
           </tbody>
         </table>
       </div>
