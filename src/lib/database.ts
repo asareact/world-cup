@@ -52,6 +52,8 @@ export interface Match {
   tournament_id: string
   home_team_id: string | null
   away_team_id: string | null
+  home_team?: { id: string; name: string; logo_url?: string | null } | null
+  away_team?: { id: string; name: string; logo_url?: string | null } | null
   scheduled_at: string | null
   venue: string | null
   round_name: string | null
@@ -62,6 +64,21 @@ export interface Match {
   notes: string | null
   created_at: string
   updated_at: string
+}
+
+export interface MatchEvent {
+  id: string
+  match_id: string
+  player_id: string | null
+  team_id: string | null
+  assist_player_id?: string | null
+  event_type: 'goal' | 'yellow_card' | 'red_card' | 'substitution' | 'own_goal' | 'assist'
+  minute: number | null
+  description: string | null
+  player?: { name: string; photo_url: string | null; team_id: string } | { name: string; photo_url: string | null; team_id: string }[] | null
+  assist_player?: { name: string; photo_url: string | null; team_id: string } | { name: string; photo_url: string | null; team_id: string }[] | null
+  team?: { name: string } | { name: string }[] | null
+  created_at: string
 }
 
 export interface TournamentTeam {
@@ -136,8 +153,8 @@ export class DatabaseService {
         ),
         matches(
           *,
-          home_team:teams!matches_home_team_id_fkey(name, logo_url),
-          away_team:teams!matches_away_team_id_fkey(name, logo_url)
+          home_team:teams!matches_home_team_id_fkey(id, name, logo_url),
+          away_team:teams!matches_away_team_id_fkey(id, name, logo_url)
         )
       `)
       .eq('id', id)
@@ -364,9 +381,9 @@ export class DatabaseService {
       .from('matches')
       .select(`
         *,
-        home_team:teams!matches_home_team_id_fkey(name),
-        away_team:teams!matches_away_team_id_fkey(name),
-        winner_team:teams!matches_winner_team_id_fkey(name)
+        home_team:teams!matches_home_team_id_fkey(id, name),
+        away_team:teams!matches_away_team_id_fkey(id, name),
+        winner_team:teams!matches_winner_team_id_fkey(id, name)
       `)
       .eq('tournament_id', tournamentId)
       .order('scheduled_at', { ascending: true })
@@ -396,6 +413,38 @@ export class DatabaseService {
 
     if (error) throw error
     return data
+  }
+
+  async deleteMatchesForTournament(tournamentId: string) {
+    const { error } = await this.client
+      .from('matches')
+      .delete()
+      .eq('tournament_id', tournamentId)
+
+    if (error) throw error
+  }
+
+  async createMatches(matches: Omit<Match, 'id' | 'created_at' | 'updated_at'>[]) {
+    if (matches.length === 0) return []
+    
+    const { data, error } = await this.client
+      .from('matches')
+      .insert(matches)
+      .select()
+    
+    if (error) throw error
+    return data || []
+  }
+
+  async updateMatchesForTournament(tournamentId: string, updates: Partial<Match>) {
+    const { data, error } = await this.client
+      .from('matches')
+      .update(updates)
+      .eq('tournament_id', tournamentId)
+      .select()
+
+    if (error) throw error
+    return data || []
   }
 
   // Tournament team operations
@@ -581,8 +630,8 @@ export class DatabaseService {
       .select(`
         *,
         tournaments!inner(name, creator_id),
-        home_team:teams!matches_home_team_id_fkey(name, logo_url),
-        away_team:teams!matches_away_team_id_fkey(name, logo_url)
+        home_team:teams!matches_home_team_id_fkey(id, name, logo_url),
+        away_team:teams!matches_away_team_id_fkey(id, name, logo_url)
       `)
       .eq('tournaments.creator_id', userId)
       .eq('status', 'scheduled')

@@ -193,4 +193,3 @@ function TournamentRules({ rules }: { rules: string }) {
 }
 
 export { TournamentRules };
-
