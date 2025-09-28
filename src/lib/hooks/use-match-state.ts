@@ -128,6 +128,19 @@ export function useMatchState(matchId: string, homeTeamId?: string, awayTeamId?:
     }
   };
 
+  const stopTimer = () => {
+    if (state) {
+      setState({
+        ...state,
+        isRunning: false,
+        time: MATCH_DURATION_MINUTES * 60, // Reset to initial time
+        currentHalf: 'first', // Reset to first half
+        score: { home: 0, away: 0 }, // Reset score
+        events: [], // Clear all events
+      });
+    }
+  };
+
   const addEvent = useCallback((event: Omit<LiveMatchEvent, 'timestamp' | 'minute' | 'id'>) => {
     setState(prevState => {
       if (!prevState) return null;
@@ -305,6 +318,7 @@ export function useMatchState(matchId: string, homeTeamId?: string, awayTeamId?:
     actions: {
       startTimer,
       pauseTimer,
+      stopTimer,
       addEvent,
       undoLastEvent,
       deleteEvent,

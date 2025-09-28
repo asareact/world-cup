@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { db } from '@/lib/database'
 import type { Match, Team, Player } from '@/lib/database'
-import { Loader2, Play, Pause, Flag, Shield, Goal, RectangleVertical, Undo2, ShieldCheck, Hand } from 'lucide-react'
+import { Loader2, Play, Pause, Flag, Shield, Goal, RectangleVertical, Undo2, ShieldCheck, Hand, Trash2, Edit3, Square, AlertTriangle } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { useMatchState, LiveMatchEvent } from '@/lib/hooks/use-match-state'
 import Image from 'next/image'
@@ -27,17 +27,17 @@ const formatTime = (seconds: number) => {
 
 const Timer = ({ time, half, isRunning }: { time: number, half: string, isRunning: boolean }) => (
   <div className="text-center">
-    <div className={`text-6xl font-bold font-mono transition-colors ${isRunning ? 'text-green-400' : 'text-gray-500'}`}>
+    <div className={`text-4xl font-bold font-mono transition-colors ${isRunning ? 'text-green-400' : 'text-gray-500'} md:text-6xl`}>
       {formatTime(time)}
     </div>
-    <div className="text-lg text-gray-400 uppercase tracking-wider">
+    <div className="text-sm text-gray-400 uppercase tracking-wider md:text-lg">
       {half === 'first' ? 'Primer Tiempo' : half === 'second' ? 'Segundo Tiempo' : 'Finalizado'}
     </div>
   </div>
 );
 
 const Scoreboard = ({ home, away }: { home: number, away: number }) => (
-  <div className="text-5xl font-bold text-white">
+  <div className="text-3xl font-bold text-white md:text-5xl">
     {home} - {away}
   </div>
 );
@@ -150,14 +150,6 @@ const EventLog = ({
   onDeleteEvent: (id: string) => void,
   onEditEvent: (id: string) => void
 }) => {
-  if (events.length === 0) {
-    return (
-      <div className="text-center text-gray-500 mt-4 p-4 bg-gray-800/50 rounded-lg">
-        No hay eventos registrados.
-      </div>
-    );
-  }
-
   const getPlayerName = (playerId: string | null | undefined) => {
     if (!playerId || !match) return 'Desconocido';
     const allPlayers = [...(match.home_team?.players || []), ...(match.away_team?.players || [])];
@@ -177,53 +169,90 @@ const EventLog = ({
     return 'Desconocido';
   };
 
-  const eventDisplay: Record<string, { icon: string; text: string }> = {
-    goal: { icon: '⚽', text: 'Gol' },
-    yellow_card: { icon: '🟨', text: 'Tarjeta Amarilla' },
-    red_card: { icon: '🟥', text: 'Tarjeta Roja' },
-    own_goal: { icon: '🥅', text: 'Autogol' },
-    assist: { icon: '🧤', text: 'Atajada' }, // For goalkeeper saves
+  const eventDisplay: Record<string, { icon: string; text: string; color: string }> = {
+    goal: { icon: '⚽', text: 'Gol', color: 'text-green-400' },
+    yellow_card: { icon: '🟨', text: 'Tarjeta Amarilla', color: 'text-yellow-400' },
+    red_card: { icon: '🟥', text: 'Tarjeta Roja', color: 'text-red-400' },
+    own_goal: { icon: '🥅', text: 'Autogol', color: 'text-red-400' },
+    assist: { icon: '🧤', text: 'Atajada', color: 'text-blue-400' }, // For goalkeeper saves
   };
 
-  return (
-    <div className="space-y-2 max-h-60 overflow-y-auto p-2 bg-gray-900/50 rounded-lg">
-      {[...events].reverse().map((event) => {
-        const playerName = getPlayerName(event.player_id);
-        const assistPlayerName = event.assist_player_id ? getAssistPlayerName(event.assist_player_id) : null;
-        const teamName = getTeamName(event.team_id);
-        
-        return (
-          <div key={event.id} className="flex items-center text-sm bg-gray-800 p-3 rounded-md animate-in fade-in slide-in-from-top-2 duration-300">
-            <span className="font-mono text-gray-400 w-14">{`Min ${event.minute}'`}</span>
-            <span className="text-xl mr-2">{eventDisplay[event.event_type]?.icon || '🔹'}</span>
-            <div className="flex-grow">
-              <div className="font-semibold text-gray-200">
-                {eventDisplay[event.event_type]?.text || event.event_type} - {playerName}
-                {event.event_type === 'goal' && assistPlayerName && (
-                  <span className="text-gray-400 ml-2">(Asist: {assistPlayerName})</span>
-                )}
-              </div>
-              <div className="text-xs text-gray-500">{teamName}</div>
-            </div>
-            <div className="flex space-x-1 ml-2">
-              <button 
-                onClick={() => onDeleteEvent(event.id)}
-                className="p-1.5 text-red-400 hover:bg-red-500/20 rounded transition-colors"
-                title="Eliminar evento"
-              >
-                🗑️
-              </button>
-              <button 
-                onClick={() => onEditEvent(event.id)}
-                className="p-1.5 text-blue-400 hover:bg-blue-500/20 rounded transition-colors"
-                title="Editar evento"
-              >
-                ✏️
-              </button>
-            </div>
+  // Separate events by team
+  const homeTeamEvents = events.filter(event => event.team_id === match?.home_team?.id);
+  const awayTeamEvents = events.filter(event => event.team_id === match?.away_team?.id);
+
+  const EventItem = ({ event }: { event: LiveMatchEvent }) => {
+    const playerName = getPlayerName(event.player_id);
+    const assistPlayerName = event.assist_player_id ? getAssistPlayerName(event.assist_player_id) : null;
+    const teamName = getTeamName(event.team_id);
+    const eventInfo = eventDisplay[event.event_type];
+
+    return (
+      <div className="flex items-start text-sm bg-gray-800 p-3 rounded-md animate-in fade-in slide-in-from-top-2 duration-300 mb-2">
+        <span className="font-mono text-gray-400 mr-2 text-xs self-center">{`Min ${event.minute}'`}</span>
+        <span className={`text-xl mr-2 ${eventInfo.color}`}>{eventInfo.icon}</span>
+        <div className="flex-grow">
+          <div className="font-semibold text-gray-200">
+            {eventInfo.text} - {playerName}
+            {event.event_type === 'goal' && assistPlayerName && (
+              <span className="text-gray-400 ml-2">(Asist: {assistPlayerName})</span>
+            )}
           </div>
-        );
-      })}
+          <div className="text-xs text-gray-500 mt-1">{teamName}</div>
+        </div>
+        <div className="flex space-x-1 ml-2">
+          <button 
+            onClick={() => onDeleteEvent(event.id)}
+            className="p-1.5 text-red-400 hover:bg-red-500/20 rounded transition-colors"
+            title="Eliminar evento"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+          <button 
+            onClick={() => onEditEvent(event.id)}
+            className="p-1.5 text-blue-400 hover:bg-blue-500/20 rounded transition-colors"
+            title="Editar evento"
+          >
+            <Edit3 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  if (events.length === 0) {
+    return (
+      <div className="text-center text-gray-500 mt-4 p-4 bg-gray-800/50 rounded-lg">
+        No hay eventos registrados.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Home Team Events */}
+      <div className="bg-gray-900/50 rounded-lg p-3">
+        <h3 className="font-semibold text-gray-300 mb-2 text-center border-b border-gray-700 pb-1">
+          {match?.home_team?.name}
+        </h3>
+        <div className="space-y-2 max-h-80 overflow-y-auto p-1">
+          {[...homeTeamEvents].reverse().map((event) => (
+            <EventItem key={event.id} event={event} />
+          ))}
+        </div>
+      </div>
+      
+      {/* Away Team Events */}
+      <div className="bg-gray-900/50 rounded-lg p-3">
+        <h3 className="font-semibold text-gray-300 mb-2 text-center border-b border-gray-700 pb-1">
+          {match?.away_team?.name}
+        </h3>
+        <div className="space-y-2 max-h-80 overflow-y-auto p-1">
+          {[...awayTeamEvents].reverse().map((event) => (
+            <EventItem key={event.id} event={event} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
@@ -337,8 +366,6 @@ const EditEventModal = ({
 };
 // --- Main Page Component ---
 
-
-
 export default function RefereePage() {
   const { role } = useAuth();
   const router = useRouter();
@@ -348,12 +375,36 @@ export default function RefereePage() {
   const [match, setMatch] = useState<MatchWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const [activeTeamTab, setActiveTeamTab] = useState<'home' | 'away'>('home');
   
   const { state: matchState, actions } = useMatchState(matchId, match?.home_team?.id, match?.away_team?.id);
 
   const [modalPlayer, setModalPlayer] = useState<Player | null>(null);
   const [modalTeam, setModalTeam] = useState<TeamWithPlayers | null>(null);
   const [editingEvent, setEditingEvent] = useState<LiveMatchEvent | null>(null);
+  const [showStopModal, setShowStopModal] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{visible: boolean, x: number, y: number, eventId: string | null}>({
+    visible: false,
+    x: 0,
+    y: 0,
+    eventId: null
+  });
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (contextMenu.visible) {
+        setContextMenu({ visible: false, x: 0, y: 0, eventId: null });
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [contextMenu.visible]);
 
   useEffect(() => {
     if (role && role !== 'superAdmin' && role !== 'arbitro') {
@@ -383,6 +434,11 @@ export default function RefereePage() {
     setModalTeam(team);
   };
 
+  const handleStopTimer = () => {
+    actions.stopTimer();
+    setShowStopModal(false);
+  };
+
   const handleFinalize = () => {
     if (!match) return;
 
@@ -391,6 +447,54 @@ export default function RefereePage() {
     const allPlayerIds = [...homePlayerIds, ...awayPlayerIds];
 
     actions.finalizeMatch(allPlayerIds);
+    setShowFinalizeModal(false);
+  };
+
+  const handleContextMenu = (e: React.MouseEvent | React.TouchEvent, eventId: string) => {
+    e.preventDefault(); // Prevent default context menu
+    
+    // Only show context menu on mobile devices
+    const isMobile = window.innerWidth < 768;
+    
+    if (!isMobile) {
+      // On desktop, do nothing - the icons are already visible
+      return;
+    }
+    
+    let clientX, clientY;
+    if ('touches' in e) {
+      // For touch events
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      // For mouse events
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    
+    setContextMenu({
+      visible: true,
+      x: clientX,
+      y: clientY,
+      eventId
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu({ visible: false, x: 0, y: 0, eventId: null });
+  };
+
+  const handleEditEvent = (eventId: string) => {
+    const eventToEdit = matchState?.events.find(event => event.id === eventId);
+    if (eventToEdit) {
+      setEditingEvent(eventToEdit);
+    }
+    closeContextMenu();
+  };
+
+  const handleDeleteEvent = (eventId: string) => {
+    actions.deleteEvent(eventId);
+    closeContextMenu();
   };
 
   if (isLoading || !role || (role !== 'superAdmin' && role !== 'arbitro') || !matchState) {
@@ -418,33 +522,408 @@ export default function RefereePage() {
         onClose={() => setEditingEvent(null)} 
         onSave={actions.editEvent} 
       />
-      <div className="container mx-auto p-4 text-white">
-        {/* Header */}
-        <div className="grid grid-cols-3 items-center mb-8">
-          <div className="text-left">
-            <Image src={match?.home_team?.logo_url || '/file.svg'} alt={match?.home_team?.name || ''} width={64} height={64} className="h-16 w-16 object-contain inline"/>
-            <h2 className="text-2xl font-bold truncate">{match?.home_team?.name}</h2>
-          </div>
-          <div className="text-center">
-            <Scoreboard home={matchState.score.home} away={matchState.score.away} />
-          </div>
-          <div className="text-right">
-            <Image src={match?.away_team?.logo_url || '/file.svg'} alt={match?.away_team?.name || ''} width={64} height={64} className="h-16 w-16 object-contain inline"/>
-            <h2 className="text-2xl font-bold truncate">{match?.away_team?.name}</h2>
+      
+      {/* Stop Timer Warning Modal */}
+      {showStopModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowStopModal(false)}>
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center mb-4">
+              <AlertTriangle className="h-6 w-6 text-yellow-500 mr-2" />
+              <h3 className="text-xl font-bold text-white">Advertencia</h3>
+            </div>
+            <p className="text-gray-300 mb-6">
+              ¿Estás seguro de que deseas detener el contador? Esta acción reiniciará el tiempo del partido y no se podrán recuperar los eventos registrados durante la sesión actual.
+            </p>
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => setShowStopModal(false)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleStopTimer}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg transition-colors"
+              >
+                Detener contador
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Timer and Controls */}
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex items-center justify-around mb-8">
+      )}
+      
+      {/* Finalize Match Confirmation Modal */}
+      {showFinalizeModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowFinalizeModal(false)}>
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center mb-4">
+              <AlertTriangle className="h-6 w-6 text-yellow-500 mr-2" />
+              <h3 className="text-xl font-bold text-white">Confirmar Finalización</h3>
+            </div>
+            <p className="text-gray-300 mb-2">
+              ¿Estás seguro de que deseas finalizar el partido?
+            </p>
+            <p className="text-gray-400 text-sm mb-6">
+              Esta acción es irreversible. Asegúrate de haber revisado todas las estadísticas antes de continuar.
+            </p>
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => setShowFinalizeModal(false)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleFinalize}
+                disabled={matchState.isFinalizing}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+              >
+                {matchState.isFinalizing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+                    Finalizando...
+                  </>
+                ) : (
+                  'Finalizar Partido'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Context Menu for Events on Mobile */}
+      {contextMenu.visible && (
+        <div 
+          className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 py-2 w-40"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()} // Prevent closing when clicking on the menu
+        >
+          <button
+            onClick={() => contextMenu.eventId && handleEditEvent(contextMenu.eventId)}
+            className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 flex items-center"
+          >
+            <Edit3 className="h-4 w-4 mr-2" />
+            Editar
+          </button>
+          <button
+            onClick={() => contextMenu.eventId && handleDeleteEvent(contextMenu.eventId)}
+            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-900/30 flex items-center"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Eliminar
+          </button>
+        </div>
+      )}
+      <div className="container mx-auto p-4 text-white">
+        {/* Mobile Layout: 3 letters + Logo, Score, Logo + 3 letters */}
+        <div className="md:hidden flex flex-col items-center mb-2">
+          {/* Timer above the score on mobile */}
+          <div className="mb-2">
+            <Timer time={matchState.time} half={matchState.currentHalf} isRunning={matchState.isRunning} />
+          </div>
+          
+          <div className="flex items-center justify-between w-full">
+            {/* Home Team - Mobile: 3 letters + Logo */}
+            <div className="flex items-center">
+              <div className="text-lg font-bold text-white max-w-[60px] truncate mr-1 md:text-sm">
+                {(match?.home_team?.name || 'TBD').substring(0, 3).replace(/\s/g, '').toUpperCase()}
+              </div>
+              {match?.home_team?.logo_url ? (
+                <Image 
+                  src={match.home_team.logo_url} 
+                  alt={match.home_team.name || ''} 
+                  width={40} 
+                  height={40} 
+                  className="w-12 h-12 rounded-full object-cover md:w-10 md:h-10"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center md:w-10 md:h-10">
+                  <span className="text-lg font-bold text-white md:text-sm">
+                    {(match?.home_team?.name || 'TBD').substring(0, 3).replace(/\s/g, '').toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* Score - Centered */}
+            <div className="text-center mx-2">
+              <Scoreboard home={matchState.score.home} away={matchState.score.away} />
+            </div>
+            
+            {/* Away Team - Mobile: Logo + 3 letters */}
+            <div className="flex items-center">
+              {match?.away_team?.logo_url ? (
+                <Image 
+                  src={match.away_team.logo_url} 
+                  alt={match.away_team.name || ''} 
+                  width={40} 
+                  height={40} 
+                  className="w-12 h-12 rounded-full object-cover mr-1 md:w-10 md:h-10"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center mr-1 md:w-10 md:h-10">
+                  <span className="text-lg font-bold text-white md:text-sm">
+                    {(match?.away_team?.name || 'TBD').substring(0, 3).replace(/\s/g, '').toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <div className="text-lg font-bold text-white max-w-[60px] truncate md:text-sm">
+                {(match?.away_team?.name || 'TBD').substring(0, 3).replace(/\s/g, '').toUpperCase()}
+              </div>
+            </div>
+          </div>
+          
+          {/* Events for both teams below the scores */}
+          <div className="w-full mt-3">
+            <div className="grid grid-cols-2 gap-3">
+              {/* Home Team Events */}
+              <div className="bg-gray-800/50 rounded-lg p-2">
+                <h3 className="text-xs font-semibold text-center text-gray-300 mb-1 truncate border-b border-gray-700 pb-1">
+                  {match?.home_team?.name}
+                </h3>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {matchState.events
+                    .filter(event => event.team_id === match?.home_team?.id)
+                    .reverse()
+                    .slice(0, 5)
+                    .map((event) => {
+                      const eventIcons: Record<string, string> = {
+                        goal: '⚽',
+                        yellow_card: '🟨',
+                        red_card: '🟥',
+                        own_goal: '🥅',
+                        assist: '🧤',
+                      };
+                      
+                      // Get player name (first name only)
+                      const allPlayers = [...(match?.home_team?.players || []), ...(match?.away_team?.players || [])];
+                      const player = allPlayers.find(p => p.id === event.player_id);
+                      const playerName = player?.name?.split(' ')[0] || 'Jugador';
+                      
+                      // Get assist player name if applicable
+                      const assistPlayer = allPlayers.find(p => p.id === event.assist_player_id);
+                      const assistPlayerName = assistPlayer?.name?.split(' ')[0] || '';
+                      
+                      return (
+                        <div 
+                          key={event.id} 
+                          className="flex items-center text-xs bg-gray-700/50 p-1.5 rounded"
+                          onContextMenu={(e) => handleContextMenu(e, event.id)}
+                          onTouchStart={(e) => {
+                            // Clear any previous timer
+                            if (longPressTimer.current) {
+                              clearTimeout(longPressTimer.current);
+                            }
+                            // Set a new timer for long press
+                            longPressTimer.current = setTimeout(() => handleContextMenu(e, event.id), 500);
+                          }}
+                          onTouchEnd={() => {
+                            // Clear the timer if touch ends before 500ms
+                            if (longPressTimer.current) {
+                              clearTimeout(longPressTimer.current);
+                              longPressTimer.current = null;
+                            }
+                          }}
+                          onTouchMove={() => {
+                            // Clear the timer if the touch moves
+                            if (longPressTimer.current) {
+                              clearTimeout(longPressTimer.current);
+                              longPressTimer.current = null;
+                            }
+                          }}
+                          onTouchCancel={() => {
+                            // Clear the timer if touch is cancelled
+                            if (longPressTimer.current) {
+                              clearTimeout(longPressTimer.current);
+                              longPressTimer.current = null;
+                            }
+                          }}
+                        >
+                          <span className="mr-1">{eventIcons[event.event_type] || '🔹'}</span>
+                          <span className="font-medium truncate">{playerName}</span>
+                          {event.event_type === 'goal' && event.assist_player_id && (
+                            <span className="ml-1 text-gray-400 truncate">({'🤝'}{assistPlayerName})</span>
+                          )}
+                          <span className="ml-auto text-gray-400">{event.minute}'</span>
+                        </div>
+                      );
+                    })}
+                  {matchState.events.filter(event => event.team_id === match?.home_team?.id).length === 0 && (
+                    <div className="text-center text-gray-500 text-xs py-2">No hay eventos</div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Away Team Events */}
+              <div className="bg-gray-800/50 rounded-lg p-2">
+                <h3 className="text-xs font-semibold text-center text-gray-300 mb-1 truncate border-b border-gray-700 pb-1">
+                  {match?.away_team?.name}
+                </h3>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {matchState.events
+                    .filter(event => event.team_id === match?.away_team?.id)
+                    .reverse()
+                    .slice(0, 5)
+                    .map((event) => {
+                      const eventIcons: Record<string, string> = {
+                        goal: '⚽',
+                        yellow_card: '🟨',
+                        red_card: '🟥',
+                        own_goal: '🥅',
+                        assist: '🧤',
+                      };
+                      
+                      // Get player name (first name only)
+                      const allPlayers = [...(match?.home_team?.players || []), ...(match?.away_team?.players || [])];
+                      const player = allPlayers.find(p => p.id === event.player_id);
+                      const playerName = player?.name?.split(' ')[0] || 'Jugador';
+                      
+                      // Get assist player name if applicable
+                      const assistPlayer = allPlayers.find(p => p.id === event.assist_player_id);
+                      const assistPlayerName = assistPlayer?.name?.split(' ')[0] || '';
+                      
+                      return (
+                        <div 
+                          key={event.id} 
+                          className="flex items-center text-xs bg-gray-700/50 p-1.5 rounded"
+                          onContextMenu={(e) => handleContextMenu(e, event.id)}
+                          onTouchStart={(e) => {
+                            // Clear any previous timer
+                            if (longPressTimer.current) {
+                              clearTimeout(longPressTimer.current);
+                            }
+                            // Set a new timer for long press
+                            longPressTimer.current = setTimeout(() => handleContextMenu(e, event.id), 500);
+                          }}
+                          onTouchEnd={() => {
+                            // Clear the timer if touch ends before 500ms
+                            if (longPressTimer.current) {
+                              clearTimeout(longPressTimer.current);
+                              longPressTimer.current = null;
+                            }
+                          }}
+                          onTouchMove={() => {
+                            // Clear the timer if the touch moves
+                            if (longPressTimer.current) {
+                              clearTimeout(longPressTimer.current);
+                              longPressTimer.current = null;
+                            }
+                          }}
+                          onTouchCancel={() => {
+                            // Clear the timer if touch is cancelled
+                            if (longPressTimer.current) {
+                              clearTimeout(longPressTimer.current);
+                              longPressTimer.current = null;
+                            }
+                          }}
+                        >
+                          <span className="mr-1">{eventIcons[event.event_type] || '🔹'}</span>
+                          <span className="font-medium truncate">{playerName}</span>
+                          {event.event_type === 'goal' && event.assist_player_id && (
+                            <span className="ml-1 text-gray-400 truncate">({'🤝'}{assistPlayerName})</span>
+                          )}
+                          <span className="ml-auto text-gray-400">{event.minute}'</span>
+                        </div>
+                      );
+                    })}
+                  {matchState.events.filter(event => event.team_id === match?.away_team?.id).length === 0 && (
+                    <div className="text-center text-gray-500 text-xs py-2">No hay eventos</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Desktop Layout: Full Team Cards */}
+        <div className="hidden md:flex items-center justify-between gap-4 mb-2">
+          {/* Home Team */}
+          <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex-1 min-w-0">
+            <div className="flex flex-col items-center">
+              <Image 
+                src={match?.home_team?.logo_url || '/file.svg'} 
+                alt={match?.home_team?.name || ''} 
+                width={80} 
+                height={80} 
+                className="h-20 w-20 object-cover rounded-full mb-2"
+              />
+              <h2 className="text-xl font-bold text-center truncate w-full">{match?.home_team?.name}</h2>
+            </div>
+          </div>
+          
+          {/* Score - Centered on desktop */}
+          <div className="text-center mx-4">
+            <Scoreboard home={matchState.score.home} away={matchState.score.away} />
+          </div>
+          
+          {/* Away Team */}
+          <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex-1 min-w-0">
+            <div className="flex flex-col items-center">
+              <Image 
+                src={match?.away_team?.logo_url || '/file.svg'} 
+                alt={match?.away_team?.name || ''} 
+                width={80} 
+                height={80} 
+                className="h-20 w-20 object-cover rounded-full mb-2"
+              />
+              <h2 className="text-xl font-bold text-center truncate w-full">{match?.away_team?.name}</h2>
+            </div>
+          </div>
+        </div>
+        
+        {/* Timer - Shown on all screens below the header (for desktop only) */}
+        <div className="hidden md:flex justify-center my-4">
           <Timer time={matchState.time} half={matchState.currentHalf} isRunning={matchState.isRunning} />
-          <div className="flex space-x-4">
+        </div>
+
+        {/* Divider between score/events and buttons (only on mobile) */}
+        <div className="md:hidden border-t border-gray-700 my-4"></div>
+        
+        {/* Timer Controls */}
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+          <div className="flex space-x-2">
             {!matchState.isRunning ? (
-              <button onClick={actions.startTimer} disabled={matchState.currentHalf === 'finished'} className="p-4 bg-green-600 rounded-full text-white hover:bg-green-500 disabled:bg-gray-600"><Play className="h-6 w-6"/></button>
+              <button 
+                onClick={actions.startTimer} 
+                disabled={matchState.currentHalf === 'finished'} 
+                className="p-3 bg-green-600 rounded-lg text-white hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                <Play className="h-5 w-5"/>
+                <span className="ml-2 hidden sm:inline">Iniciar</span>
+              </button>
             ) : (
-              <button onClick={actions.pauseTimer} className="p-4 bg-yellow-600 rounded-full text-white hover:bg-yellow-500"><Pause className="h-6 w-6"/></button>
+              <button 
+                onClick={actions.pauseTimer} 
+                className="p-3 bg-yellow-600 rounded-lg text-white hover:bg-yellow-500 flex items-center justify-center"
+              >
+                <Pause className="h-5 w-5"/>
+                <span className="ml-2 hidden sm:inline">Pausar</span>
+              </button>
             )}
-            <button onClick={handleFinalize} disabled={matchState.isFinalizing} className="p-4 bg-blue-600 rounded-full text-white hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed">
-              {matchState.isFinalizing ? <Loader2 className="h-6 w-6 animate-spin"/> : <Flag className="h-6 w-6"/>}
+            <button 
+              onClick={() => setShowStopModal(true)} 
+              className="p-3 bg-red-600 rounded-lg text-white hover:bg-red-500 flex items-center justify-center"
+            >
+              <Square className="h-5 w-5"/>
+              <span className="ml-2 hidden sm:inline">Detener</span>
+            </button>
+            <button 
+              onClick={() => setShowFinalizeModal(true)} 
+              disabled={matchState.isFinalizing} 
+              className="p-3 bg-blue-600 rounded-lg text-white hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {matchState.isFinalizing ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin"/>
+                  <span className="ml-2 hidden sm:inline">Finalizando</span>
+                </>
+              ) : (
+                <>
+                  <Flag className="h-5 w-5"/>
+                  <span className="ml-2 hidden sm:inline">Finalizar</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -461,39 +940,79 @@ export default function RefereePage() {
               <span>Deshacer</span>
             </button>
           </div>
-          <EventLog events={matchState.events} match={match} onDeleteEvent={actions.deleteEvent} onEditEvent={(id) => {
-            // Find the event to edit
-            const eventToEdit = matchState.events.find(event => event.id === id);
-            if (eventToEdit) {
-              setEditingEvent(eventToEdit);
-            }
-          }} />
-        </div>
-
-        {/* Player Lists */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <h3 className="text-xl font-semibold mb-4">Jugadores de {match?.home_team?.name}</h3>
-            <div className="space-y-2">
-              {match?.home_team?.players.map(p => <PlayerCard key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
+          
+          {/* Events Section - Desktop Only */}
+          <div className="hidden md:block mb-8">
+            <h3 className="text-xl font-semibold mb-6 text-center">Eventos</h3>
+            <EventLog events={matchState.events} match={match} onDeleteEvent={actions.deleteEvent} onEditEvent={(id) => {
+              // Find the event to edit
+              const eventToEdit = matchState.events.find(event => event.id === id);
+              if (eventToEdit) {
+                setEditingEvent(eventToEdit);
+              }
+            }} />
+          </div>
+          
+          {/* Player Lists with Tabs - Mobile */}
+        <div className="md:hidden">
+          <div className="border-b border-gray-700 mb-4">
+            <div className="flex">
+              <button
+                className={`flex-1 py-2 text-center font-medium ${activeTeamTab === 'home' ? 'text-green-400 border-b-2 border-green-400' : 'text-gray-400'}`}
+                onClick={() => setActiveTeamTab('home')}
+              >
+                {match?.home_team?.name || 'Local'}
+              </button>
+              <button
+                className={`flex-1 py-2 text-center font-medium ${activeTeamTab === 'away' ? 'text-green-400 border-b-2 border-green-400' : 'text-gray-400'}`}
+                onClick={() => setActiveTeamTab('away')}
+              >
+                {match?.away_team?.name || 'Visitante'}
+              </button>
             </div>
           </div>
-          <div>
-            <h3 className="text-xl font-semibold mb-4">Jugadores de {match?.away_team?.name}</h3>
-            <div className="space-y-2">
-              {match?.away_team?.players
-                .sort((a, b) => {
-                  if (a.is_captain && !b.is_captain) return -1;
-                  if (!a.is_captain && b.is_captain) return 1;
-                  if (a.position === 'portero' && b.position !== 'portero') return -1;
-                  if (a.position !== 'portero' && b.position === 'portero') return 1;
-                  return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
-                })
-                .map(p => <PlayerCard key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
+          
+          <div className="space-y-2">
+            {activeTeamTab === 'home' && match?.home_team?.players.map(p => <PlayerCard key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
+            {activeTeamTab === 'away' && match?.away_team?.players
+              .sort((a, b) => {
+                if (a.is_captain && !b.is_captain) return -1;
+                if (!a.is_captain && b.is_captain) return 1;
+                if (a.position === 'portero' && b.position !== 'portero') return -1;
+                if (a.position !== 'portero' && b.position === 'portero') return 1;
+                return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
+              })
+              .map(p => <PlayerCard key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
+          </div>
+        </div>
+        
+        {/* Player Lists - Desktop (Two Columns) */}
+        <div className="hidden md:block">
+          <h3 className="text-xl font-semibold mb-6 text-center">Jugadores</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <div className="space-y-2">
+                {match?.home_team?.players.map(p => <PlayerCard key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
+              </div>
+            </div>
+            <div>
+              <div className="space-y-2">
+                {match?.away_team?.players
+                  .sort((a, b) => {
+                    if (a.is_captain && !b.is_captain) return -1;
+                    if (!a.is_captain && b.is_captain) return 1;
+                    if (a.position === 'portero' && b.position !== 'portero') return -1;
+                    if (a.position !== 'portero' && b.position === 'portero') return 1;
+                    return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
+                  })
+                  .map(p => <PlayerCard key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+        </div>
+        
+        </div>
     </DashboardLayout>
   );
 } 
