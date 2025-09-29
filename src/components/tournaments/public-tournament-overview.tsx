@@ -410,72 +410,85 @@ const MobileTournamentOverview = ({
           <h2 className="text-lg font-semibold text-white mb-3">Últimos Partidos</h2>
           {lastMatches.length > 0 ? (
             <div className="space-y-3">
-              {lastMatches.map((match, index) => (
-                <motion.div
-                  key={match.id}
-                  className="bg-gray-800/50 border border-gray-700 rounded-xl p-3"
-                  variants={itemVariants}
-                  transition={{ delay: 0.5 + index * 0.1 }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center space-x-1">
-                        {/* Team logo - using approach similar to MobileTeamLogosBanner */}
-                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
-                          {match.home_team && teamLookup.get(match.home_team.name)?.logo_url ? (
+              {lastMatches.map((match, index) => {
+                // Helper function to create 3-letter abbreviation ignoring spaces
+                const getAbbreviation = (name: string | undefined) => {
+                  if (!name) return '???';
+                  // Remove spaces and take first 3 characters, then uppercase
+                  const cleanName = name.replace(/\s+/g, '');
+                  return cleanName.substring(0, 3).toUpperCase();
+                };
+
+                // Get team data from lookup
+                const homeTeamData = match.home_team ? teamLookup.get(match.home_team.name) : null;
+                const awayTeamData = match.away_team ? teamLookup.get(match.away_team.name) : null;
+
+                return (
+                  <motion.div
+                    key={match.id}
+                    className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 hover:bg-gray-700/50 transition-all duration-200"
+                    variants={itemVariants}
+                    transition={{ delay: 0.5 + index * 0.1 }}
+                  >
+                    <div className="flex items-center justify-between">
+                      {/* Home Team */}
+                      <div className="flex items-center space-x-2">
+                        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden border-2 border-gray-600">
+                          {homeTeamData?.logo_url ? (
                             <img
-                              src={teamLookup.get(match.home_team.name)!.logo_url!}
-                              alt={match.home_team.name}
+                              src={homeTeamData.logo_url}
+                              alt={match.home_team?.name || 'Equipo local'}
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
+                            <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
                               {match.home_team?.name?.charAt(0) || '?'}
                             </div>
                           )}
                         </div>
-                        <span className="text-sm text-white font-medium">
-                          {match.home_team?.name ? match.home_team.name.substring(0, 3).toUpperCase() : '???'}
+                        <span className="text-sm text-white font-bold tracking-wider">
+                          {getAbbreviation(match.home_team?.name)}
                         </span>
                       </div>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="text-sm font-bold text-white mx-2">
-                        {match.home_score ?? '?'} - {match.away_score ?? '?'}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center space-x-1">
-                        <span className="text-sm text-white font-medium text-right">
-                          {match.away_team?.name ? match.away_team.name.substring(0, 3).toUpperCase() : '???'}
+
+                      {/* Score */}
+                      <div className="flex flex-col items-center">
+                        <span className="text-lg font-bold text-white">
+                          {match.home_score ?? '?'} - {match.away_score ?? '?'}
                         </span>
-                        {/* Team logo - using approach similar to MobileTeamLogosBanner */}
-                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
-                          {match.away_team && teamLookup.get(match.away_team.name)?.logo_url ? (
+                        <div className="text-xs text-gray-400 mt-1">
+                          {match.scheduled_at
+                            ? new Date(match.scheduled_at).toLocaleDateString('es-ES', {
+                              day: 'numeric',
+                              month: 'short',
+                            })
+                            : 'Fecha por definir'}
+                        </div>
+                      </div>
+
+                      {/* Away Team */}
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-white font-bold tracking-wider">
+                          {getAbbreviation(match.away_team?.name)}
+                        </span>
+                        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden border-2 border-gray-600">
+                          {awayTeamData?.logo_url ? (
                             <img
-                              src={teamLookup.get(match.away_team.name)!.logo_url!}
-                              alt={match.away_team.name}
+                              src={awayTeamData.logo_url}
+                              alt={match.away_team?.name || 'Equipo visitante'}
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white text-xs font-bold">
+                            <div className="w-full h-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold">
                               {match.away_team?.name?.charAt(0) || '?'}
                             </div>
                           )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-xs text-gray-400 mt-2 flex justify-center">
-                    {match.scheduled_at
-                      ? new Date(match.scheduled_at).toLocaleDateString('es-ES', {
-                        day: 'numeric',
-                        month: 'short',
-                      })
-                      : 'Fecha por definir'}
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-4">
