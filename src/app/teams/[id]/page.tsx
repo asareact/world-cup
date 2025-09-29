@@ -316,14 +316,14 @@ export default function TeamDetailsPage() {
         </div>
       </div>
       
-      {selectedPlayer && (
+      {/* {selectedPlayer && (
         <PlayerDetailsModal
           player={selectedPlayer}
           tournamentId="" // No tournament context on this page
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
         />
-      )}
+      )} */}
     </div>
   )
 }
