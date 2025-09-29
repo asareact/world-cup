@@ -6,7 +6,7 @@ import { createClient } from './supabase/client'
 import { apiClient } from './api'
 
 
-type UserRole = 'superAdmin' | 'capitan' | 'invitado'
+type UserRole = 'superAdmin' | 'capitan' | 'invitado' | 'arbitro'
 
 function normalizeRole(value: unknown): UserRole {
   if (typeof value !== 'string') return 'invitado'

@@ -1,8 +1,10 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
+import { useAuth } from '@/lib/auth-context'
 import { useTournaments } from '@/lib/hooks/use-tournaments'
+import { INVITADO_PUBLIC_TOURNAMENT_ROUTE } from '@/lib/role-routes'
 import { formatDate } from '@/lib/utils'
 import { Search, Filter, Trophy, Users, Calendar, Eye, Loader2, ExternalLink } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -56,10 +58,21 @@ function TournamentRulesPreview({ rules }: { rules: string }) {
 }
 
 export default function PublicTournamentsPage() {
-  const { tournaments, loading, error } = useTournaments()
   const router = useRouter()
+  const { role, loading: authLoading } = useAuth()
+  const { tournaments, loading, error } = useTournaments()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
+
+  useEffect(() => {
+    if (!authLoading && role === 'invitado') {
+      router.replace(INVITADO_PUBLIC_TOURNAMENT_ROUTE)
+    }
+  }, [authLoading, role, router])
+
+  if (!authLoading && role === 'invitado') {
+    return null
+  }
 
   const filteredTournaments = tournaments.filter(tournament => {
     const matchesSearch = tournament.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -293,6 +306,13 @@ export default function PublicTournamentsPage() {
     </DashboardLayout>
   )
 }
+
+
+
+
+
+
+
 
 
 

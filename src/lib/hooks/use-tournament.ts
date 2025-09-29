@@ -42,8 +42,9 @@ export async function getLatestMatches(tournamentId: string, limit = 5) {
     const { data, error } = await supabase
       .from('matches')
       .select(`id, home_team_id, away_team_id, home_score, away_score, scheduled_at, status,
-               home_team:teams!home_team_id(id, name), away_team:teams!away_team_id(id, name)`)
+               home_team:teams!home_team_id(id, name, logo_url), away_team:teams!away_team_id(id, name, logo_url)`)
       .eq('tournament_id', tournamentId)
+      .eq('status', 'completed')
       .order('scheduled_at', { ascending: false })
       .limit(limit)
     if (error) throw error

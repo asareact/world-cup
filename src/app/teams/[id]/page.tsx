@@ -1,6 +1,7 @@
 'use client'
 
 import { PlayerCard } from '@/components/players/player-card'
+import { PlayerDetailsModal } from '@/components/players/player-details-modal'
 import { db } from '@/lib/database'
 import { ArrowLeft, Mail, Phone, Shield, Users } from 'lucide-react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
@@ -47,9 +48,12 @@ export default function TeamDetailsPage() {
   const router = useRouter()
   
   const [team, setTeam] = useState<Team | null>(null)
+  const [teamStats, setTeamStats] = useState<any>(null)
   const [results, setResults] = useState<MatchResult[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   
   // Get tournamentId from query params if available (for back navigation)
   const tournamentId = searchParams.get('tournament')
@@ -66,6 +70,10 @@ export default function TeamDetailsPage() {
         // Fetch team details with players
         const teamData = await db.getTeam(params.id)
         setTeam(teamData)
+        
+        // Fetch team statistics
+        const stats = await db.getTeamStats(params.id)
+        setTeamStats(stats)
         
         // Fetch team results in tournaments
         // This would be implemented with proper database queries
@@ -204,19 +212,19 @@ export default function TeamDetailsPage() {
           {/* Stats Overview */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-4 text-center">
-              <div className="text-2xl font-bold text-white">5</div>
+              <div className="text-2xl font-bold text-white">{teamStats?.players_count || team?.players?.length || 0}</div>
               <div className="text-sm text-gray-400">Jugadores</div>
             </div>
             <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-4 text-center">
-              <div className="text-2xl font-bold text-white">2</div>
+              <div className="text-2xl font-bold text-white">{teamStats?.wins || 0}</div>
               <div className="text-sm text-gray-400">Victorias</div>
             </div>
             <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-4 text-center">
-              <div className="text-2xl font-bold text-white">1</div>
+              <div className="text-2xl font-bold text-white">{teamStats?.draws || 0}</div>
               <div className="text-sm text-gray-400">Empates</div>
             </div>
             <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-4 text-center">
-              <div className="text-2xl font-bold text-white">7</div>
+              <div className="text-2xl font-bold text-white">{teamStats?.goals || 0}</div>
               <div className="text-sm text-gray-400">Goles</div>
             </div>
           </div>
@@ -226,7 +234,16 @@ export default function TeamDetailsPage() {
             <h2 className="text-xl font-bold text-white mb-6">Jugadores</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {team.players.map((player) => (
-                <PlayerCard key={player.id} player={player} />
+                <div 
+                  key={player.id} 
+                  className="cursor-pointer"
+                  onClick={() => {
+                    setSelectedPlayer(player);
+                    setIsModalOpen(true);
+                  }}
+                >
+                  <PlayerCard key={player.id} player={player} />
+                </div>
               ))}
             </div>
           </div>
@@ -298,6 +315,15 @@ export default function TeamDetailsPage() {
           </div>
         </div>
       </div>
+      
+      {/* {selectedPlayer && (
+        <PlayerDetailsModal
+          player={selectedPlayer}
+          tournamentId="" // No tournament context on this page
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+        />
+      )} */}
     </div>
   )
 }

@@ -256,21 +256,32 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
   const currentPlayersWithEvents = activeTab === 'home' ? homePlayersWithEvents : awayPlayersWithEvents
   const isLoading = activeTab === 'home' ? loadingPlayers.home : loadingPlayers.away
 
-  // Function to get icon for event type
-  const getEventIcon = (eventType: string) => {
-    switch (eventType) {
-      case 'goal':
-        return <Goal className="h-4 w-4 text-green-500" />
-      case 'own_goal':
-        return <RotateCcw className="h-4 w-4 text-red-500" />
-      case 'yellow_card':
-        return <Square className="h-4 w-4 text-yellow-500" />
-      case 'red_card':
-        return <Square className="h-4 w-4 text-red-500" />
-      default:
-        return <User className="h-3 w-3 text-gray-400" />
-    }
+// Define event display configuration
+const eventDisplay: Record<string, { icon: string; text: string; color: string }> = {
+  goal: { icon: '⚽', text: 'Gol', color: 'text-green-400' },
+  yellow_card: { icon: '🟨', text: 'Tarjeta Amarilla', color: 'text-yellow-400' },
+  red_card: { icon: '🟥', text: 'Tarjeta Roja', color: 'text-red-400' },
+  own_goal: { icon: '🥅', text: 'Autogol', color: 'text-red-400' },
+  assist: { icon: '🤝', text: 'Asistencia', color: 'text-blue-400' },
+  save: { icon: '🧤', text: 'Atajada', color: 'text-blue-400' }, // For goalkeeper saves
+  substitution: { icon: '🔄', text: 'Cambio', color: 'text-purple-400' }, // Added substitution event
+};
+
+// Function to get icon for event type
+const getEventIcon = (eventType: string) => {
+  const display = eventDisplay[eventType];
+  if (display) {
+    return (
+      <span className={`mr-2 text-lg ${display.color}`}>{display.icon}</span>
+    );
   }
+  return <span className="mr-2 text-lg text-gray-400">❓</span>; // Default icon for unknown event types
+};
+
+// Function to get text for event type
+const getEventText = (eventType: string) => {
+  return eventDisplay[eventType]?.text || 'Evento';
+};
 
   // Function to get assist info for a goal
   const getAssistInfo = (event: ExtendedMatchEvent) => {
@@ -469,9 +480,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                     return teamEvents.map((event, idx) => (
                       <div key={`${event.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
                         <div className="flex items-center">
-                          <div className="mr-3">
-                            {getEventIcon(event.event_type)}
-                          </div>
+                          {getEventIcon(event.event_type)}
                           <span className="text-white text-sm font-medium">
                             {event.player?.name || 'Jugador desconocido'}
                           </span>
@@ -684,9 +693,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                       return teamEvents.map((event, idx) => (
                         <div key={`${event.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
                           <div className="flex items-center">
-                            <div className="mr-3">
-                              {getEventIcon(event.event_type)}
-                            </div>
+                            {getEventIcon(event.event_type)}
                             <span className="text-white text-sm font-medium">
                               {event.player?.name || 'Jugador desconocido'}
                             </span>
@@ -773,9 +780,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
                       return teamEvents.map((event, idx) => (
                         <div key={`${event.id}-${idx}`} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-700/20 hover:bg-gray-700/30 transition-colors">
                           <div className="flex items-center">
-                            <div className="mr-3">
-                              {getEventIcon(event.event_type)}
-                            </div>
+                            {getEventIcon(event.event_type)}
                             <span className="text-white text-sm font-medium">
                               {event.player?.name || 'Jugador desconocido'}
                             </span>

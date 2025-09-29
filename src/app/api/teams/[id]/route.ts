@@ -8,6 +8,9 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params
+  const url = new URL(request.url);
+  const tournamentId = url.searchParams.get('tournamentId');
+  
   try {
     const supabase = await createClient()
     
@@ -23,7 +26,137 @@ export async function GET(
     // Get the team using the existing database service
     const team = await db.getTeam(id)
     
-    return NextResponse.json(team)
+    let teamWithStats;
+    
+    if (tournamentId) {
+      // Calculate tournament-specific statistics
+      // Get all matches for this tournament where the team participated
+      const { data: tournamentMatches, error: matchesError } = await supabase
+        .from('matches')
+        .select(`
+          id,
+          home_team_id,
+          away_team_id,
+          home_score,
+          away_score,
+          status
+        `)
+        .eq('tournament_id', tournamentId)
+        .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
+        .in('status', ['completed', 'in_progress', 'scheduled'])
+      
+      if (matchesError) {
+        console.error('Error fetching tournament matches:', matchesError);
+        return NextResponse.json(
+          { error: 'Failed to fetch tournament matches' }, 
+          { status: 500 }
+        );
+      }
+      
+      // Calculate tournament-specific stats
+      let wins = 0;
+      let draws = 0;
+      let losses = 0;
+      let goalsFor = 0;
+      let goalsAgainst = 0;
+      let matchesPlayed = 0;
+      
+      for (const match of tournamentMatches) {
+        if (match.status !== 'completed') {
+          // Only process completed matches for stats
+          continue;
+        }
+        
+        if (match.home_team_id === id) {
+          goalsFor += match.home_score || 0;
+          goalsAgainst += match.away_score || 0;
+          
+          if ((match.home_score || 0) > (match.away_score || 0)) {
+            wins += 1;
+          } else if ((match.home_score || 0) === (match.away_score || 0)) {
+            draws += 1;
+          } else {
+            losses += 1;
+          }
+        } else if (match.away_team_id === id) {
+          goalsFor += match.away_score || 0;
+          goalsAgainst += match.home_score || 0;
+          
+          if ((match.away_score || 0) > (match.home_score || 0)) {
+            wins += 1;
+          } else if ((match.away_score || 0) === (match.home_score || 0)) {
+            draws += 1;
+          } else {
+            losses += 1;
+          }
+        }
+        
+        matchesPlayed += 1;
+      }
+      
+      // Calculate points: 3 for win, 1 for draw, 0 for loss
+      const points = (wins * 3) + draws;
+      
+      teamWithStats = {
+        ...team,
+        wins,
+        draws,
+        losses,
+        goals_for: goalsFor,
+        goals_against: goalsAgainst,
+        points,
+        position: 0, // Position would be calculated based on full tournament standings
+        matches_played: matchesPlayed,
+        players_count: matchesPlayed // Using matches_played for now
+      };
+    } else {
+      // Get overall team statistics (non-tournament specific)
+      const teamStats = await db.getTeamStats(id)
+      
+      // Get match results to calculate goals against
+      const { data: matches, error: matchesError } = await supabase
+        .from('matches')
+        .select(`
+          id,
+          home_team_id,
+          away_team_id,
+          home_score,
+          away_score
+        `)
+        .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
+        .eq('status', 'completed')
+      
+      if (matchesError) {
+        console.error('Error fetching matches for goals calculation:', matchesError);
+      }
+      
+      // Calculate goals against
+      let goals_against = 0;
+      if (matches) {
+        matches.forEach(match => {
+          if (match.home_team_id === id) {
+            goals_against += match.away_score || 0;
+          } else if (match.away_team_id === id) {
+            goals_against += match.home_score || 0;
+          }
+        });
+      }
+      
+      teamWithStats = {
+        ...team,
+        wins: teamStats.wins,
+        draws: teamStats.draws,
+        losses: Math.max(0, (teamStats.matches_played || 0) - teamStats.wins - teamStats.draws), // Calculate losses
+        goals_for: teamStats.goals,
+        goals_against: goals_against,
+        points: (teamStats.wins * 3) + teamStats.draws, // Assuming 3 points for win, 1 for draw
+        position: 0, // Position would be calculated based on tournament standings
+        matches_played: teamStats.matches_played,
+        players_count: teamStats.players_count
+      }
+    }
+    
+    return NextResponse.json(teamWithStats)
   } catch (error) {
     console.error('Error fetching team:', error)
     return NextResponse.json(

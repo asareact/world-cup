@@ -39,9 +39,8 @@ export function usePlayers(teamId: string | null) {
   const createPlayer = async (player: Omit<Player, 'id' | 'created_at' | 'updated_at'>) => {
     if (!teamId) throw new Error('Team ID requerido')
 
-    // Verificar límite de jugadores
-    if (players.filter(p => p.is_active).length >= 12) {
-      throw new Error('Un equipo no puede tener más de 12 jugadores activos')
+    if (players.filter(p => p.is_active).length >= 14) {
+      throw new Error('Maximum number of players reached (14)');
     }
 
     // Verificar número de camiseta único

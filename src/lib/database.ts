@@ -209,17 +209,94 @@ export class DatabaseService {
           is_active,
           is_captain,
           photo_url,
-          jersey_number
+          jersey_number,
+          player_stats(
+            goals,
+            assists,
+            matches_played
+          )
         )
       `)
       .eq('id', id)
       .single()
 
     if (error) throw error
+    
+    // Transform player data to flatten stats
+    if (data && data.players) {
+      data.players = data.players.map((player: any) => ({
+        ...player,
+        goals: player.player_stats?.goals || 0,
+        assists: player.player_stats?.assists || 0,
+        matches_played: player.player_stats?.matches_played || 0
+      }));
+    }
+    
     return data
   }
 
-  async getTeams(userId: string, role?: 'superAdmin' | 'capitan' | 'invitado') {
+  async getTeamStats(teamId: string) {
+    // Get team player stats
+    const { data: playerStats, error: playerStatsError } = await this.client
+      .from('player_stats')
+      .select(`
+        goals,
+        assists,
+        matches_played,
+        player_id,
+        players!inner(team_id)
+      `)
+      .eq('players.team_id', teamId)
+
+    if (playerStatsError) throw playerStatsError
+
+    // Calculate team totals
+    const teamStats = playerStats.reduce((acc, stat) => {
+      acc.goals += stat.goals || 0
+      acc.assists += stat.assists || 0
+      // For matches_played, we take the max since it's per player
+      acc.matches_played = Math.max(acc.matches_played, stat.matches_played || 0)
+      return acc
+    }, { goals: 0, assists: 0, matches_played: 0 })
+
+    // Get match results for team
+    const { data: matches, error: matchesError } = await this.client
+      .from('matches')
+      .select(`
+        id,
+        home_team_id,
+        away_team_id,
+        home_score,
+        away_score
+      `)
+      .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+      .eq('status', 'completed')
+
+    if (matchesError) throw matchesError
+
+    // Calculate wins and draws
+    let wins = 0
+    let draws = 0
+
+    matches.forEach(match => {
+      if (match.home_team_id === teamId) {
+        if (match.home_score > match.away_score) wins++
+        else if (match.home_score === match.away_score) draws++
+      } else {
+        if (match.away_score > match.home_score) wins++
+        else if (match.away_score === match.home_score) draws++
+      }
+    })
+
+    return {
+      ...teamStats,
+      wins,
+      draws,
+      players_count: playerStats.length
+    }
+  }
+
+  async getTeams(userId: string, role?: 'superAdmin' | 'capitan' | 'invitado'|'arbitro') {
     let query = this.client
       .from('teams')
       .select(
@@ -392,6 +469,21 @@ export class DatabaseService {
     return data || []
   }
 
+  async getAllMatches() {
+    const { data, error } = await this.client
+      .from('matches')
+      .select(`
+        *,
+        home_team:teams!matches_home_team_id_fkey(id, name, logo_url),
+        away_team:teams!matches_away_team_id_fkey(id, name, logo_url),
+        tournament:tournaments(id, name)
+      `)
+      .order('scheduled_at', { ascending: true })
+
+    if (error) throw error
+    return data || []
+  }
+
   async createMatch(match: Omit<Match, 'id' | 'created_at' | 'updated_at'>) {
     const { data, error } = await this.client
       .from('matches')
@@ -409,6 +501,28 @@ export class DatabaseService {
       .update(updates)
       .eq('id', id)
       .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  async getMatchWithPlayers(matchId: string) {
+    const { data, error } = await this.client
+      .from('matches')
+      .select(`
+        *,
+        home_team:teams!matches_home_team_id_fkey(
+          *,
+          players(*)
+        ),
+        away_team:teams!matches_away_team_id_fkey(
+          *,
+          players(*)
+        ),
+        tournament:tournaments(id, name)
+      `)
+      .eq('id', matchId)
       .single()
 
     if (error) throw error
@@ -554,6 +668,24 @@ export class DatabaseService {
       .single()
     if (error) throw error
     return data as JoinRequest
+  }
+
+  // Match finalization
+  async saveMatchResults(matchId: string, homeScore: number, awayScore: number, events: unknown[], playerIds: string[]) {
+    const { error } = await this.client.rpc('finalize_match', {
+      p_match_id: matchId,
+      p_home_score: homeScore,
+      p_away_score: awayScore,
+      p_events: events,
+      p_player_ids: playerIds,
+    });
+
+    if (error) {
+      console.error('Error finalizing match:', error);
+      throw error;
+    }
+
+    return { message: 'Match finalized successfully' };
   }
 
   // Dashboard statistics

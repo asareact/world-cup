@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS public.teams (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Crear tabla de jugadores (máximo 12 por equipo)
+-- 4. Crear tabla de jugadores (máximo 14 por equipo)
 CREATE TABLE IF NOT EXISTS public.players (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
@@ -307,16 +307,16 @@ CREATE TRIGGER trg_handle_join_request_status
 
 -- ✅ CONSTRAINTS ADICIONALES
 
--- Máximo 12 jugadores por equipo
+-- Máximo 14 jugadores por equipo
 CREATE OR REPLACE FUNCTION check_max_players()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $
 BEGIN
-  IF (SELECT COUNT(*) FROM players WHERE team_id = NEW.team_id AND is_active = true) >= 12 THEN
-    RAISE EXCEPTION 'Un equipo no puede tener más de 12 jugadores activos';
+  IF (SELECT COUNT(*) FROM players WHERE team_id = NEW.team_id AND is_active = true) >= 14 THEN
+    RAISE EXCEPTION 'Un equipo no puede tener más de 14 jugadores activos';
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_check_max_players
   BEFORE INSERT OR UPDATE ON players

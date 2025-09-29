@@ -65,11 +65,11 @@ export async function POST(
     // Parse the request body
     const body = await request.json()
     
-    // Validate player count (max 12 players per team)
+    // Validate player count (max 14 players per team)
     const existingPlayers = await db.getPlayers(id)
-    if (existingPlayers.length >= 12) {
+    if (existingPlayers.length >= 14) {
       return NextResponse.json(
-        { error: 'Team already has maximum number of players (12)' }, 
+        { error: 'Team already has maximum number of players (14)' },
         { status: 400 }
       )
     }

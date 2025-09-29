@@ -28,8 +28,8 @@ import { getLatestMatches, getTopScorers, useTournament } from '@/lib/hooks/use-
 
 interface LatestResultsMatch {
   id: string
-  home_team: { name: string } | null
-  away_team: { name: string } | null
+  home_team: { name: string; logo_url?: string | null } | null
+  away_team: { name: string; logo_url?: string | null } | null
   home_score: number | null
   away_score: number | null
   scheduled_at: string | null
@@ -169,12 +169,15 @@ export default function TournamentPublicPage() {
       })
 
       // Fetch latest matches
-      getLatestMatches(tournamentId, 5).then((data: any) => {
+      getLatestMatches(tournamentId, 6).then((data: any) => {
+        // Filter for only completed matches
+        const completedMatches = (data || []).filter((match: any) => match?.status === 'completed');
+        
         // Transform the data to match the component's expected format
-        const transformedMatches = (data || []).map((match: any) => ({
+        const transformedMatches = completedMatches.map((match: any) => ({
           id: match.id,
-          home_team: match.home_team ? { name: match.home_team.name } : null,
-          away_team: match.away_team ? { name: match.away_team.name } : null,
+          home_team: match.home_team ? { name: match.home_team.name, logo_url: match.home_team.logo_url || null } : null,
+          away_team: match.away_team ? { name: match.away_team.name, logo_url: match.away_team.logo_url || null } : null,
           home_score: match.home_score,
           away_score: match.away_score,
           scheduled_at: match.scheduled_at,
@@ -197,8 +200,8 @@ export default function TournamentPublicPage() {
     if (!teamId) return;
 
     try {
-      // Fetch team details
-      const response = await fetch(`/api/teams/${teamId}`);
+      // Fetch team details with tournament context
+      const response = await fetch(`/api/teams/${teamId}?tournamentId=${tournamentId}`);
       if (!response.ok) throw new Error('Failed to fetch team');
 
       const teamData = await response.json();
@@ -402,6 +405,7 @@ export default function TournamentPublicPage() {
       <TournamentTeamDetails
         team={teamDetails}
         players={teamPlayers}
+        tournamentId={tournamentId || ''}
         isOpen={!!selectedTeamId}
         onClose={handleCloseTeamDetails}
       />

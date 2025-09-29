@@ -23,7 +23,7 @@ export function PlayerCard({ player }: { player: Player }) {
   };
 
   return (
-    <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
+    <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700 hover:border-gray-500 transition-colors cursor-pointer">
       <div className="flex items-center space-x-4">
         <div className="relative">
           <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-700 rounded-full flex items-center justify-center overflow-hidden border-2 border-gray-600">

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -22,6 +22,7 @@ import { useAuth } from '@/lib/auth-context'
 import { db } from '@/lib/database'
 import { useRouter, usePathname } from 'next/navigation'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard-stats'
+import { INVITADO_PUBLIC_TOURNAMENT_ROUTE } from '@/lib/role-routes'
 
 const sidebarItems = [
   { icon: Home, label: 'Dashboard', href: '/dashboard', id: 'dashboard' },
@@ -49,6 +50,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
   const { stats } = useDashboardStats()
   const [pendingRequests, setPendingRequests] = useState(0)
+
+  // Invitados no pueden navegar el dashboard; redirigir al sitio publico designado\r\n  useEffect(() => {\r\n    if (!loading && role === 'invitado') {\r\n      router.replace(INVITADO_PUBLIC_TOURNAMENT_ROUTE)\r\n    }\r\n  }, [loading, role, router])
 
   const handleSignOut = async () => {
     await signOut()
@@ -87,15 +90,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return sidebarItems.find(item => item.id === activeItem)?.label || 'Torneos'
   }, [role, activeItem])
 
-  // Menú por rol (sin flicker durante loading)
+  // MenÃº por rol (sin flicker durante loading)
   const filteredSidebarItems = !loading ? sidebarItems.filter((item) => {
     if (role === 'superAdmin') return true
     if (role === 'capitan') {
-      // Capitán: Mi Equipo, Torneos, Reglas y Configuración
-      return item.id === 'teams' || item.id === 'tournaments' || item.id === 'rules' || item.id === 'settings'
+      // CapitÃ¡n: Mi Equipo, Torneos, Reglas y ConfiguraciÃ³n
+      return ['teams', 'tournaments', 'rules', 'settings'].includes(item.id)
     }
-    // Invitado: Torneos, Reglas y Configuración
-    return item.id === 'tournaments' || item.id === 'rules' || item.id === 'settings'
+    if (role === 'arbitro') {
+      // Ãrbitro: Partidos, Torneos, Reglas y ConfiguraciÃ³n
+      return ['matches', 'tournaments', 'rules', 'settings'].includes(item.id)
+    }
+    // Invitado: Torneos, Reglas y ConfiguraciÃ³n
+    return ['tournaments', 'rules', 'settings'].includes(item.id)
   }) : []
 
   useEffect(() => {
@@ -221,9 +228,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               return (
                 <Link
                   key={item.id}
-                  href={(item.id === 'tournaments' && role !== 'superAdmin') ? '/dashboard/tournaments/public' : 
-                        (item.id === 'teams' && role === 'capitan') ? '/dashboard/my-team' : 
-                        item.href}
+                  href={
+                    item.id === 'tournaments' && role === 'invitado'
+                      ? INVITADO_PUBLIC_TOURNAMENT_ROUTE
+                      : item.id === 'tournaments' && role !== 'superAdmin'
+                        ? '/dashboard/tournaments/public'
+                        : item.id === 'teams' && role === 'capitan'
+                          ? '/dashboard/my-team'
+                          : item.href
+                  }
                   className={`relative flex items-center space-x-3 px-4 py-3 rounded-xl transition-all group ${
                     isActive
                       ? 'bg-green-600 text-white shadow-lg'
@@ -327,3 +340,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     </div>
   )
 }
+
+
+
+
+
+

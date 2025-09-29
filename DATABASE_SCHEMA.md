@@ -52,7 +52,7 @@ CREATE TABLE teams (
 );
 ```
 
-### 4. **players** - Jugadores (máximo 12 por equipo)
+### 4. **players** - Jugadores (máximo 14 por equipo)
 ```sql
 CREATE TABLE players (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -164,8 +164,8 @@ WHERE status = 'pending';
 
 ## 📊 Características Especiales
 
-### ✅ **Equipos de Futsal (máximo 12 jugadores)**
-- Constraint en tabla players para máximo 12 por equipo
+### ✅ **Equipos de Futsal (máximo 14 jugadores)**
+- Constraint en tabla players para máximo 14 por equipo
 - Posiciones específicas de futsal
 - Números de camiseta únicos por equipo
 

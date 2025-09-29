@@ -1,10 +1,12 @@
-'use client'
+﻿'use client'
 
 import { motion } from 'framer-motion'
 import { Trophy, Users, BarChart3, Calendar, ArrowRight, Star, Zap, Shield, Globe, LogIn, LogOut, User } from 'lucide-react'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
+import { INVITADO_PUBLIC_TOURNAMENT_ROUTE, getDefaultRouteForRole } from '@/lib/role-routes'
 import { AuthModal } from '@/components/auth-modal'
 
 const features = [
@@ -28,7 +30,7 @@ const features = [
   },
   {
     icon: Calendar,
-    title: 'Programación Inteligente',
+    title: 'ProgramaciÃ³n Inteligente',
     description: 'Horarios optimizados para canchas de futsal con tiempos de 20 minutos por tiempo',
     color: 'from-pink-400 to-red-500'
   }
@@ -42,6 +44,7 @@ const stats = [
 ]
 
 export default function Home() {
+  const router = useRouter()
   const { user, signOut, loading, role } = useAuth()
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin')
@@ -55,17 +58,19 @@ export default function Home() {
     await signOut()
   }
 
-  const homeHref = role === 'superAdmin'
-    ? '/dashboard'
-    : role === 'capitan'
-      ? '/dashboard/my-team'
-      : '/dashboard/tournaments'
+  useEffect(() => {
+    if (!loading && user && role === 'invitado') {
+      router.replace(INVITADO_PUBLIC_TOURNAMENT_ROUTE)
+    }
+  }, [loading, user, role, router])
+
+  const homeHref = getDefaultRouteForRole(role)
 
   const ctaLabel = role === 'superAdmin'
     ? 'Ir a Mi Dashboard'
     : role === 'capitan'
       ? 'Ir a Mi Equipo'
-      : 'Ir a Torneos'
+      : 'Ver Torneo'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -514,3 +519,15 @@ export default function Home() {
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
+
+

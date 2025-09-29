@@ -1,21 +1,29 @@
 'use client';
 
-import { X, Users, Calendar, Trophy, Target } from 'lucide-react';
+import { X, Users, Calendar, Trophy, Target, Info } from 'lucide-react';
 import { Player } from '@/lib/database';
+import { PlayerDetailsModal } from '@/components/players/player-details-modal';
+import { useState } from 'react';
 
 interface TournamentTeamDetailsProps {
   team: any;
   players: Player[];
+  tournamentId: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
+
 export function TournamentTeamDetails({ 
   team,
   players,
+  tournamentId,
   isOpen,
   onClose
 }: TournamentTeamDetailsProps) {
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [isPlayerDetailsModalOpen, setIsPlayerDetailsModalOpen] = useState(false);
+  
   if (!isOpen || !team) return null;
 
   return (
@@ -103,7 +111,14 @@ export function TournamentTeamDetails({
             {players.length > 0 ? (
               <div className="space-y-2">
                 {players.map((player) => (
-                  <div key={player.id} className="flex items-center py-2 px-3 rounded-lg hover:bg-gray-700/30 transition-colors">
+                  <div 
+                    key={player.id} 
+                    className="flex items-center py-2 px-3 rounded-lg hover:bg-gray-700/30 transition-colors cursor-pointer group"
+                    onClick={() => {
+                      setSelectedPlayer(player);
+                      setIsPlayerDetailsModalOpen(true);
+                    }}
+                  >
                     {player.photo_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img 
@@ -129,6 +144,17 @@ export function TournamentTeamDetails({
                         #{player.jersey_number}
                       </span>
                     )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPlayer(player);
+                        setIsPlayerDetailsModalOpen(true);
+                      }}
+                      className="ml-2 p-1 text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+                      title="Ver detalles del jugador"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -219,7 +245,14 @@ export function TournamentTeamDetails({
                 {players.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {players.map((player) => (
-                      <div key={player.id} className="flex items-center p-3 rounded-lg hover:bg-gray-700/30 transition-colors">
+                      <div 
+                        key={player.id} 
+                        className="flex items-center p-3 rounded-lg hover:bg-gray-700/30 transition-colors cursor-pointer group"
+                        onClick={() => {
+                          setSelectedPlayer(player);
+                          setIsPlayerDetailsModalOpen(true);
+                        }}
+                      >
                         {player.photo_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img 
@@ -247,6 +280,17 @@ export function TournamentTeamDetails({
                             )}
                           </div>
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedPlayer(player);
+                            setIsPlayerDetailsModalOpen(true);
+                          }}
+                          className="ml-2 p-1 text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+                          title="Ver detalles del jugador"
+                        >
+                          <Info className="h-4 w-4" />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -260,6 +304,15 @@ export function TournamentTeamDetails({
           </div>
         </div>
       </div>
+      
+      {selectedPlayer && (
+        <PlayerDetailsModal
+          player={selectedPlayer}
+          tournamentId={tournamentId || ''}
+          isOpen={isPlayerDetailsModalOpen}
+          onClose={() => setIsPlayerDetailsModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

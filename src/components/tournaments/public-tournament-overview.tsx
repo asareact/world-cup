@@ -28,13 +28,13 @@ interface PublicTournamentOverviewProps {
   fetchTeamDetails: (teamId: string) => void;
 }
 
-export function PublicTournamentOverview({ 
+export function PublicTournamentOverview({
   tournament,
   teams,
   matches,
   topScorers,
   matchesLoading,
-  onNavigate, 
+  onNavigate,
   fetchTeamDetails
 }: PublicTournamentOverviewProps) {
   const router = useRouter();
@@ -46,12 +46,13 @@ export function PublicTournamentOverview({
       {/* Mobile Overview */}
       <div className="space-y-6 md:hidden">
         <MobileTournamentOverview
-        tournament={tournament}
-        teams={teams}
-        matches={matches as TournamentMatch[]}
-        onNavigate={onNavigate}
-        fetchTeamDetails={fetchTeamDetails}
-      />
+          tournament={tournament}
+          teams={teams}
+          matches={matches as TournamentMatch[]}
+          topScorers={topScorers}
+          onNavigate={onNavigate}
+          fetchTeamDetails={fetchTeamDetails}
+        />
       </div>
 
       {/* Desktop Overview */}
@@ -70,6 +71,7 @@ interface MobileTournamentOverviewProps {
   tournament: any;
   teams: Team[];
   matches: TournamentMatch[];
+  topScorers: any[];
   onNavigate: (section: string) => void;
   fetchTeamDetails: (teamId: string) => void;
 }
@@ -133,25 +135,44 @@ const MobileTournamentOverview = ({
   tournament,
   teams,
   matches,
+  topScorers,
   onNavigate,
   fetchTeamDetails
 }: MobileTournamentOverviewProps) => {
+  const teamLookup = new Map(teams.map(team => [team.name, team]));
+
   const playedPercentage = tournament?.matches_count && tournament?.matches_count > 0
     ? Math.round((tournament?.played_matches / tournament?.matches_count) * 100)
     : 0;
 
-  // Get the last 3 completed matches
-  const lastMatches = matches
+  const normalizedMatches = (Array.isArray(matches) ? matches.filter(Boolean) : []) as TournamentMatch[];
+  const topScorersList = Array.isArray(topScorers) ? topScorers.slice(0, 3) : [];
+  const highlightedScorer = topScorersList.length > 0 ? topScorersList[0] : null;
+  const upcomingMatch = normalizedMatches
+    .filter(match => match?.status === 'scheduled' && match?.scheduled_at)
+    .sort((a, b) => {
+      const aDate = a?.scheduled_at ? new Date(a.scheduled_at).getTime() : Number.POSITIVE_INFINITY;
+      const bDate = b?.scheduled_at ? new Date(b.scheduled_at).getTime() : Number.POSITIVE_INFINITY;
+      return aDate - bDate;
+    })[0] || null;
+  const totalMatches = normalizedMatches.length;
+  const playedMatchesCount = normalizedMatches.filter(match => match?.status === 'completed').length;
+  const scheduledMatchesCount = normalizedMatches.filter(match => match?.status === 'scheduled').length;
+  const mobileStats = [
+    { title: 'Partidos totales', value: totalMatches, icon: Trophy },
+    { title: 'Jugados', value: playedMatchesCount, icon: Activity },
+    { title: 'Pendientes', value: Math.max(totalMatches - playedMatchesCount, 0), icon: Timer },
+    { title: 'Programados', value: scheduledMatchesCount, icon: Calendar },
+  ];
+
+  const lastMatches = normalizedMatches
     .filter(match => match?.status === 'completed')
     .sort((a, b) => {
       const aDate = a?.scheduled_at ? new Date(a.scheduled_at).getTime() : Number.NEGATIVE_INFINITY;
       const bDate = b?.scheduled_at ? new Date(b.scheduled_at).getTime() : Number.NEGATIVE_INFINITY;
-      return bDate - aDate; // Sort in descending order (most recent first)
+      return bDate - aDate;
     })
     .slice(0, 3);
-
-  // Create a team lookup map for efficient logo retrieval
-  const teamLookup = new Map(teams.map(team => [team.name, team]));
 
   // Animation variants for mobile
   const containerVariants = {
@@ -242,88 +263,239 @@ const MobileTournamentOverview = ({
           </div>
         </motion.div>
 
-        {/* Last 3 Matches */}
-      <motion.div 
-        className="mt-6"
-        variants={itemVariants}
-        transition={{ delay: 0.4 }}
-      >
-        <h2 className="text-lg font-semibold text-white mb-3">Últimos Partidos</h2>
-        {lastMatches.length > 0 ? (
-          <div className="space-y-3">
-            {lastMatches.map((match, index) => (
-              <motion.div
-                key={match.id}
-                className="bg-gray-800/50 border border-gray-700 rounded-xl p-3"
-                variants={itemVariants}
-                transition={{ delay: 0.5 + index * 0.1 }}
+        <motion.div
+          className="mt-5 grid grid-cols-2 gap-3"
+          variants={itemVariants}
+          transition={{ delay: 0.2 }}
+        >
+          {mobileStats.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <div
+                key={stat.title + '-' + index}
+                className="rounded-2xl border border-gray-700 bg-gray-900/70 p-4"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-1">
-                      {/* Team logo - using approach similar to MobileTeamLogosBanner */}
-                      <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
-                        {match.home_team && teamLookup.get(match.home_team.name)?.logo_url ? (
-                          <img 
-                            src={teamLookup.get(match.home_team.name)!.logo_url!} 
-                            alt={match.home_team.name} 
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
-                            {match.home_team?.name?.charAt(0) || '?'}
-                          </div>
-                        )}
-                      </div>
-                      <span className="text-sm text-white font-medium">
-                        {match.home_team?.name ? match.home_team.name.substring(0, 3).toUpperCase() : '???' }
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="text-sm font-bold text-white mx-2">
-                      {match.home_score ?? '?'} - {match.away_score ?? '?'}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-1">
-                      <span className="text-sm text-white font-medium text-right">
-                        {match.away_team?.name ? match.away_team.name.substring(0, 3).toUpperCase() : '???' }
-                      </span>
-                      {/* Team logo - using approach similar to MobileTeamLogosBanner */}
-                      <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
-                        {match.away_team && teamLookup.get(match.away_team.name)?.logo_url ? (
-                          <img 
-                            src={teamLookup.get(match.away_team.name)!.logo_url!} 
-                            alt={match.away_team.name} 
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white text-xs font-bold">
-                            {match.away_team?.name?.charAt(0) || '?'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                <div className="flex items-center gap-2">
+                  <Icon className="h-4 w-4 text-green-300" />
+                  <span className="text-xs text-gray-300">{stat.title}</span>
+                </div>
+                <p className="mt-2 text-xl font-semibold text-white">{stat.value}</p>
+              </div>
+            );
+          })}
+        </motion.div>
+
+        <motion.div
+          className="mt-6 grid grid-cols-1 gap-4"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.div
+            className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5"
+            variants={itemVariants}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Target className="h-5 w-5 text-green-300" /> Figura destacada
+              </h3>
+            </div>
+            {highlightedScorer ? (
+              <div className="mt-4 flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center text-white text-xl font-bold">
+                  {highlightedScorer.player_name?.charAt(0) || '?'}
+                </div>
+                <div className="flex-1">
+                  <p className="text-lg font-semibold text-white">{highlightedScorer.player_name}</p>
+                  <p className="text-sm text-gray-400">{highlightedScorer.team_name || 'Equipo'}</p>
+                  <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-200">
+                    <Star className="h-3 w-3" />
+                    {highlightedScorer.goals ?? 0} goles
                   </div>
                 </div>
-                <div className="text-xs text-gray-400 mt-2 flex justify-center">
-                  {match.scheduled_at
-                    ? new Date(match.scheduled_at).toLocaleDateString('es-ES', {
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-gray-400">Aun no hay goleadores destacados.</p>
+            )}
+          </motion.div>
+
+          <motion.div
+            className="rounded-2xl border border-gray-800 bg-gray-900/60 p-5"
+            variants={itemVariants}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-green-300" /> Proximo partido
+              </h3>
+            </div>
+            {upcomingMatch ? (
+              <div className="mt-4 space-y-3">
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-white">
+                    {upcomingMatch.home_team?.name || 'Equipo A'} vs {upcomingMatch.away_team?.name || 'Equipo B'}
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    {upcomingMatch.scheduled_at
+                      ? new Date(upcomingMatch.scheduled_at).toLocaleString('es-ES', {
                         day: 'numeric',
                         month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })
-                    : 'Fecha por definir'}
+                      : 'Horario por definir'}
+                  </p>
                 </div>
-              </motion.div>
-            ))}
+                {tournament?.id && (
+                  <a
+                    href={`/tournaments/${tournament.id}/public/calendar`}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-700 py-2.5 text-sm font-medium text-green-300 transition hover:text-green-200"
+                  >
+                    Ver calendario completo
+                  </a>
+                )}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-gray-400">No hay partidos programados por el momento.</p>
+            )}
+          </motion.div>
+        </motion.div>
+
+        <motion.div
+          className="mt-6 rounded-2xl border border-gray-800 bg-gray-900/60 p-5"
+          variants={itemVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Target className="h-5 w-5 text-green-300" /> Maximos goleadores
+            </h3>
+            <button
+              type="button"
+              onClick={() => onNavigate('?section=top-scorers')}
+              className="text-xs font-semibold text-green-300 hover:text-green-200"
+            >
+              Ver todos
+            </button>
           </div>
-        ) : (
-          <div className="text-center py-4">
-            <p className="text-gray-400 text-sm">Aún no se han jugado partidos</p>
-          </div>
-        )}
-      </motion.div>
+          {topScorersList.length > 0 ? (
+            <div className="mt-4 space-y-3">
+              {topScorersList.map((scorer, index) => (
+                <div
+                  key={scorer.player_id || `scorer-${index}`}
+                  className="flex items-center justify-between rounded-xl border border-gray-800 bg-gray-900/80 px-3 py-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>
+                    <div>
+                      <p className="text-sm font-semibold text-white">{scorer.player_name || 'Jugador'}</p>
+                      <p className="text-xs text-gray-400">{scorer.team_name || 'Equipo'}</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-green-300">{scorer.goals ?? 0}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-gray-400">Sin registros de goles por ahora.</p>
+          )}
+        </motion.div>
+
+        {/* Last 3 Matches */}
+        <motion.div
+          className="mt-6"
+          variants={itemVariants}
+          transition={{ delay: 0.4 }}
+        >
+          <h2 className="text-lg font-semibold text-white mb-3">Últimos Partidos</h2>
+          {lastMatches.length > 0 ? (
+            <div className="space-y-3">
+              {lastMatches.map((match, index) => {
+                // Helper function to create 3-letter abbreviation ignoring spaces
+                const getAbbreviation = (name: string | undefined) => {
+                  if (!name) return '???';
+                  // Remove spaces and take first 3 characters, then uppercase
+                  const cleanName = name.replace(/\s+/g, '');
+                  return cleanName.substring(0, 3).toUpperCase();
+                };
+
+                // Get team data from lookup
+                const homeTeamData = match.home_team ? teamLookup.get(match.home_team.name) : null;
+                const awayTeamData = match.away_team ? teamLookup.get(match.away_team.name) : null;
+
+                return (
+                  <motion.div
+                    key={match.id}
+                    className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 hover:bg-gray-700/50 transition-all duration-200"
+                    variants={itemVariants}
+                    transition={{ delay: 0.5 + index * 0.1 }}
+                  >
+                    <div className="flex items-center justify-between">
+                      {/* Home Team */}
+                      <div className="flex items-center space-x-2">
+                        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden border-2 border-gray-600">
+                          {homeTeamData?.logo_url ? (
+                            <img
+                              src={homeTeamData.logo_url}
+                              alt={match.home_team?.name || 'Equipo local'}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
+                              {match.home_team?.name?.charAt(0) || '?'}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-sm text-white font-bold tracking-wider">
+                          {getAbbreviation(match.home_team?.name)}
+                        </span>
+                      </div>
+
+                      {/* Score */}
+                      <div className="flex flex-col items-center">
+                        <span className="text-lg font-bold text-white">
+                          {match.home_score ?? '?'} - {match.away_score ?? '?'}
+                        </span>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {match.scheduled_at
+                            ? new Date(match.scheduled_at).toLocaleDateString('es-ES', {
+                              day: 'numeric',
+                              month: 'short',
+                            })
+                            : 'Fecha por definir'}
+                        </div>
+                      </div>
+
+                      {/* Away Team */}
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-white font-bold tracking-wider">
+                          {getAbbreviation(match.away_team?.name)}
+                        </span>
+                        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden border-2 border-gray-600">
+                          {awayTeamData?.logo_url ? (
+                            <img
+                              src={awayTeamData.logo_url}
+                              alt={match.away_team?.name || 'Equipo visitante'}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold">
+                              {match.away_team?.name?.charAt(0) || '?'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-gray-400 text-sm">Aún no se han jugado partidos</p>
+            </div>
+          )}
+        </motion.div>
 
         {/* Quick Access Section (Separated) */}
         <motion.div
@@ -335,12 +507,7 @@ const MobileTournamentOverview = ({
         >
           <h2 className="text-lg font-semibold text-white mb-4">Acceso Rápido</h2>
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { href: '#standings', label: 'Tabla', icon: Trophy, color: 'green' },
-              { href: '#groups', label: 'Grupos', icon: Users, color: 'blue' },
-              { href: '#repechage', label: 'Repechaje', icon: Shuffle, color: 'purple' },
-              { href: '#match-stats', label: 'Goleadores', icon: Target, color: 'yellow' },
-            ].map((link, index) => {
+            {[{ href: '?section=standings', label: 'Tabla', icon: Trophy, color: 'green' }, { href: tournament?.id ? `/tournaments/${tournament.id}/public/calendar` : '#', label: 'Calendario', icon: Calendar, color: 'blue' }, { href: '?section=top-scorers', label: 'Goleadores', icon: Target, color: 'yellow' }, { href: '?section=ideal-5', label: 'Ideal 5', icon: Shield, color: 'purple' }, { href: '?section=match-stats', label: 'Estadisticas', icon: BarChart3, color: 'red' },].map((link, index) => {
               const Icon = link.icon;
               return (
                 <motion.a
@@ -730,7 +897,7 @@ const DesktopTournamentOverview = ({
               <div className="flex items-center gap-4">
                 <div className="flex-shrink-0">
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center text-white font-bold text-xl">
-                    {topScorer.player_name.charAt(0)}
+                    {topScorer.player_name?.charAt(0) || '?'}
                   </div>
                 </div>
                 <div>
@@ -828,3 +995,4 @@ const DesktopTournamentOverview = ({
     </motion.div>
   )
 };
+
