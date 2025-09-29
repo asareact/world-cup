@@ -5,10 +5,11 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { db } from '@/lib/database'
 import type { Match, Team, Player } from '@/lib/database'
-import { Loader2, Play, Pause, Flag, Shield, Goal, RectangleVertical, Undo2, ShieldCheck, Hand, Trash2, Edit3, Square, AlertTriangle } from 'lucide-react'
+import { Loader2, Play, Pause, Flag, Shield, Goal, RectangleVertical, Undo2, ShieldCheck, Hand, Trash2, Edit3, Square, AlertTriangle, Info } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { useMatchState, LiveMatchEvent } from '@/lib/hooks/use-match-state'
 import Image from 'next/image'
+import { PlayerDetailsModal } from '@/components/players/player-details-modal'
 
 // --- Helper Components ---
 type PlayerWithTeam = Player & { team_id: string }
@@ -42,29 +43,55 @@ const Scoreboard = ({ home, away }: { home: number, away: number }) => (
   </div>
 );
 
-const PlayerCard = ({ player, onPlayerClick }: { player: Player, onPlayerClick: (player: Player) => void }) => (
-  <button 
-    onClick={() => onPlayerClick(player)}
-    className="w-full bg-gray-700/50 p-3 rounded-lg flex items-center space-x-3 hover:bg-gray-600 transition-all text-left">
-    <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center font-bold text-green-400 flex-shrink-0">
-      {player.jersey_number || '-'}
+const PlayerCard = ({ player, onPlayerClick, match }: { player: Player, onPlayerClick: (player: Player) => void, match: MatchWithDetails | null }) => {
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [isPlayerDetailsModalOpen, setIsPlayerDetailsModalOpen] = useState(false);
+  return (
+
+    <div className="w-full bg-gray-700/50 p-3 rounded-lg flex items-center space-x-3 text-left relative group">
+      <button
+        onClick={() => onPlayerClick(player)}
+        className="flex items-center space-x-3 flex-grow text-left hover:bg-gray-600 transition-all p-1 rounded -m-1">
+        <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center font-bold text-green-400 flex-shrink-0">
+          {player.jersey_number || '-'}
+        </div>
+        <span className="text-white font-medium truncate flex-grow">{player.name}</span>
+        {player.is_captain && <span title="Capitán"><ShieldCheck className="h-5 w-5 text-yellow-400 flex-shrink-0" /></span>}
+        {player.position === 'portero' && <span title="Portero"><Hand className="h-5 w-5 text-blue-400 flex-shrink-0" /></span>}
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedPlayer(player);
+          setIsPlayerDetailsModalOpen(true);
+        }}
+        className="p-1 text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+        title="Ver detalles del jugador"
+      >
+        <Info className="h-4 w-4" />
+      </button>
+        {selectedPlayer && match && (
+        <PlayerDetailsModal
+          player={selectedPlayer}
+          tournamentId={match.tournament?.id || ''}
+          isOpen={isPlayerDetailsModalOpen}
+          onClose={() => setIsPlayerDetailsModalOpen(false)}
+        />
+      )}
     </div>
-    <span className="text-white font-medium truncate flex-grow">{player.name}</span>
-    {player.is_captain && <span title="Capitán"><ShieldCheck className="h-5 w-5 text-yellow-400 flex-shrink-0" /></span>}
-    {player.position === 'portero' && <span title="Portero"><Hand className="h-5 w-5 text-blue-400 flex-shrink-0" /></span>}
-  </button>
-);
+  )
+};
 
 const EventModal = ({
-  player, 
+  player,
   team,
-  onClose, 
-  onAddEvent 
-}: { 
-  player: Player | null, 
+  onClose,
+  onAddEvent
+}: {
+  player: Player | null,
   team: TeamWithPlayers | null,
-  onClose: () => void, 
-  onAddEvent: (event: Omit<LiveMatchEvent, 'timestamp' | 'minute' | 'id'>) => void 
+  onClose: () => void,
+  onAddEvent: (event: Omit<LiveMatchEvent, 'timestamp' | 'minute' | 'id'>) => void
 }) => {
   const [selectingAssist, setSelectingAssist] = useState(false);
 
@@ -105,16 +132,16 @@ const EventModal = ({
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
         <h3 className="text-xl font-bold text-white mb-2">{player.name}</h3>
-        
+
         {!selectingAssist ? (
           <>
             <p className="text-gray-400 mb-6">Selecciona un evento:</p>
             <div className="grid grid-cols-2 gap-3">
-              {<button onClick={() => handleEvent('goal')} className="flex items-center justify-center space-x-2 bg-green-500/20 text-green-300 p-3 rounded-lg hover:bg-green-500/40"><Goal className="w-5 h-5"/><span>Gol</span></button>}
-              {<button onClick={() => handleEvent('own_goal')} className="flex items-center justify-center space-x-2 bg-red-500/20 text-red-300 p-3 rounded-lg hover:bg-red-500/40"><Shield className="w-5 h-5"/><span>Autogol</span></button>}
+              {<button onClick={() => handleEvent('goal')} className="flex items-center justify-center space-x-2 bg-green-500/20 text-green-300 p-3 rounded-lg hover:bg-green-500/40"><Goal className="w-5 h-5" /><span>Gol</span></button>}
+              {<button onClick={() => handleEvent('own_goal')} className="flex items-center justify-center space-x-2 bg-red-500/20 text-red-300 p-3 rounded-lg hover:bg-red-500/40"><Shield className="w-5 h-5" /><span>Autogol</span></button>}
               {isGoalkeeper && <button onClick={() => handleEvent('save')} className="flex items-center justify-center space-x-2 bg-blue-500/20 text-blue-300 p-3 rounded-lg hover:bg-blue-500/40"><Hand className="w-5 h-5" /><span>Atajada</span></button>}
-              <button onClick={() => handleEvent('yellow_card')} className="flex items-center justify-center space-x-2 bg-yellow-500/20 text-yellow-300 p-3 rounded-lg hover:bg-yellow-500/40"><RectangleVertical className="w-5 h-5 bg-yellow-500"/><span>Amarilla</span></button>
-              <button onClick={() => handleEvent('red_card')} className="flex items-center justify-center space-x-2 bg-red-500/20 text-red-300 p-3 rounded-lg hover:bg-red-500/40"><RectangleVertical className="w-5 h-5 bg-red-500"/><span>Roja</span></button>
+              <button onClick={() => handleEvent('yellow_card')} className="flex items-center justify-center space-x-2 bg-yellow-500/20 text-yellow-300 p-3 rounded-lg hover:bg-yellow-500/40"><RectangleVertical className="w-5 h-5 bg-yellow-500" /><span>Amarilla</span></button>
+              <button onClick={() => handleEvent('red_card')} className="flex items-center justify-center space-x-2 bg-red-500/20 text-red-300 p-3 rounded-lg hover:bg-red-500/40"><RectangleVertical className="w-5 h-5 bg-red-500" /><span>Roja</span></button>
             </div>
           </>
         ) : (
@@ -139,13 +166,13 @@ const EventModal = ({
 };
 
 
-const EventLog = ({ 
-  events, 
+const EventLog = ({
+  events,
   match,
   onDeleteEvent,
   onEditEvent
-}: { 
-  events: LiveMatchEvent[], 
+}: {
+  events: LiveMatchEvent[],
   match: MatchWithDetails | null,
   onDeleteEvent: (id: string) => void,
   onEditEvent: (id: string) => void
@@ -202,14 +229,14 @@ const EventLog = ({
           <div className="text-xs text-gray-500 mt-1">{teamName}</div>
         </div>
         <div className="flex space-x-1 ml-2">
-          <button 
+          <button
             onClick={() => onDeleteEvent(event.id)}
             className="p-1.5 text-red-400 hover:bg-red-500/20 rounded transition-colors"
             title="Eliminar evento"
           >
             <Trash2 className="h-4 w-4" />
           </button>
-          <button 
+          <button
             onClick={() => onEditEvent(event.id)}
             className="p-1.5 text-blue-400 hover:bg-blue-500/20 rounded transition-colors"
             title="Editar evento"
@@ -242,7 +269,7 @@ const EventLog = ({
           ))}
         </div>
       </div>
-      
+
       {/* Away Team Events */}
       <div className="bg-gray-900/50 rounded-lg p-3">
         <h3 className="font-semibold text-gray-300 mb-2 text-center border-b border-gray-700 pb-1">
@@ -258,54 +285,51 @@ const EventLog = ({
   );
 };
 
-const EditEventModal = ({ 
-  event, 
+// EditEventModal is integrated into the main component to avoid conditional hooks issue
+const EditEventModal = ({
+  event,
   match,
-  onClose, 
-  onSave 
-}: { 
-  event: LiveMatchEvent | null, 
+  onClose,
+  onSave,
+  updatedPlayerId,
+  setUpdatedPlayerId,
+  updatedEventType,
+  setUpdatedEventType,
+  updatedAssistPlayerId,
+  setUpdatedAssistPlayerId,
+  handleSubmit
+}: {
+  event: LiveMatchEvent | null,
   match: MatchWithDetails | null,
-  onClose: () => void, 
-  onSave: (eventId: string, updatedData: Partial<Omit<LiveMatchEvent, 'id' | 'timestamp' | 'minute'>>) => void 
+  onClose: () => void,
+  onSave: (eventId: string, updatedData: Partial<Omit<LiveMatchEvent, 'id' | 'timestamp' | 'minute'>>) => void,
+  updatedPlayerId: string,
+  setUpdatedPlayerId: (id: string) => void,
+  updatedEventType: LiveMatchEvent['event_type'],
+  setUpdatedEventType: (type: LiveMatchEvent['event_type']) => void,
+  updatedAssistPlayerId: string,
+  setUpdatedAssistPlayerId: (id: string) => void,
+  handleSubmit: () => void
 }) => {
   if (!event || !match) return null;
 
-  const [updatedPlayerId, setUpdatedPlayerId] = useState(event.player_id);
-  const [updatedEventType, setUpdatedEventType] = useState(event.event_type);
-  const [updatedAssistPlayerId, setUpdatedAssistPlayerId] = useState(event.assist_player_id || '');
-
-  const handleSubmit = () => {
-    // Only update fields that were changed
-    const updates: Partial<Omit<LiveMatchEvent, 'id' | 'timestamp' | 'minute'>> = {};
-    
-    if (updatedPlayerId !== event.player_id) updates.player_id = updatedPlayerId;
-    if (updatedEventType !== event.event_type) updates.event_type = updatedEventType;
-    if (updatedAssistPlayerId !== (event.assist_player_id || '')) {
-      updates.assist_player_id = updatedAssistPlayerId || null;
-    }
-    
-    onSave(event.id, updates);
-    onClose();
-  };
-
   // Get players from the event's team
-  const teamPlayers = (event.team_id === match.home_team?.id ? 
-    match.home_team?.players || [] : 
+  const teamPlayers = (event.team_id === match.home_team?.id ?
+    match.home_team?.players || [] :
     match.away_team?.players || []);
-  
+
   const assistPlayers = teamPlayers.filter(p => p.id !== updatedPlayerId);
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
         <h3 className="text-xl font-bold text-white mb-4">Editar Evento</h3>
-        
+
         <div className="space-y-4">
           <div>
             <label className="block text-gray-400 mb-2">Tipo de Evento</label>
-            <select 
-              value={updatedEventType} 
+            <select
+              value={updatedEventType}
               onChange={(e) => setUpdatedEventType(e.target.value as LiveMatchEvent['event_type'])}
               className="w-full bg-gray-700 text-white p-2 rounded-lg border border-gray-600"
             >
@@ -316,11 +340,11 @@ const EditEventModal = ({
               {event.event_type === 'assist' && <option value="assist">Atajada</option>} {/* Only show if current is assist */}
             </select>
           </div>
-          
+
           <div>
             <label className="block text-gray-400 mb-2">Jugador</label>
-            <select 
-              value={updatedPlayerId} 
+            <select
+              value={updatedPlayerId}
               onChange={(e) => setUpdatedPlayerId(e.target.value)}
               className="w-full bg-gray-700 text-white p-2 rounded-lg border border-gray-600"
             >
@@ -329,12 +353,12 @@ const EditEventModal = ({
               ))}
             </select>
           </div>
-          
+
           {(updatedEventType === 'goal') && (
             <div>
               <label className="block text-gray-400 mb-2">Asistente (opcional)</label>
-              <select 
-                value={updatedAssistPlayerId} 
+              <select
+                value={updatedAssistPlayerId}
                 onChange={(e) => setUpdatedAssistPlayerId(e.target.value)}
                 className="w-full bg-gray-700 text-white p-2 rounded-lg border border-gray-600"
               >
@@ -346,15 +370,15 @@ const EditEventModal = ({
             </div>
           )}
         </div>
-        
+
         <div className="flex space-x-3 mt-6">
-          <button 
+          <button
             onClick={onClose}
             className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg transition-colors"
           >
             Cancelar
           </button>
-          <button 
+          <button
             onClick={handleSubmit}
             className="flex-1 bg-green-600 hover:bg-green-500 text-white py-2 rounded-lg transition-colors"
           >
@@ -378,20 +402,36 @@ export default function RefereePage() {
   const [error, setError] = useState<string | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [activeTeamTab, setActiveTeamTab] = useState<'home' | 'away'>('home');
-  
+
   const { state: matchState, actions } = useMatchState(matchId, match?.home_team?.id, match?.away_team?.id);
 
   const [modalPlayer, setModalPlayer] = useState<Player | null>(null);
   const [modalTeam, setModalTeam] = useState<TeamWithPlayers | null>(null);
+
   const [editingEvent, setEditingEvent] = useState<LiveMatchEvent | null>(null);
+
+  // State variables for EditEventModal
+  const [updatedPlayerId, setUpdatedPlayerId] = useState<string>('');
+  const [updatedEventType, setUpdatedEventType] = useState<LiveMatchEvent['event_type']>('goal');
+  const [updatedAssistPlayerId, setUpdatedAssistPlayerId] = useState<string>('');
+
   const [showStopModal, setShowStopModal] = useState(false);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{visible: boolean, x: number, y: number, eventId: string | null}>({
+  const [contextMenu, setContextMenu] = useState<{ visible: boolean, x: number, y: number, eventId: string | null }>({
     visible: false,
     x: 0,
     y: 0,
     eventId: null
   });
+
+  // Reset edit form when editingEvent changes
+  useEffect(() => {
+    if (editingEvent) {
+      setUpdatedPlayerId(editingEvent.player_id);
+      setUpdatedEventType(editingEvent.event_type);
+      setUpdatedAssistPlayerId(editingEvent.assist_player_id || '');
+    }
+  }, [editingEvent]);
 
   // Close context menu when clicking outside
   useEffect(() => {
@@ -453,15 +493,15 @@ export default function RefereePage() {
 
   const handleContextMenu = (e: React.MouseEvent | React.TouchEvent, eventId: string) => {
     e.preventDefault(); // Prevent default context menu
-    
+
     // Only show context menu on mobile devices
     const isMobile = window.innerWidth < 768;
-    
+
     if (!isMobile) {
       // On desktop, do nothing - the icons are already visible
       return;
     }
-    
+
     let clientX, clientY;
     if ('touches' in e) {
       // For touch events
@@ -472,7 +512,7 @@ export default function RefereePage() {
       clientX = e.clientX;
       clientY = e.clientY;
     }
-    
+
     setContextMenu({
       visible: true,
       x: clientX,
@@ -514,16 +554,40 @@ export default function RefereePage() {
     );
   }
 
+  // Define handleSubmit function for editing events
+  const handleSubmit = () => {
+    if (!editingEvent) return;
+
+    // Only update fields that were changed
+    const updates: Partial<Omit<LiveMatchEvent, 'id' | 'timestamp' | 'minute'>> = {};
+
+    if (updatedPlayerId !== editingEvent.player_id) updates.player_id = updatedPlayerId;
+    if (updatedEventType !== editingEvent.event_type) updates.event_type = updatedEventType;
+    if (updatedAssistPlayerId !== (editingEvent.assist_player_id || '')) {
+      updates.assist_player_id = updatedAssistPlayerId || null;
+    }
+
+    actions.editEvent(editingEvent.id, updates);
+    setEditingEvent(null); // Close the modal after saving
+  };
+
   return (
     <DashboardLayout>
       <EventModal player={modalPlayer} team={modalTeam} onClose={() => setModalPlayer(null)} onAddEvent={actions.addEvent} />
-      <EditEventModal 
-        event={editingEvent} 
-        match={match} 
-        onClose={() => setEditingEvent(null)} 
-        onSave={actions.editEvent} 
+      <EditEventModal
+        event={editingEvent}
+        match={match}
+        onClose={() => setEditingEvent(null)}
+        onSave={actions.editEvent}
+        updatedPlayerId={updatedPlayerId}
+        setUpdatedPlayerId={setUpdatedPlayerId}
+        updatedEventType={updatedEventType}
+        setUpdatedEventType={setUpdatedEventType}
+        updatedAssistPlayerId={updatedAssistPlayerId}
+        setUpdatedAssistPlayerId={setUpdatedAssistPlayerId}
+        handleSubmit={handleSubmit}
       />
-      
+
       {/* Stop Timer Warning Modal */}
       {showStopModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowStopModal(false)}>
@@ -536,13 +600,13 @@ export default function RefereePage() {
               ¿Estás seguro de que deseas detener el contador? Esta acción reiniciará el tiempo del partido y no se podrán recuperar los eventos registrados durante la sesión actual.
             </p>
             <div className="flex space-x-3">
-              <button 
+              <button
                 onClick={() => setShowStopModal(false)}
                 className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg transition-colors"
               >
                 Cancelar
               </button>
-              <button 
+              <button
                 onClick={handleStopTimer}
                 className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg transition-colors"
               >
@@ -552,7 +616,7 @@ export default function RefereePage() {
           </div>
         </div>
       )}
-      
+
       {/* Finalize Match Confirmation Modal */}
       {showFinalizeModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowFinalizeModal(false)}>
@@ -568,13 +632,13 @@ export default function RefereePage() {
               Esta acción es irreversible. Asegúrate de haber revisado todas las estadísticas antes de continuar.
             </p>
             <div className="flex space-x-3">
-              <button 
+              <button
                 onClick={() => setShowFinalizeModal(false)}
                 className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg transition-colors"
               >
                 Cancelar
               </button>
-              <button 
+              <button
                 onClick={handleFinalize}
                 disabled={matchState.isFinalizing}
                 className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
@@ -592,10 +656,10 @@ export default function RefereePage() {
           </div>
         </div>
       )}
-      
+
       {/* Context Menu for Events on Mobile */}
       {contextMenu.visible && (
-        <div 
+        <div
           className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 py-2 w-40"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()} // Prevent closing when clicking on the menu
@@ -623,7 +687,7 @@ export default function RefereePage() {
           <div className="mb-2">
             <Timer time={matchState.time} half={matchState.currentHalf} isRunning={matchState.isRunning} />
           </div>
-          
+
           <div className="flex items-center justify-between w-full">
             {/* Home Team - Mobile: 3 letters + Logo */}
             <div className="flex items-center">
@@ -631,11 +695,11 @@ export default function RefereePage() {
                 {(match?.home_team?.name || 'TBD').substring(0, 3).replace(/\s/g, '').toUpperCase()}
               </div>
               {match?.home_team?.logo_url ? (
-                <Image 
-                  src={match.home_team.logo_url} 
-                  alt={match.home_team.name || ''} 
-                  width={40} 
-                  height={40} 
+                <Image
+                  src={match.home_team.logo_url}
+                  alt={match.home_team.name || ''}
+                  width={40}
+                  height={40}
                   className="w-12 h-12 rounded-full object-cover md:w-10 md:h-10"
                 />
               ) : (
@@ -646,20 +710,20 @@ export default function RefereePage() {
                 </div>
               )}
             </div>
-            
+
             {/* Score - Centered */}
             <div className="text-center mx-2">
               <Scoreboard home={matchState.score.home} away={matchState.score.away} />
             </div>
-            
+
             {/* Away Team - Mobile: Logo + 3 letters */}
             <div className="flex items-center">
               {match?.away_team?.logo_url ? (
-                <Image 
-                  src={match.away_team.logo_url} 
-                  alt={match.away_team.name || ''} 
-                  width={40} 
-                  height={40} 
+                <Image
+                  src={match.away_team.logo_url}
+                  alt={match.away_team.name || ''}
+                  width={40}
+                  height={40}
                   className="w-12 h-12 rounded-full object-cover mr-1 md:w-10 md:h-10"
                 />
               ) : (
@@ -674,7 +738,7 @@ export default function RefereePage() {
               </div>
             </div>
           </div>
-          
+
           {/* Events for both teams below the scores */}
           <div className="w-full mt-3">
             <div className="grid grid-cols-2 gap-3">
@@ -697,19 +761,19 @@ export default function RefereePage() {
                         assist: '🤝',
                         save: '🧤',
                       };
-                      
+
                       // Get player name (first name only)
                       const allPlayers = [...(match?.home_team?.players || []), ...(match?.away_team?.players || [])];
                       const player = allPlayers.find(p => p.id === event.player_id);
                       const playerName = player?.name?.split(' ')[0] || 'Jugador';
-                      
+
                       // Get assist player name if applicable
                       const assistPlayer = allPlayers.find(p => p.id === event.assist_player_id);
                       const assistPlayerName = assistPlayer?.name?.split(' ')[0] || '';
-                      
+
                       return (
-                        <div 
-                          key={event.id} 
+                        <div
+                          key={event.id}
                           className="flex items-center text-xs bg-gray-700/50 p-1.5 rounded"
                           onContextMenu={(e) => handleContextMenu(e, event.id)}
                           onTouchStart={(e) => {
@@ -745,7 +809,7 @@ export default function RefereePage() {
                           <span className="mr-1">{eventIcons[event.event_type] || '🔹'}</span>
                           <span className="font-medium truncate">{playerName}</span>
                           {event.event_type === 'goal' && event.assist_player_id && (
-                            <span className="ml-1 text-gray-400 truncate">({'🤝'}{assistPlayerName})</span>
+                            <span className="ml-1 text-gray-400 truncate">('🤝'{assistPlayerName})</span>
                           )}
                           <span className="ml-auto text-gray-400">{event.minute}'</span>
                         </div>
@@ -756,7 +820,7 @@ export default function RefereePage() {
                   )}
                 </div>
               </div>
-              
+
               {/* Away Team Events */}
               <div className="bg-gray-800/50 rounded-lg p-2">
                 <h3 className="text-xs font-semibold text-center text-gray-300 mb-1 truncate border-b border-gray-700 pb-1">
@@ -776,19 +840,19 @@ export default function RefereePage() {
                         assist: '🤝',
                         save: '🧤',
                       };
-                      
+
                       // Get player name (first name only)
                       const allPlayers = [...(match?.home_team?.players || []), ...(match?.away_team?.players || [])];
                       const player = allPlayers.find(p => p.id === event.player_id);
                       const playerName = player?.name?.split(' ')[0] || 'Jugador';
-                      
+
                       // Get assist player name if applicable
                       const assistPlayer = allPlayers.find(p => p.id === event.assist_player_id);
                       const assistPlayerName = assistPlayer?.name?.split(' ')[0] || '';
-                      
+
                       return (
-                        <div 
-                          key={event.id} 
+                        <div
+                          key={event.id}
                           className="flex items-center text-xs bg-gray-700/50 p-1.5 rounded"
                           onContextMenu={(e) => handleContextMenu(e, event.id)}
                           onTouchStart={(e) => {
@@ -824,7 +888,7 @@ export default function RefereePage() {
                           <span className="mr-1">{eventIcons[event.event_type] || '🔹'}</span>
                           <span className="font-medium truncate">{playerName}</span>
                           {event.event_type === 'goal' && event.assist_player_id && (
-                            <span className="ml-1 text-gray-400 truncate">({'🤝'}{assistPlayerName})</span>
+                            <span className="ml-1 text-gray-400 truncate">('🤝'{assistPlayerName})</span>
                           )}
                           <span className="ml-auto text-gray-400">{event.minute}'</span>
                         </div>
@@ -838,43 +902,43 @@ export default function RefereePage() {
             </div>
           </div>
         </div>
-        
+
         {/* Desktop Layout: Full Team Cards */}
         <div className="hidden md:flex items-center justify-between gap-4 mb-2">
           {/* Home Team */}
           <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex-1 min-w-0">
             <div className="flex flex-col items-center">
-              <Image 
-                src={match?.home_team?.logo_url || '/file.svg'} 
-                alt={match?.home_team?.name || ''} 
-                width={80} 
-                height={80} 
+              <Image
+                src={match?.home_team?.logo_url || '/file.svg'}
+                alt={match?.home_team?.name || ''}
+                width={80}
+                height={80}
                 className="h-20 w-20 object-cover rounded-full mb-2"
               />
               <h2 className="text-xl font-bold text-center truncate w-full">{match?.home_team?.name}</h2>
             </div>
           </div>
-          
+
           {/* Score - Centered on desktop */}
           <div className="text-center mx-4">
             <Scoreboard home={matchState.score.home} away={matchState.score.away} />
           </div>
-          
+
           {/* Away Team */}
           <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex-1 min-w-0">
             <div className="flex flex-col items-center">
-              <Image 
-                src={match?.away_team?.logo_url || '/file.svg'} 
-                alt={match?.away_team?.name || ''} 
-                width={80} 
-                height={80} 
+              <Image
+                src={match?.away_team?.logo_url || '/file.svg'}
+                alt={match?.away_team?.name || ''}
+                width={80}
+                height={80}
                 className="h-20 w-20 object-cover rounded-full mb-2"
               />
               <h2 className="text-xl font-bold text-center truncate w-full">{match?.away_team?.name}</h2>
             </div>
           </div>
         </div>
-        
+
         {/* Timer - Shown on all screens below the header (for desktop only) */}
         <div className="hidden md:flex justify-center my-4">
           <Timer time={matchState.time} half={matchState.currentHalf} isRunning={matchState.isRunning} />
@@ -882,48 +946,48 @@ export default function RefereePage() {
 
         {/* Divider between score/events and buttons (only on mobile) */}
         <div className="md:hidden border-t border-gray-700 my-4"></div>
-        
+
         {/* Timer Controls */}
         <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
           <div className="flex space-x-2">
             {!matchState.isRunning ? (
-              <button 
-                onClick={actions.startTimer} 
-                disabled={matchState.currentHalf === 'finished'} 
+              <button
+                onClick={actions.startTimer}
+                disabled={matchState.currentHalf === 'finished'}
                 className="p-3 bg-green-600 rounded-lg text-white hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center"
               >
-                <Play className="h-5 w-5"/>
+                <Play className="h-5 w-5" />
                 <span className="ml-2 hidden sm:inline">Iniciar</span>
               </button>
             ) : (
-              <button 
-                onClick={actions.pauseTimer} 
+              <button
+                onClick={actions.pauseTimer}
                 className="p-3 bg-yellow-600 rounded-lg text-white hover:bg-yellow-500 flex items-center justify-center"
               >
-                <Pause className="h-5 w-5"/>
+                <Pause className="h-5 w-5" />
                 <span className="ml-2 hidden sm:inline">Pausar</span>
               </button>
             )}
-            <button 
-              onClick={() => setShowStopModal(true)} 
+            <button
+              onClick={() => setShowStopModal(true)}
               className="p-3 bg-red-600 rounded-lg text-white hover:bg-red-500 flex items-center justify-center"
             >
-              <Square className="h-5 w-5"/>
+              <Square className="h-5 w-5" />
               <span className="ml-2 hidden sm:inline">Detener</span>
             </button>
-            <button 
-              onClick={() => setShowFinalizeModal(true)} 
-              disabled={matchState.isFinalizing} 
+            <button
+              onClick={() => setShowFinalizeModal(true)}
+              disabled={matchState.isFinalizing}
               className="p-3 bg-blue-600 rounded-lg text-white hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {matchState.isFinalizing ? (
                 <>
-                  <Loader2 className="h-5 w-5 animate-spin"/>
+                  <Loader2 className="h-5 w-5 animate-spin" />
                   <span className="ml-2 hidden sm:inline">Finalizando</span>
                 </>
               ) : (
                 <>
-                  <Flag className="h-5 w-5"/>
+                  <Flag className="h-5 w-5" />
                   <span className="ml-2 hidden sm:inline">Finalizar</span>
                 </>
               )}
@@ -934,16 +998,16 @@ export default function RefereePage() {
         <div className="mt-8">
           <div className="flex justify-between items-center mb-4">
 
-            <button 
+            <button
               onClick={actions.undoLastEvent}
               disabled={!matchState || matchState.events.length === 0}
               className="flex items-center space-x-2 text-sm text-blue-400 hover:text-blue-300 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
             >
-              <Undo2 className="w-4 h-4"/>
+              <Undo2 className="w-4 h-4" />
               <span>Deshacer</span>
             </button>
           </div>
-          
+
           {/* Events Section - Desktop Only */}
           <div className="hidden md:block mb-8">
             <h3 className="text-xl font-semibold mb-6 text-center">Eventos</h3>
@@ -955,68 +1019,70 @@ export default function RefereePage() {
               }
             }} />
           </div>
-          
+
           {/* Player Lists with Tabs - Mobile */}
-        <div className="md:hidden">
-          <div className="border-b border-gray-700 mb-4">
-            <div className="flex">
-              <button
-                className={`flex-1 py-2 text-center font-medium ${activeTeamTab === 'home' ? 'text-green-400 border-b-2 border-green-400' : 'text-gray-400'}`}
-                onClick={() => setActiveTeamTab('home')}
-              >
-                {match?.home_team?.name || 'Local'}
-              </button>
-              <button
-                className={`flex-1 py-2 text-center font-medium ${activeTeamTab === 'away' ? 'text-green-400 border-b-2 border-green-400' : 'text-gray-400'}`}
-                onClick={() => setActiveTeamTab('away')}
-              >
-                {match?.away_team?.name || 'Visitante'}
-              </button>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            {activeTeamTab === 'home' && match?.home_team?.players.map(p => <PlayerCard key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
-            {activeTeamTab === 'away' && match?.away_team?.players
-              .sort((a, b) => {
-                if (a.is_captain && !b.is_captain) return -1;
-                if (!a.is_captain && b.is_captain) return 1;
-                if (a.position === 'portero' && b.position !== 'portero') return -1;
-                if (a.position !== 'portero' && b.position === 'portero') return 1;
-                return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
-              })
-              .map(p => <PlayerCard key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
-          </div>
-        </div>
-        
-        {/* Player Lists - Desktop (Two Columns) */}
-        <div className="hidden md:block">
-          <h3 className="text-xl font-semibold mb-6 text-center">Jugadores</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <div className="space-y-2">
-                {match?.home_team?.players.map(p => <PlayerCard key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
+          <div className="md:hidden">
+            <div className="border-b border-gray-700 mb-4">
+              <div className="flex">
+                <button
+                  className={`flex-1 py-2 text-center font-medium ${activeTeamTab === 'home' ? 'text-green-400 border-b-2 border-green-400' : 'text-gray-400'}`}
+                  onClick={() => setActiveTeamTab('home')}
+                >
+                  {match?.home_team?.name || 'Local'}
+                </button>
+                <button
+                  className={`flex-1 py-2 text-center font-medium ${activeTeamTab === 'away' ? 'text-green-400 border-b-2 border-green-400' : 'text-gray-400'}`}
+                  onClick={() => setActiveTeamTab('away')}
+                >
+                  {match?.away_team?.name || 'Visitante'}
+                </button>
               </div>
             </div>
-            <div>
-              <div className="space-y-2">
-                {match?.away_team?.players
-                  .sort((a, b) => {
-                    if (a.is_captain && !b.is_captain) return -1;
-                    if (!a.is_captain && b.is_captain) return 1;
-                    if (a.position === 'portero' && b.position !== 'portero') return -1;
-                    if (a.position !== 'portero' && b.position === 'portero') return 1;
-                    return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
-                  })
-                  .map(p => <PlayerCard key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
+
+            <div className="space-y-2">
+              {activeTeamTab === 'home' && match?.home_team?.players.map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
+              {activeTeamTab === 'away' && match?.away_team?.players
+                .sort((a, b) => {
+                  if (a.is_captain && !b.is_captain) return -1;
+                  if (!a.is_captain && b.is_captain) return 1;
+                  if (a.position === 'portero' && b.position !== 'portero') return -1;
+                  if (a.position !== 'portero' && b.position === 'portero') return 1;
+                  return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
+                })
+                .map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
+            </div>
+          </div>
+
+          {/* Player Lists - Desktop (Two Columns) */}
+          <div className="hidden md:block">
+            <h3 className="text-xl font-semibold mb-6 text-center">Jugadores</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <div className="space-y-2">
+                  {match?.home_team?.players.map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
+                </div>
+              </div>
+              <div>
+                <div className="space-y-2">
+                  {match?.away_team?.players
+                    .sort((a, b) => {
+                      if (a.is_captain && !b.is_captain) return -1;
+                      if (!a.is_captain && b.is_captain) return 1;
+                      if (a.position === 'portero' && b.position !== 'portero') return -1;
+                      if (a.position !== 'portero' && b.position === 'portero') return 1;
+                      return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
+                    })
+                    .map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
+                </div>
               </div>
             </div>
           </div>
         </div>
-        </div>
-        
-        </div>
+
+      </div>
+
+    
     </DashboardLayout>
   );
-} 
-   
+}
+

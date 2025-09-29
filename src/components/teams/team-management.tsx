@@ -245,11 +245,11 @@ export function TeamManagement() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-400">Jugadores:</span>
                   <div className="flex items-center space-x-1">
-                    <span className="text-white">{team.playerCount}/12</span>
+                    <span className="text-white">{team.playerCount}/14</span>
                     <div className="w-16 bg-gray-700 rounded-full h-1">
                       <div 
                         className="bg-blue-500 h-1 rounded-full" 
-                        style={{ width: `${(team.playerCount / 12) * 100}%` }}
+                        style={{ width: `${(team.playerCount / 14) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -293,7 +293,7 @@ export function TeamManagement() {
                 
                 {team.playerCount >= 7 && (
                   <div className="text-xs text-gray-400">
-                    Mínimo para competir: 7/12 jugadores
+                    Mínimo para competir: 7/14 jugadores
                   </div>
                 )}
                 

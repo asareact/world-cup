@@ -197,8 +197,8 @@ export default function TournamentPublicPage() {
     if (!teamId) return;
 
     try {
-      // Fetch team details
-      const response = await fetch(`/api/teams/${teamId}`);
+      // Fetch team details with tournament context
+      const response = await fetch(`/api/teams/${teamId}?tournamentId=${tournamentId}`);
       if (!response.ok) throw new Error('Failed to fetch team');
 
       const teamData = await response.json();
@@ -402,6 +402,7 @@ export default function TournamentPublicPage() {
       <TournamentTeamDetails
         team={teamDetails}
         players={teamPlayers}
+        tournamentId={tournamentId || ''}
         isOpen={!!selectedTeamId}
         onClose={handleCloseTeamDetails}
       />

@@ -484,18 +484,16 @@ CREATE POLICY "Tournament creators can manage player stats" ON public.player_sta
 
 -- ✅ FUNCIONES Y TRIGGERS
 
--- Función para verificar máximo 12 jugadores por equipo
 CREATE OR REPLACE FUNCTION check_max_players()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $
 BEGIN
-  IF (SELECT COUNT(*) FROM players WHERE team_id = NEW.team_id AND is_active = true) >= 12 THEN
-    RAISE EXCEPTION 'Un equipo no puede tener más de 12 jugadores activos';
+  IF (SELECT COUNT(*) FROM players WHERE team_id = NEW.team_id AND is_active = true) >= 14 THEN
+    RAISE EXCEPTION 'Un equipo no puede tener más de 14 jugadores activos';
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$ LANGUAGE plpgsql;
 
--- Trigger para verificar máximo de jugadores
 DROP TRIGGER IF EXISTS trigger_check_max_players ON players;
 CREATE TRIGGER trigger_check_max_players
   BEFORE INSERT OR UPDATE ON players
@@ -568,7 +566,7 @@ CREATE TRIGGER update_matches_updated_at BEFORE UPDATE ON matches FOR EACH ROW E
 -- ✅ Posiciones de futsal: portero, cierre, ala, pivote
 -- ✅ Campo photo_url para fotos de jugadores
 -- ✅ Sistema de capitán único por equipo
--- ✅ Máximo 12 jugadores por equipo
+-- ✅ Máximo 14 jugadores por equipo
 -- ✅ Políticas de seguridad (RLS)
 -- ✅ Triggers automáticos
 

@@ -148,7 +148,7 @@ export function useTournamentStats(tournamentId: string) {
 
           const playerInfo: PlayerInfo = {
             player_name: rawPlayer?.name || DEFAULT_PLAYER.player_name,
-            team_name: rawTeam?.name || rawPlayer?.teams?.name || DEFAULT_PLAYER.team_name,
+            team_name: rawTeam?.name || (rawPlayer?.teams && Array.isArray(rawPlayer.teams) ? rawPlayer.teams[0]?.name : null) || DEFAULT_PLAYER.team_name,
             team_id: event.team_id || rawPlayer?.team_id || DEFAULT_PLAYER.team_id,
             player_photo_url: rawPlayer?.photo_url ?? null,
           }

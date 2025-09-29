@@ -238,7 +238,7 @@ export function useMatchState(matchId: string, homeTeamId?: string, awayTeamId?:
       );
 
       // Recalculate score since the event type might have changed
-      let newScore = { home: 0, away: 0 };
+      const newScore = { home: 0, away: 0 };
       newEvents.forEach(event => {
         if (event.event_type === 'goal') {
           if (event.team_id === homeTeamId) {

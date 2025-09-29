@@ -490,7 +490,7 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
               <div>
                 <h2 className="text-xl font-bold">Plantilla del Equipo</h2>
                 <p className="text-blue-100">
-                  {activePlayers.length}/12 jugadores • {captain ? `Capitán: ${captain.name}` : 'Sin capitán asignado'}
+                  {activePlayers.length}/14 jugadores • {captain ? `Capitán: ${captain.name}` : 'Sin capitán asignado'}
                 </p>
               </div>
               <div className="text-right">
@@ -542,11 +542,11 @@ export function EditTeamForm({ teamId }: EditTeamFormProps) {
             </div>
             <button
               onClick={() => setPlayerModal({ open: true, mode: 'create' })}
-              disabled={activePlayers.length >= 12}
+              disabled={activePlayers.length >= 14}
               className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="h-4 w-4" />
-              <span>{activePlayers.length >= 12 ? 'Equipo completo (12/12)' : 'Agregar Jugador'}</span>
+              <span>{activePlayers.length >= 14 ? 'Equipo completo (14/14)' : 'Agregar Jugador'}</span>
             </button>
           </div>
         </div>

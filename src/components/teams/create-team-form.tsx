@@ -193,7 +193,7 @@ export function CreateTeamForm() {
           </h1>
           <p className="text-gray-400">
             {teamCreated 
-              ? 'Agrega jugadores a tu equipo (máximo 12 jugadores)'
+              ? 'Agrega jugadores a tu equipo (máximo 14 jugadores)'
               : 'Completa la información básica del equipo de futsal'
             }
           </p>
@@ -359,7 +359,7 @@ export function CreateTeamForm() {
               <div>
                 <h2 className="text-xl font-bold">{teamData.name}</h2>
                 <p className="text-blue-100">
-                  {activePlayers.length}/12 jugadores • {captain ? `Capitán: ${captain.name}` : 'Sin capitán asignado'}
+                  {activePlayers.length}/14 jugadores • {captain ? `Capitán: ${captain.name}` : 'Sin capitán asignado'}
                 </p>
               </div>
               <div className="text-right">
@@ -377,12 +377,12 @@ export function CreateTeamForm() {
           >
             <button
               onClick={() => setShowPlayerForm(true)}
-              disabled={activePlayers.length >= 12}
+              disabled={activePlayers.length >= 14}
               className="w-full flex items-center justify-center space-x-3 p-4 border-2 border-dashed border-gray-600 rounded-xl hover:border-blue-500 hover:bg-blue-500/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="h-6 w-6 text-gray-400" />
               <span className="text-gray-400 font-medium">
-                {activePlayers.length >= 12 ? 'Equipo completo (12/12)' : 'Agregar Jugador'}
+                {activePlayers.length >= 14 ? 'Equipo completo (14/14)' : 'Agregar Jugador'}
               </span>
             </button>
           </motion.div>
