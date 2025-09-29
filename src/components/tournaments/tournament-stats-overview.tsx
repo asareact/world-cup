@@ -1,7 +1,7 @@
 // src/components/tournaments/tournament-stats-overview.tsx
 'use client'
 
-import { BarChart3, Target, Award, Square, Users } from 'lucide-react'
+import { BarChart3, Target, Award, Square, Shield } from 'lucide-react'
 import { useTournamentStats } from '@/lib/hooks/use-tournament-stats'
 
 interface TournamentStatsOverviewProps {
@@ -13,8 +13,8 @@ export function TournamentStatsOverview({ tournamentId }: TournamentStatsOvervie
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {[...Array(5)].map((_, i) => (
           <div key={i} className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 animate-pulse">
             <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
             <div className="h-6 bg-gray-700 rounded w-1/2"></div>
@@ -27,7 +27,7 @@ export function TournamentStatsOverview({ tournamentId }: TournamentStatsOvervie
   if (error || !stats) {
     return (
       <div className="text-center py-4">
-        <p className="text-red-400">Error al cargar estadísticas: {error || 'No disponibles'}</p>
+        <p className="text-red-400">Error al cargar estadisticas: {error || 'No disponibles'}</p>
       </div>
     )
   }
@@ -38,29 +38,36 @@ export function TournamentStatsOverview({ tournamentId }: TournamentStatsOvervie
       value: stats.totalGoals,
       icon: Target,
       color: 'text-green-400',
-      bgColor: 'bg-green-500/10'
+      bgColor: 'bg-green-500/10',
     },
     {
       title: 'Asistencias',
       value: stats.totalAssists,
       icon: Award,
       color: 'text-blue-400',
-      bgColor: 'bg-blue-500/10'
+      bgColor: 'bg-blue-500/10',
     },
     {
       title: 'Tarjetas amarillas',
       value: stats.totalYellowCards,
       icon: Square,
       color: 'text-yellow-400',
-      bgColor: 'bg-yellow-500/10'
+      bgColor: 'bg-yellow-500/10',
     },
     {
       title: 'Tarjetas rojas',
       value: stats.totalRedCards,
       icon: Square,
       color: 'text-red-400',
-      bgColor: 'bg-red-500/10'
-    }
+      bgColor: 'bg-red-500/10',
+    },
+    {
+      title: 'Atajadas',
+      value: stats.totalSaves,
+      icon: Shield,
+      color: 'text-cyan-400',
+      bgColor: 'bg-cyan-500/10',
+    },
   ]
 
   return (
@@ -68,10 +75,10 @@ export function TournamentStatsOverview({ tournamentId }: TournamentStatsOvervie
       <div>
         <h2 className="text-xl font-bold text-white mb-4 flex items-center">
           <BarChart3 className="h-5 w-5 mr-2 text-green-400" />
-          Estadísticas del Torneo
+          Estadisticas del Torneo
         </h2>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {statCards.map((stat, index) => {
             const Icon = stat.icon
             return (
@@ -80,7 +87,7 @@ export function TournamentStatsOverview({ tournamentId }: TournamentStatsOvervie
                 className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 hover:border-green-500/30 transition-colors"
               >
                 <div className="flex items-center">
-                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                  <div className={`${stat.bgColor} p-2 rounded-lg`}>
                     <Icon className={`h-5 w-5 ${stat.color}`} />
                   </div>
                   <div className="ml-3">
@@ -141,7 +148,7 @@ export function TournamentStatsOverview({ tournamentId }: TournamentStatsOvervie
       <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
         <h3 className="font-semibold text-white mb-3 flex items-center">
           <Award className="h-4 w-4 mr-2 text-blue-400" />
-          Asistidores
+          Asistencias
         </h3>
         {stats.topAssists.length > 0 ? (
           <div className="space-y-3">
@@ -271,6 +278,57 @@ export function TournamentStatsOverview({ tournamentId }: TournamentStatsOvervie
           <p className="text-gray-500 text-sm py-2">No hay tarjetas rojas</p>
         )}
       </div>
+
+      {/* Goalkeepers */}
+      <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+        <h3 className="font-semibold text-white mb-3 flex items-center">
+          <Shield className="h-4 w-4 mr-2 text-cyan-400" />
+          Porteros destacados
+        </h3>
+        {stats.topGoalkeepers.length > 0 ? (
+          <div className="space-y-3">
+            {stats.topGoalkeepers.slice(0, 5).map((keeper, index) => (
+              <div key={keeper.player_id} className="flex items-center justify-between p-2 bg-gray-700/30 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <span className="text-gray-400 font-bold text-lg">#{index + 1}</span>
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                    {keeper.player_photo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={keeper.player_photo_url}
+                        alt={keeper.player_name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs font-medium text-white">
+                        {keeper.player_name?.charAt(0).toUpperCase() || '?'}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-white text-sm font-medium">{keeper.player_name}</div>
+                    <div className="text-gray-400 text-xs">{keeper.team_name}</div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center">
+                    <span className="text-cyan-400 font-bold text-lg">{keeper.saves}</span>
+                    <span className="text-gray-500 text-sm ml-1">ataj.</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-red-300 font-bold text-lg">{keeper.goals_conceded}</span>
+                    <span className="text-gray-500 text-sm ml-1">GC</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500 text-sm py-2">No hay atajadas registradas</p>
+        )}
+      </div>
     </div>
   )
 }
+
+

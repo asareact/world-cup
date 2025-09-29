@@ -9,12 +9,21 @@ export interface LiveMatchEvent {
   id: string;
   player_id: string;
   team_id: string;
-  event_type: 'goal' | 'yellow_card' | 'red_card' | 'own_goal' | 'assist';
+  event_type: 'goal' | 'yellow_card' | 'red_card' | 'own_goal' | 'assist' | 'save';
   timestamp: number;
   minute: number;
   description: string | null;
   assist_player_id: string | null;
 }
+
+type FinalizeMatchEventPayload = {
+  player_id: string;
+  team_id: string;
+  event_type: LiveMatchEvent['event_type'];
+  minute: number;
+  description: string | null;
+  assist_player_id: string | null;
+};
 
 // Define the overall state of the match being refereed
 interface MatchState {
@@ -291,24 +300,77 @@ export function useMatchState(matchId: string, homeTeamId?: string, awayTeamId?:
       return;
     }
 
+    const baseState = state;
+    const participantSet = new Set<string>();
+
+    playerIds.forEach(id => {
+      if (id) participantSet.add(id);
+    });
+
+    baseState.events.forEach(event => {
+      if (event.player_id) participantSet.add(event.player_id);
+      if (event.assist_player_id) participantSet.add(event.assist_player_id);
+    });
+
+    if (participantSet.size === 0) {
+      alert("Error: No hay jugadores asociados al partido.");
+      return;
+    }
+
+    let computedScore: { home: number; away: number } | null = null;
+    if (homeTeamId && awayTeamId) {
+      computedScore = baseState.events.reduce<{ home: number; away: number }>((acc, event) => {
+        if (event.event_type === 'goal') {
+          if (event.team_id === homeTeamId) {
+            acc.home += 1;
+          } else if (event.team_id === awayTeamId) {
+            acc.away += 1;
+          }
+        } else if (event.event_type === 'own_goal') {
+          if (event.team_id === homeTeamId) {
+            acc.away += 1;
+          } else if (event.team_id === awayTeamId) {
+            acc.home += 1;
+          }
+        }
+        return acc;
+      }, { home: 0, away: 0 });
+    }
+
+    if (computedScore && (computedScore.home !== baseState.score.home || computedScore.away !== baseState.score.away)) {
+      alert("El marcador no coincide con los eventos registrados. Revisa los goles y autogoles antes de finalizar.");
+      return;
+    }
+
+    const participants = Array.from(participantSet);
+
+    const payloadEvents: FinalizeMatchEventPayload[] = baseState.events.map((event) => ({
+      player_id: event.player_id,
+      team_id: event.team_id,
+      event_type: event.event_type,
+      minute: event.minute,
+      description: event.description,
+      assist_player_id: event.assist_player_id,
+    }));
+
     setState(prevState => prevState ? { ...prevState, isFinalizing: true } : null);
 
     try {
       await db.saveMatchResults(
         matchId,
-        state.score.home,
-        state.score.away,
-        state.events,
-        playerIds
+        baseState.score.home,
+        baseState.score.away,
+        payloadEvents,
+        participants
       );
-      
+
       localStorage.removeItem(getLocalStorageKey());
-      alert("Partido finalizado y estadísticas guardadas exitosamente.");
+      alert("Partido finalizado y estadisticas guardadas exitosamente.");
       setState(prevState => prevState ? { ...prevState, isRunning: false, currentHalf: 'finished', isFinalizing: false } : null);
 
     } catch (error) {
       console.error("Failed to finalize match:", error);
-      alert(`Error al guardar las estadísticas: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      alert(`Error al guardar las estadisticas: ${error instanceof Error ? error.message : 'Error desconocido'}`);
       setState(prevState => prevState ? { ...prevState, isFinalizing: false } : null);
     }
   };

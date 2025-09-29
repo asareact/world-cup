@@ -110,9 +110,9 @@ const EventModal = ({
           <>
             <p className="text-gray-400 mb-6">Selecciona un evento:</p>
             <div className="grid grid-cols-2 gap-3">
-              {!isGoalkeeper && <button onClick={() => handleEvent('goal')} className="flex items-center justify-center space-x-2 bg-green-500/20 text-green-300 p-3 rounded-lg hover:bg-green-500/40"><Goal className="w-5 h-5"/><span>Gol</span></button>}
-              {!isGoalkeeper && <button onClick={() => handleEvent('own_goal')} className="flex items-center justify-center space-x-2 bg-red-500/20 text-red-300 p-3 rounded-lg hover:bg-red-500/40"><Shield className="w-5 h-5"/><span>Autogol</span></button>}
-              {isGoalkeeper && <button onClick={() => handleEvent('assist')} className="flex items-center justify-center space-x-2 bg-blue-500/20 text-blue-300 p-3 rounded-lg hover:bg-blue-500/40"><Hand className="w-5 h-5"/><span>Atajada</span></button>}
+              {<button onClick={() => handleEvent('goal')} className="flex items-center justify-center space-x-2 bg-green-500/20 text-green-300 p-3 rounded-lg hover:bg-green-500/40"><Goal className="w-5 h-5"/><span>Gol</span></button>}
+              {<button onClick={() => handleEvent('own_goal')} className="flex items-center justify-center space-x-2 bg-red-500/20 text-red-300 p-3 rounded-lg hover:bg-red-500/40"><Shield className="w-5 h-5"/><span>Autogol</span></button>}
+              {isGoalkeeper && <button onClick={() => handleEvent('save')} className="flex items-center justify-center space-x-2 bg-blue-500/20 text-blue-300 p-3 rounded-lg hover:bg-blue-500/40"><Hand className="w-5 h-5" /><span>Atajada</span></button>}
               <button onClick={() => handleEvent('yellow_card')} className="flex items-center justify-center space-x-2 bg-yellow-500/20 text-yellow-300 p-3 rounded-lg hover:bg-yellow-500/40"><RectangleVertical className="w-5 h-5 bg-yellow-500"/><span>Amarilla</span></button>
               <button onClick={() => handleEvent('red_card')} className="flex items-center justify-center space-x-2 bg-red-500/20 text-red-300 p-3 rounded-lg hover:bg-red-500/40"><RectangleVertical className="w-5 h-5 bg-red-500"/><span>Roja</span></button>
             </div>
@@ -174,7 +174,8 @@ const EventLog = ({
     yellow_card: { icon: '🟨', text: 'Tarjeta Amarilla', color: 'text-yellow-400' },
     red_card: { icon: '🟥', text: 'Tarjeta Roja', color: 'text-red-400' },
     own_goal: { icon: '🥅', text: 'Autogol', color: 'text-red-400' },
-    assist: { icon: '🧤', text: 'Atajada', color: 'text-blue-400' }, // For goalkeeper saves
+    assist: { icon: '🤝', text: 'Asistencia', color: 'text-blue-400' },
+    save: { icon: '🧤', text: 'Atajada', color: 'text-blue-400' }, // For goalkeeper saves
   };
 
   // Separate events by team
@@ -693,7 +694,8 @@ export default function RefereePage() {
                         yellow_card: '🟨',
                         red_card: '🟥',
                         own_goal: '🥅',
-                        assist: '🧤',
+                        assist: '🤝',
+                        save: '🧤',
                       };
                       
                       // Get player name (first name only)
@@ -771,7 +773,8 @@ export default function RefereePage() {
                         yellow_card: '🟨',
                         red_card: '🟥',
                         own_goal: '🥅',
-                        assist: '🧤',
+                        assist: '🤝',
+                        save: '🧤',
                       };
                       
                       // Get player name (first name only)
