@@ -283,7 +283,7 @@ export function TournamentStatsOverview({ tournamentId }: TournamentStatsOvervie
       <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
         <h3 className="font-semibold text-white mb-3 flex items-center">
           <Shield className="h-4 w-4 mr-2 text-cyan-400" />
-          Porteros destacados
+          Líder en Atajadas
         </h3>
         {stats.topGoalkeepers.length > 0 ? (
           <div className="space-y-3">
@@ -310,14 +310,10 @@ export function TournamentStatsOverview({ tournamentId }: TournamentStatsOvervie
                     <div className="text-gray-400 text-xs">{keeper.team_name}</div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center">
                   <div className="flex items-center">
                     <span className="text-cyan-400 font-bold text-lg">{keeper.saves}</span>
                     <span className="text-gray-500 text-sm ml-1">ataj.</span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="text-red-300 font-bold text-lg">{keeper.goals_conceded}</span>
-                    <span className="text-gray-500 text-sm ml-1">GC</span>
                   </div>
                 </div>
               </div>

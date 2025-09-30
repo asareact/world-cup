@@ -98,7 +98,7 @@ export function TournamentIdealFiveSection() {
               <p className="text-gray-300 text-sm">Jugadores que más ayudan a sus compañeros a marcar</p>
             </div>
             <div className="p-4 bg-gradient-to-r from-red-900/30 to-orange-900/30 rounded-lg border border-red-800/50">
-              <h4 className="font-semibold text-red-400 mb-2">Porteros Destacados</h4>
+              <h4 className="font-semibold text-red-400 mb-2">Líder en Atajadas</h4>
               <p className="text-gray-300 text-sm">Basados en efectividad: (Paradas / (Paradas + Goles Encajados)) × 100</p>
             </div>
             <div className="p-4 bg-gradient-to-r from-purple-900/30 to-pink-900/30 rounded-lg border border-purple-800/50">
