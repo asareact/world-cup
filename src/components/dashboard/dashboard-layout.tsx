@@ -51,7 +51,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { stats } = useDashboardStats()
   const [pendingRequests, setPendingRequests] = useState(0)
 
-  // Invitados no pueden navegar el dashboard; redirigir al sitio publico designado\r\n  useEffect(() => {\r\n    if (!loading && role === 'invitado') {\r\n      router.replace(INVITADO_PUBLIC_TOURNAMENT_ROUTE)\r\n    }\r\n  }, [loading, role, router])
+  // Invitados no pueden navegar el dashboard; redirigir al sitio publico designado\r\n  useEffect(() => {\r\n    if (!loading && role === 'invitado') {\r\n      // Check if current path is a public tournament route\r\n      const isOnPublicTournamentPage = pathname.includes('/tournaments/') && pathname.includes('/public')\r\n      \r\n      // Only redirect if on private dashboard routes, not on public tournament pages\r\n      if (!isOnPublicTournamentPage) {\r\n        router.replace(INVITADO_PUBLIC_TOURNAMENT_ROUTE)\r\n      }\r\n    }\r\n  }, [loading, role, router, pathname])
 
   const handleSignOut = async () => {
     await signOut()

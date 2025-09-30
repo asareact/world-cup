@@ -96,14 +96,18 @@ export default function TournamentPublicPage() {
 
   // Mobile navigation handler
   const handleSectionChange = (href: string) => {
-    // Check if it's a calendar link (external URL)
+    // Check if it's a calendar link
     if (href.startsWith('/')) {
-      // Navigate to the calendar page
+      // For calendar or other page navigation, set navigation source as internal before navigating
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('tournamentNavigationSource', 'internal');
+      }
+      // Navigate to the page
       router.push(href)
       return
     }
 
-    // Handle regular section changes
+    // Handle regular section changes within the same page
     const section = href.split('=')[1] || 'overview'
 
     // Set navigation source as internal
@@ -111,7 +115,7 @@ export default function TournamentPublicPage() {
       sessionStorage.setItem('tournamentNavigationSource', 'internal');
     }
 
-    // Update URL without full page reload
+    // Update URL without full page reload for section changes
     const url = new URL(window.location.href)
     url.searchParams.set('section', section)
     window.history.pushState({}, '', url.toString())
@@ -119,24 +123,28 @@ export default function TournamentPublicPage() {
     window.dispatchEvent(new Event('popstate'))
   }
 
-  // Show loader only when navigating from outside the tournament public pages
+  // Show loader only when navigating from outside the tournament public pages  
   useEffect(() => {
     if (tournamentId && typeof window !== 'undefined') {
-      // Check if we're navigating from within tournament pages
+      // Check if we're navigating from within tournament pages (including calendar)
       const navigationSource = sessionStorage.getItem('tournamentNavigationSource');
       const isFromInternal = navigationSource === 'internal';
-
+      
       // Set current navigation source as internal for future navigations within the tournament
       sessionStorage.setItem('tournamentNavigationSource', 'internal');
 
-      // If coming from internal navigation, don't show loader
-      if (isFromInternal) {
-        return;
+      // Show loader only if coming from external navigation (not from tournament pages)
+      if (!isFromInternal) {
+        // Check if loader has already been shown for this tournament to avoid repeated loading
+        const loaderShownKey = `tournament_${tournamentId}_loader_shown`;
+        const hasShownLoader = sessionStorage.getItem(loaderShownKey);
+        
+        if (!hasShownLoader) {
+          setShowLoader(true);
+          sessionStorage.setItem(loaderShownKey, 'true');
+        }
       }
-
-      // Show loader for external navigation every time (don't remember it)
-      // We show it immediately when we know the tournamentId, then replace with name when available
-      setShowLoader(true);
+      // If coming from internal navigation (tournament sections), don't show loader
     }
 
     // Cleanup function to reset navigation source when component unmounts
@@ -262,15 +270,11 @@ export default function TournamentPublicPage() {
     setTeamPlayers([])
   }
 
-  // Set navigation source as external on initial load if not already set
+  // Track when loader has been shown for this tournament
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Always show loader on first mount
-      const hasShownLoader = sessionStorage.getItem(`tournament_${tournamentId}_loader_shown`);
-      if (!hasShownLoader) {
-        setShowLoader(true);
-        sessionStorage.setItem(`tournament_${tournamentId}_loader_shown`, 'true');
-      }
+    if (typeof window !== 'undefined' && tournamentId) {
+      // Mark that loader has been shown for this tournament
+      sessionStorage.setItem(`tournament_${tournamentId}_loader_shown`, 'true');
     }
   }, [tournamentId]);
 

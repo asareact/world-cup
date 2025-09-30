@@ -58,11 +58,7 @@ export default function Home() {
     await signOut()
   }
 
-  useEffect(() => {
-    if (!loading && user && role === 'invitado') {
-      router.replace(INVITADO_PUBLIC_TOURNAMENT_ROUTE)
-    }
-  }, [loading, user, role, router])
+
 
   const homeHref = getDefaultRouteForRole(role)
 
