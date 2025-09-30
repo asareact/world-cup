@@ -237,11 +237,11 @@ export function TournamentStandings({
             <tr className="border-b border-gray-700">
               <th className="py-3 px-4 text-left text-gray-400 font-medium text-sm">Pos</th>
               <th className="py-3 px-4 text-left text-gray-400 font-medium text-sm">Equipo</th>
+              <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">Pts</th>
               <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">PJ</th>
               <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">G</th>
               <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">E</th>
               <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">P</th>
-              <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">Pts</th>
               <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">GF</th>
               <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">GC</th>
               <th className="py-3 px-4 text-center text-gray-400 font-medium text-sm">DG</th>
@@ -285,11 +285,11 @@ export function TournamentStandings({
                     <span className="text-white font-medium">{entry.team.name || 'Equipo desconocido'}</span>
                   </div>
                 </td>
+                <td className="py-3 px-4 text-center text-white font-bold">{entry.points}</td>
                 <td className="py-3 px-4 text-center text-gray-300">{entry.played}</td>
                 <td className="py-3 px-4 text-center text-gray-300">{entry.wins}</td>
                 <td className="py-3 px-4 text-center text-gray-300">{entry.draws}</td>
                 <td className="py-3 px-4 text-center text-gray-300">{entry.losses}</td>
-                <td className="py-3 px-4 text-center text-white font-bold">{entry.points}</td>
                 <td className="py-3 px-4 text-center text-gray-300">{entry.goalsFor}</td>
                 <td className="py-3 px-4 text-center text-gray-300">{entry.goalsAgainst}</td>
                 <td className="py-3 px-4 text-center text-gray-300 font-medium">
