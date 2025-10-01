@@ -95,6 +95,38 @@ const PlayerCard = ({
   // Overall disabled status (only official suspension or expelled in this match)
   const isDisabled = isOfficiallySuspended || isExpelled;
   
+  // Group events by type for this player
+  const playerEvents = events.filter(event => event.player_id === player.id);
+  
+  // Count events by type
+  const eventCounts: Record<string, number> = {};
+  playerEvents.forEach(event => {
+    eventCounts[event.event_type] = (eventCounts[event.event_type] || 0) + 1;
+  });
+  
+  // Get event icons with counts
+  const eventIcons = [];
+  const eventDisplay: Record<string, { icon: string; color: string }> = {
+    goal: { icon: '⚽', color: 'text-green-400' },
+    yellow_card: { icon: '🟨', color: 'text-yellow-400' },
+    red_card: { icon: '🟥', color: 'text-red-400' },
+    own_goal: { icon: '🥅', color: 'text-red-400' },
+    assist: { icon: '🤝', color: 'text-blue-400' },
+    save: { icon: '🧤', color: 'text-blue-400' },
+  };
+  
+  Object.entries(eventCounts).forEach(([eventType, count]) => {
+    const displayInfo = eventDisplay[eventType];
+    if (displayInfo && count > 0) {
+      eventIcons.push({
+        icon: displayInfo.icon,
+        color: displayInfo.color,
+        count: count,
+        type: eventType
+      });
+    }
+  });
+  
   return (
     <div className={`w-full p-3 rounded-lg flex items-center space-x-3 text-left relative group ${
       isDisabled ? 'bg-red-900/30 opacity-60' : 
@@ -121,6 +153,19 @@ const PlayerCard = ({
           'text-white'
         }`}>
           {player.name}
+          {/* Show event icons for mobile view */}
+          {eventIcons.length > 0 && (
+            <span className="ml-2 inline-flex items-center space-x-1">
+              {eventIcons.map((event, index) => (
+                <span key={index} className="inline-flex items-center text-xs">
+                  <span className={event.color}>{event.icon}</span>
+                  {event.count > 1 && (
+                    <span className="ml-0.5 text-xs">x{event.count}</span>
+                  )}
+                </span>
+              ))}
+            </span>
+          )}
         </span>
         {player.is_captain && (
           <span title="Capitán">
