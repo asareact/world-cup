@@ -1,27 +1,27 @@
 // API route for individual suspension operations
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { PlayerSuspensionService } from '@/lib/database/player-suspensions';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
 
 const suspensionService = new PlayerSuspensionService();
 
 // PATCH /api/tournaments/[id]/suspensions/[suspensionId] - Serve a suspension
 export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string; suspensionId: string } }
+  request: Request,
+  context: { params: Promise<{ id: string; suspensionId: string }> }
 ) {
+  const { id, suspensionId } = await context.params;
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    const supabase = await createClient();
+    
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized' }, 
         { status: 401 }
       );
     }
-    
-    const { suspensionId } = params;
     
     if (!suspensionId) {
       return NextResponse.json(
@@ -30,7 +30,7 @@ export async function PATCH(
       );
     }
     
-    const body = await req.json();
+    const body = await request.json();
     const { action } = body;
     
     // Validate action
@@ -64,22 +64,23 @@ export async function PATCH(
 
 // DELETE /api/tournaments/[id]/suspensions/[suspensionId] - Delete a suspension (admin only)
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string; suspensionId: string } }
+  request: Request,
+  context: { params: Promise<{ id: string; suspensionId: string }> }
 ) {
+  const { id, suspensionId } = await context.params;
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    const supabase = await createClient();
+    
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized' }, 
         { status: 401 }
       );
     }
     
-    // TODO: Check if user is admin
-    
-    const { suspensionId } = params;
+    // TODO: Check if user is admin or tournament creator
     
     if (!suspensionId) {
       return NextResponse.json(

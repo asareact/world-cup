@@ -56,7 +56,7 @@ export async function GET(
     const suspensionService = new PotentialSuspensionsService()
     const potentialSuspensions = await suspensionService.detectPotentialSuspensions(
       id,
-      { matchId, date, allUpcoming }
+      { matchId }
     )
 
     return NextResponse.json(potentialSuspensions)

@@ -8,7 +8,7 @@ async function checkMatchSuspensions(tournamentId: string, matchId: string) {
   try {
     const potentialSuspensions = await suspensionService.detectPotentialSuspensions(
       tournamentId, 
-      matchId
+      { matchId }
     )
     
     console.log('Potential suspensions for match:', potentialSuspensions)
@@ -60,24 +60,25 @@ async function checkTournamentSuspensions(tournamentId: string) {
 }
 
 // Example 3: Get detailed stats for a specific player
-async function getPlayerSuspensionStats(playerId: string, tournamentId: string) {
-  const suspensionService = new PotentialSuspensionsService()
-  
-  try {
-    const stats = await suspensionService.getPlayerSuspensionStats(playerId, tournamentId)
-    
-    console.log('Player suspension stats:', stats)
-    
-    return stats
-  } catch (error) {
-    console.error('Error getting player suspension stats:', error)
-    return null
-  }
-}
+// NOTE: This method doesn't exist in PotentialSuspensionsService
+// async function getPlayerSuspensionStats(playerId: string, tournamentId: string) {
+//   const suspensionService = new PotentialSuspensionsService()
+//   
+//   try {
+//     const stats = await suspensionService.getPlayerSuspensionStats(playerId, tournamentId)
+//     
+//     console.log('Player suspension stats:', stats)
+//     
+//     return stats
+//   } catch (error) {
+//     console.error('Error getting player suspension stats:', error)
+//     return null
+//   }
+// }
 
 // Export examples for use in other modules
 export {
   checkMatchSuspensions,
-  checkTournamentSuspensions,
-  getPlayerSuspensionStats
+  checkTournamentSuspensions
+  // getPlayerSuspensionStats - commented out as method doesn't exist
 }
