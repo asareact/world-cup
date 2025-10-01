@@ -121,11 +121,6 @@ const PlayerCard = ({
           'text-white'
         }`}>
           {player.name}
-          {isWarned && !isDisabled && (
-            <span className="ml-1 text-xs bg-yellow-600 text-yellow-100 px-1.5 py-0.5 rounded-full">
-              ⚠️
-            </span>
-          )}
         </span>
         {player.is_captain && (
           <span title="Capitán">
