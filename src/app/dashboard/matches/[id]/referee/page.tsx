@@ -76,20 +76,23 @@ const PlayerCard = ({
              event.event_type === 'red_card'
   ).length;
   
-  // Check if player is potentially suspended for this match
+  // Check if player is potentially suspended for this match (should be warned, not disabled)
   const isPotentiallySuspended = potentialSuspensions && 
     potentialSuspensions.some((s: any) => s.playerId === player.id);
   
-  // Player should be warned if they have 1 yellow card (risk of suspension with another)
+  // Player should be warned if they:
+  // 1. Have 1 yellow card (risk of suspension with another)
+  // 2. Are potentially suspended (from tournament accumulation)
   const isWarned = (playerYellowCards >= 1 && playerYellowCards < 2 && playerRedCards === 0) || 
                    isPotentiallySuspended;
   
   // Player should be disabled/expelled if they have:
   // 1. A red card, or
   // 2. Two yellow cards in this match (which equals a red card)
+  // 3. Official suspension
   const isExpelled = playerRedCards > 0 || playerYellowCards >= 2;
   
-  // Overall disabled status (official suspension or expelled in this match)
+  // Overall disabled status (only official suspension or expelled in this match)
   const isDisabled = isOfficiallySuspended || isExpelled;
   
   return (
@@ -585,12 +588,8 @@ export default function RefereePage() {
               if (response.ok) {
                 const potentialSuspensions = await response.json();
                 setPotentialSuspensions(potentialSuspensions);
-                const potentialSuspendedIds = potentialSuspensions.map((s: any) => s.playerId);
-                // Combine officially suspended players with potentially suspended players
-                setSuspendedPlayers(prev => {
-                  const combined = [...new Set([...prev, ...potentialSuspendedIds])];
-                  return combined;
-                });
+                // Note: We don't combine with suspendedPlayers here
+                // Potential suspensions are just for warnings, not disabling players
               }
             } catch (err) {
               console.error('Error fetching potential suspended players:', err);
