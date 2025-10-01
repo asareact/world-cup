@@ -43,21 +43,25 @@ const Scoreboard = ({ home, away }: { home: number, away: number }) => (
   </div>
 );
 
-const PlayerCard = ({ player, onPlayerClick, match }: { player: Player, onPlayerClick: (player: Player) => void, match: MatchWithDetails | null }) => {
+const PlayerCard = ({ player, onPlayerClick, match, suspendedPlayers }: { player: Player, onPlayerClick: (player: Player) => void, match: MatchWithDetails | null, suspendedPlayers?: string[] }) => {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [isPlayerDetailsModalOpen, setIsPlayerDetailsModalOpen] = useState(false);
+  
+  // Check if player is suspended
+  const isSuspended = suspendedPlayers && suspendedPlayers.includes(player.id);
+  
   return (
-
-    <div className="w-full bg-gray-700/50 p-3 rounded-lg flex items-center space-x-3 text-left relative group">
+    <div className={`w-full p-3 rounded-lg flex items-center space-x-3 text-left relative group ${isSuspended ? 'bg-red-900/30' : 'bg-gray-700/50'}`}>
       <button
-        onClick={() => onPlayerClick(player)}
-        className="flex items-center space-x-3 flex-grow text-left hover:bg-gray-600 transition-all p-1 rounded -m-1">
-        <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center font-bold text-green-400 flex-shrink-0">
+        onClick={isSuspended ? undefined : () => onPlayerClick(player)}
+        className={`flex items-center space-x-3 flex-grow text-left transition-all p-1 rounded -m-1 ${isSuspended ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-600'}`}>
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0 ${isSuspended ? 'bg-red-800 text-red-200' : 'bg-gray-800 text-green-400'}`}>
           {player.jersey_number || '-'}
         </div>
-        <span className="text-white font-medium truncate flex-grow">{player.name}</span>
-        {player.is_captain && <span title="Capitán"><ShieldCheck className="h-5 w-5 text-yellow-400 flex-shrink-0" /></span>}
-        {player.position === 'portero' && <span title="Portero"><Hand className="h-5 w-5 text-blue-400 flex-shrink-0" /></span>}
+        <span className={`font-medium truncate flex-grow ${isSuspended ? 'text-red-300' : 'text-white'}`}>{player.name}</span>
+        {player.is_captain && <span title="Capitán"><ShieldCheck className={`h-5 w-5 ${isSuspended ? 'text-red-400' : 'text-yellow-400'} flex-shrink-0`} /></span>}
+        {player.position === 'portero' && <span title="Portero"><Hand className={`h-5 w-5 ${isSuspended ? 'text-red-400' : 'text-blue-400'} flex-shrink-0`} /></span>}
+        {isSuspended && <span title="Jugador suspendido"><Flag className="h-4 w-4 text-red-400" /></span>}
       </button>
       <button
         onClick={(e) => {
@@ -65,7 +69,7 @@ const PlayerCard = ({ player, onPlayerClick, match }: { player: Player, onPlayer
           setSelectedPlayer(player);
           setIsPlayerDetailsModalOpen(true);
         }}
-        className="p-1 text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+        className={`p-1 ${isSuspended ? 'text-red-400' : 'text-gray-400'} hover:text-white transition-colors opacity-0 group-hover:opacity-100`}
         title="Ver detalles del jugador"
       >
         <Info className="h-4 w-4" />
@@ -400,6 +404,7 @@ export default function RefereePage() {
   const [match, setMatch] = useState<MatchWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [suspendedPlayers, setSuspendedPlayers] = useState<string[]>([]);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [activeTeamTab, setActiveTeamTab] = useState<'home' | 'away'>('home');
 
@@ -461,6 +466,24 @@ export default function RefereePage() {
         const data = await db.getMatchWithPlayers(matchId);
         if (!data) throw new Error('Match not found');
         setMatch(data as MatchWithDetails);
+        
+        // Fetch suspended players for this tournament
+        if (data.tournament?.id) {
+          const fetchSuspendedPlayers = async () => {
+            try {
+              const response = await fetch(`/api/tournaments/${data.tournament?.id}/suspensions`);
+              if (response.ok) {
+                const suspensions = await response.json();
+                const suspendedIds = suspensions.map((s: any) => s.player_id);
+                setSuspendedPlayers(suspendedIds);
+              }
+            } catch (err) {
+              console.error('Error fetching suspended players:', err);
+            }
+          };
+          
+          fetchSuspendedPlayers();
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
       } finally {
@@ -1040,7 +1063,7 @@ export default function RefereePage() {
             </div>
 
             <div className="space-y-2">
-              {activeTeamTab === 'home' && match?.home_team?.players.map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
+              {activeTeamTab === 'home' && match?.home_team?.players.map(p => <PlayerCard match={match} suspendedPlayers={suspendedPlayers} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
               {activeTeamTab === 'away' && match?.away_team?.players
                 .sort((a, b) => {
                   if (a.is_captain && !b.is_captain) return -1;
@@ -1049,7 +1072,7 @@ export default function RefereePage() {
                   if (a.position !== 'portero' && b.position === 'portero') return 1;
                   return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
                 })
-                .map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
+                .map(p => <PlayerCard match={match} suspendedPlayers={suspendedPlayers} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
             </div>
           </div>
 
@@ -1059,7 +1082,7 @@ export default function RefereePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
                 <div className="space-y-2">
-                  {match?.home_team?.players.map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
+                  {match?.home_team?.players.map(p => <PlayerCard match={match} suspendedPlayers={suspendedPlayers} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
                 </div>
               </div>
               <div>
@@ -1072,7 +1095,7 @@ export default function RefereePage() {
                       if (a.position !== 'portero' && b.position === 'portero') return 1;
                       return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
                     })
-                    .map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
+                    .map(p => <PlayerCard match={match} suspendedPlayers={suspendedPlayers} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
                 </div>
               </div>
             </div>

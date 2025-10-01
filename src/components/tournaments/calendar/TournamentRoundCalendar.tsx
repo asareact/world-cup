@@ -316,6 +316,7 @@ export function TournamentRoundCalendar({
               roundName={roundName}
               matches={matches}
               teams={teams}
+              tournamentId={tournamentId}
               isExpanded={expandedRounds[roundName] || false}
               onToggle={toggleRound}
               onViewMatchDetails={handleViewMatchDetails}

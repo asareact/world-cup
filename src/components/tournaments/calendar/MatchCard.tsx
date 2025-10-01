@@ -2,16 +2,27 @@
 
 import { useState } from 'react'
 import { Match, Team } from '@/lib/database'
-import { Clock } from 'lucide-react'
+import { Clock, AlertTriangle } from 'lucide-react'
 import { getNormalizedCubanTime } from '@/lib/utils/time-utils'
+import dynamic from 'next/dynamic'
+
+// Dynamically import the potential suspension component to avoid SSR issues
+const MatchPotentialSuspensions = dynamic(
+  () => import('@/components/tournaments/potential-suspension-warning').then(mod => mod.MatchPotentialSuspensions),
+  { ssr: false, loading: () => <div className="flex items-center text-xs text-gray-400 mt-2">
+    <div className="w-2 h-2 rounded-full bg-gray-500 mr-1 animate-pulse"></div>
+    Cargando...
+  </div> }
+)
 
 interface MatchCardProps {
   match: Match
   teams: Pick<Team, "id" | "name" | "logo_url">[] | undefined | null
+  tournamentId: string
   onViewDetails: (match: Match) => void
 }
 
-export function MatchCard({ match, teams, onViewDetails }: MatchCardProps) {
+export function MatchCard({ match, teams, tournamentId, onViewDetails }: MatchCardProps) {
   // Get team info
   const homeTeam = Array.isArray(teams) ? teams.find(team => team.id === match.home_team_id) : null
   const awayTeam = Array.isArray(teams) ? teams.find(team => team.id === match.away_team_id) : null
@@ -106,6 +117,15 @@ export function MatchCard({ match, teams, onViewDetails }: MatchCardProps) {
           )}
         </div>
       </div>
+      
+      {/* Show potential suspensions warning for scheduled matches */}
+      {match.status === 'scheduled' && tournamentId && match.id && (
+        <MatchPotentialSuspensions 
+          tournamentId={tournamentId} 
+          matchId={match.id} 
+          scheduledAt={match.scheduled_at}
+        />
+      )}
       
       {/* "Ver detalles" button is now handled by the whole card being clickable */}
       <div className="mt-4 pt-3 border-t border-gray-700/50 flex justify-center">
