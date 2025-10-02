@@ -123,6 +123,8 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
   const [matchEvents, setMatchEvents] = useState<ExtendedMatchEvent[]>([])
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [activeTab, setActiveTab] = useState<'home' | 'away'>('home')
+  const [suspendedPlayers, setSuspendedPlayers] = useState<any[]>([])
+  const [loadingSuspended, setLoadingSuspended] = useState(true)
 
   // Load players and events when match changes
   useEffect(() => {
@@ -136,6 +138,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
 
     // Reset loading states
     setLoadingPlayers({ home: true, away: true })
+    setLoadingSuspended(true)
     
     // Don't load events if match status is 'scheduled' (pending)
     if (match.status === 'scheduled') {
@@ -148,6 +151,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
     setHomeTeamPlayers([])
     setAwayTeamPlayers([])
     setMatchEvents([])
+    setSuspendedPlayers([])
 
     try {
       // Load match events only if match is not scheduled (pending)
@@ -167,6 +171,19 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
         }
       } else {
         setLoadingEvents(false)
+      }
+
+      // Load suspended players for the tournament
+      try {
+        const response = await fetch(`/api/tournaments/${match.tournament_id}/suspensions`)
+        if (response.ok) {
+          const suspensions = await response.json()
+          setSuspendedPlayers(suspensions)
+        }
+      } catch (error) {
+        console.error('Error loading suspended players:', error)
+      } finally {
+        setLoadingSuspended(false)
       }
 
       // Load home team players
@@ -200,6 +217,7 @@ export function MatchDetailsModal({ match, isOpen, onClose, teams }: MatchDetail
       console.error('Error loading match data:', error)
       setLoadingPlayers({ home: false, away: false })
       setLoadingEvents(false)
+      setLoadingSuspended(false)
     }
   }
 
@@ -418,6 +436,74 @@ const getEventText = (eventType: string) => {
             >
               {awayTeam?.name || 'Visitante'}
             </button>
+          </div>
+          
+          {/* Sanciones del equipo activo */}
+          <div className="bg-gray-800/40 rounded-xl p-4 mb-4 border border-gray-700/50 shadow-lg">
+            <div className="flex items-center mb-3 pb-2 border-b border-gray-700/30">
+              {currentTeam?.logo_url ? (
+                <img 
+                  src={currentTeam.logo_url} 
+                  alt={currentTeam.name} 
+                  className="w-8 h-8 rounded-full object-cover mr-2"
+                />
+              ) : (
+                <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${
+                  activeTab === 'home' ? 'from-blue-500 to-blue-700' : 'from-red-500 to-red-700'
+                } flex items-center justify-center mr-2`}>
+                  <span className="text-white font-bold text-sm">
+                    {currentTeam?.name ? currentTeam.name.substring(0, 3).toUpperCase() : 'TBD'}
+                  </span>
+                </div>
+              )}
+              <h4 className="text-lg font-bold text-white">
+                {currentTeam?.name || (activeTab === 'home' ? 'Equipo Local' : 'Equipo Visitante')}
+              </h4>
+              <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
+                activeTab === 'home' 
+                  ? 'bg-blue-500/20 text-blue-300' 
+                  : 'bg-red-500/20 text-red-300'
+              }`}>
+                {activeTab === 'home' ? 'Local' : 'Visitante'}
+              </span>
+            </div>
+            
+            {/* Suspended players for current team */}
+            <div className="space-y-2">
+              <h5 className="text-gray-400 font-medium text-sm uppercase tracking-wide">Sanciones</h5>
+              {loadingSuspended ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="h-4 bg-gray-600 rounded flex-1 max-w-[100px] animate-pulse"></div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {suspendedPlayers
+                    .filter(suspension => {
+                      return suspension.team_id === (activeTab === 'home' ? match.home_team_id : match.away_team_id)
+                    })
+                    .map((suspension, idx) => (
+                      <div key={suspension.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-red-900/30 border border-red-700/50">
+                        <div className="flex items-center">
+                          <span className="mr-2 text-red-400">🟥</span>
+                          <span className="text-white text-sm font-medium">
+                            {suspension.player_name || 'Jugador suspendido'}
+                          </span>
+                        </div>
+                        <div className="text-red-300 text-xs">
+                          {suspension.suspension_matches} {suspension.suspension_matches === 1 ? 'partido' : 'partidos'}
+                        </div>
+                      </div>
+                    ))}
+                  {suspendedPlayers.filter(suspension => {
+                    return suspension.team_id === (activeTab === 'home' ? match.home_team_id : match.away_team_id)
+                  }).length === 0 && (
+                    <div className="text-gray-500 text-center py-2 italic text-sm">
+                      Sin sanciones pendientes
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           
           {/* Eventos del equipo activo */}
@@ -661,6 +747,39 @@ const getEventText = (eventType: string) => {
                 </span>
               </div>
               
+              {/* Suspensions del equipo local */}
+              <div className="space-y-2 mb-4">
+                <h5 className="text-gray-400 font-medium text-sm uppercase tracking-wide">Sanciones</h5>
+                {loadingSuspended ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="h-4 bg-gray-600 rounded flex-1 max-w-[120px] animate-pulse"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {suspendedPlayers
+                      .filter(suspension => suspension.team_id === match.home_team_id)
+                      .map((suspension, idx) => (
+                        <div key={suspension.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-red-900/30 border border-red-700/50">
+                          <div className="flex items-center">
+                            <span className="mr-2 text-red-400">🟥</span>
+                            <span className="text-white text-sm font-medium">
+                              {suspension.player_name || 'Jugador suspendido'}
+                            </span>
+                          </div>
+                          <div className="text-red-300 text-xs">
+                            {suspension.suspension_matches} {suspension.suspension_matches === 1 ? 'partido' : 'partidos'}
+                          </div>
+                        </div>
+                      ))}
+                    {suspendedPlayers.filter(suspension => suspension.team_id === match.home_team_id).length === 0 && (
+                      <div className="text-gray-500 text-center py-2 italic text-sm">
+                        Sin sanciones pendientes
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
               {/* Eventos del equipo local */}
               <div className="space-y-2">
                 <h5 className="text-gray-400 font-medium text-sm uppercase tracking-wide">Eventos</h5>
@@ -746,6 +865,39 @@ const getEventText = (eventType: string) => {
                 <span className="px-2.5 py-1 bg-red-500/20 text-red-300 text-xs font-medium rounded-full">
                   Visitante
                 </span>
+              </div>
+              
+              {/* Suspensions del equipo visitante */}
+              <div className="space-y-2 mb-4">
+                <h5 className="text-gray-400 font-medium text-sm uppercase tracking-wide">Sanciones</h5>
+                {loadingSuspended ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="h-4 bg-gray-600 rounded flex-1 max-w-[120px] animate-pulse"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {suspendedPlayers
+                      .filter(suspension => suspension.team_id === match.away_team_id)
+                      .map((suspension, idx) => (
+                        <div key={suspension.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-red-900/30 border border-red-700/50">
+                          <div className="flex items-center">
+                            <span className="mr-2 text-red-400">🟥</span>
+                            <span className="text-white text-sm font-medium">
+                              {suspension.player_name || 'Jugador suspendido'}
+                            </span>
+                          </div>
+                          <div className="text-red-300 text-xs">
+                            {suspension.suspension_matches} {suspension.suspension_matches === 1 ? 'partido' : 'partidos'}
+                          </div>
+                        </div>
+                      ))}
+                    {suspendedPlayers.filter(suspension => suspension.team_id === match.away_team_id).length === 0 && (
+                      <div className="text-gray-500 text-center py-2 italic text-sm">
+                        Sin sanciones pendientes
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               
               {/* Eventos del equipo visitante */}

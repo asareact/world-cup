@@ -127,7 +127,7 @@ export async function POST(
     // Verify the match belongs to this tournament
     const { data: match, error: matchError } = await supabase
       .from('matches')
-      .select('id')
+      .select('id, tournament_id')
       .eq('id', body.match_id)
       .eq('tournament_id', id)
       .single()
@@ -161,6 +161,32 @@ export async function POST(
         { error: 'Failed to create match event' }, 
         { status: 500 }
       )
+    }
+
+    // If this is a card event (yellow or red), trigger suspension processing for the match
+    if (body.event_type === 'yellow_card' || body.event_type === 'red_card') {
+      try {
+        // Get all events for this match to process suspensions
+        const { data: matchEvents, error: eventsError } = await supabase
+          .from('match_events')
+          .select('*')
+          .eq('match_id', body.match_id)
+          .order('created_at', { ascending: true });
+        
+        if (!eventsError && matchEvents) {
+          // Process suspensions for this match in the background
+          // We don't await this to avoid blocking the response
+          import('@/lib/suspensions/suspension-logic').then(({ SuspensionLogicService }) => {
+            const suspensionLogic = new SuspensionLogicService();
+            suspensionLogic.processMatchEventsForSuspensions(body.match_id, match.tournament_id, matchEvents);
+          }).catch(error => {
+            console.error('Error importing suspension logic:', error);
+          });
+        }
+      } catch (suspensionError) {
+        console.error('Error processing suspensions after event creation:', suspensionError);
+        // Don't fail the event creation if suspension processing fails
+      }
     }
 
     return NextResponse.json(event)

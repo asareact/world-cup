@@ -81,6 +81,18 @@ export interface MatchEvent {
   created_at: string
 }
 
+export interface PlayerSuspension {
+  id: string
+  player_id: string
+  tournament_id: string | null
+  match_id: string | null
+  reason: string | null
+  suspension_type: 'yellow_accumulated' | 'yellow_consecutive' | 'red_direct' | 'red_two_yellow'
+  suspension_matches: number
+  served: boolean
+  created_at: string
+}
+
 export interface TournamentTeam {
   id: string
   tournament_id: string

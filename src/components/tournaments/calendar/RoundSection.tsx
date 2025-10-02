@@ -9,6 +9,7 @@ interface RoundSectionProps {
   roundName: string
   matches: Match[]
   teams: Pick<Team, "id" | "name" | "logo_url">[] | undefined | null
+  tournamentId: string
   isExpanded: boolean
   onToggle: (roundName: string) => void
   onViewMatchDetails: (match: Match) => void
@@ -20,6 +21,7 @@ export function RoundSection({
   roundName, 
   matches, 
   teams, 
+  tournamentId,
   isExpanded, 
   onToggle, 
   onViewMatchDetails,
@@ -95,6 +97,7 @@ export function RoundSection({
                         key={match.id} 
                         match={match} 
                         teams={teams} 
+                        tournamentId={tournamentId}
                         onViewDetails={onViewMatchDetails} 
                       />
                     ))}

@@ -10,6 +10,9 @@ import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { useMatchState, LiveMatchEvent } from '@/lib/hooks/use-match-state'
 import Image from 'next/image'
 import { PlayerDetailsModal } from '@/components/players/player-details-modal'
+import { MobilePlayerActions } from '@/components/referee/MobilePlayerActions'
+import { MobilePlayerCard } from '@/components/referee/MobilePlayerCard'
+
 
 // --- Helper Components ---
 type PlayerWithTeam = Player & { team_id: string }
@@ -43,21 +46,158 @@ const Scoreboard = ({ home, away }: { home: number, away: number }) => (
   </div>
 );
 
-const PlayerCard = ({ player, onPlayerClick, match }: { player: Player, onPlayerClick: (player: Player) => void, match: MatchWithDetails | null }) => {
+const PlayerCard = ({ 
+  player, 
+  onPlayerClick, 
+  match, 
+  suspendedPlayers, 
+  events,
+  potentialSuspensions 
+}: { 
+  player: Player, 
+  onPlayerClick: (player: Player) => void, 
+  match: MatchWithDetails | null, 
+  suspendedPlayers?: string[], 
+  events: LiveMatchEvent[],
+  potentialSuspensions?: any[]
+}) => {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [isPlayerDetailsModalOpen, setIsPlayerDetailsModalOpen] = useState(false);
+  
+  // Check if player is suspended
+  // Check if player is suspended (from official suspensions)
+  const isOfficiallySuspended = suspendedPlayers && suspendedPlayers.includes(player.id);
+  
+  // Check for potential suspension warnings (based on live events in this match)
+  const playerYellowCards = events.filter(
+    event => event.player_id === player.id && 
+             event.event_type === 'yellow_card'
+  ).length;
+  
+  const playerRedCards = events.filter(
+    event => event.player_id === player.id && 
+             event.event_type === 'red_card'
+  ).length;
+  
+  // Check if player is potentially suspended for this match (should be warned, not disabled)
+  const isPotentiallySuspended = potentialSuspensions && 
+    potentialSuspensions.some((s: any) => s.playerId === player.id);
+  
+  // Player should be warned if they:
+  // 1. Have 1 yellow card (risk of suspension with another)
+  // 2. Are potentially suspended (from tournament accumulation)
+  const isWarned = (playerYellowCards >= 1 && playerYellowCards < 2 && playerRedCards === 0) || 
+                   isPotentiallySuspended;
+  
+  // Player should be disabled/expelled if they have:
+  // 1. A red card, or
+  // 2. Two yellow cards in this match (which equals a red card)
+  // 3. Official suspension
+  const isExpelled = playerRedCards > 0 || playerYellowCards >= 2;
+  
+  // Overall disabled status (only official suspension or expelled in this match)
+  const isDisabled = isOfficiallySuspended || isExpelled;
+  
+  // Group events by type for this player
+  const playerEvents = events.filter(event => event.player_id === player.id);
+  
+  // Count events by type
+  const eventCounts: Record<string, number> = {};
+  playerEvents.forEach(event => {
+    eventCounts[event.event_type] = (eventCounts[event.event_type] || 0) + 1;
+  });
+  
+  // Get event icons with counts
+  const eventIcons = [] as any[];
+  const eventDisplay: Record<string, { icon: string; color: string }> = {
+    goal: { icon: '⚽', color: 'text-green-400' },
+    yellow_card: { icon: '🟨', color: 'text-yellow-400' },
+    red_card: { icon: '🟥', color: 'text-red-400' },
+    own_goal: { icon: '🥅', color: 'text-red-400' },
+    assist: { icon: '🤝', color: 'text-blue-400' },
+    save: { icon: '🧤', color: 'text-blue-400' },
+  };
+  
+  Object.entries(eventCounts).forEach(([eventType, count]) => {
+    const displayInfo = eventDisplay[eventType];
+    if (displayInfo && count > 0) {
+      eventIcons.push({
+        icon: displayInfo.icon,
+        color: displayInfo.color,
+        count: count,
+        type: eventType
+      });
+    }
+  });
+  
   return (
-
-    <div className="w-full bg-gray-700/50 p-3 rounded-lg flex items-center space-x-3 text-left relative group">
+    <div className={`w-full p-3 rounded-lg flex items-center space-x-3 text-left relative group ${
+      isDisabled ? 'bg-red-900/30 opacity-60' : 
+      isWarned ? 'bg-yellow-900/30' : 
+      'bg-gray-700/50'
+    }`}>
       <button
-        onClick={() => onPlayerClick(player)}
-        className="flex items-center space-x-3 flex-grow text-left hover:bg-gray-600 transition-all p-1 rounded -m-1">
-        <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center font-bold text-green-400 flex-shrink-0">
+        onClick={isDisabled ? undefined : () => onPlayerClick(player)}
+        className={`flex items-center space-x-3 flex-grow text-left transition-all p-1 rounded -m-1 ${
+          isDisabled ? 'cursor-not-allowed' : 'hover:bg-gray-600'
+        }`}
+        disabled={isDisabled}
+      >
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0 ${
+          isDisabled ? 'bg-red-800 text-red-200' :
+          isWarned ? 'bg-yellow-800 text-yellow-200' :
+          'bg-gray-800 text-green-400'
+        }`}>
           {player.jersey_number || '-'}
         </div>
-        <span className="text-white font-medium truncate flex-grow">{player.name}</span>
-        {player.is_captain && <span title="Capitán"><ShieldCheck className="h-5 w-5 text-yellow-400 flex-shrink-0" /></span>}
-        {player.position === 'portero' && <span title="Portero"><Hand className="h-5 w-5 text-blue-400 flex-shrink-0" /></span>}
+        <span className={`font-medium truncate flex-grow ${
+          isDisabled ? 'text-red-300 line-through' :
+          isWarned ? 'text-yellow-300' :
+          'text-white'
+        }`}>
+          {player.name}
+          {/* Show event icons for mobile view */}
+          {eventIcons.length > 0 && (
+            <span className="ml-2 inline-flex items-center space-x-1">
+              {eventIcons.map((event, index) => (
+                <span key={index} className="inline-flex items-center text-xs">
+                  <span className={event.color}>{event.icon}</span>
+                  {event.count > 1 && (
+                    <span className="ml-0.5 text-xs">x{event.count}</span>
+                  )}
+                </span>
+              ))}
+            </span>
+          )}
+        </span>
+        {player.is_captain && (
+          <span title="Capitán">
+            <ShieldCheck className={`h-5 w-5 ${
+              isDisabled ? 'text-red-400' :
+              isWarned ? 'text-yellow-400' :
+              'text-yellow-400'
+            } flex-shrink-0`} />
+          </span>
+        )}
+        {player.position === 'portero' && (
+          <span title="Portero">
+            <Hand className={`h-5 w-5 ${
+              isDisabled ? 'text-red-400' :
+              isWarned ? 'text-yellow-400' :
+              'text-blue-400'
+            } flex-shrink-0`} />
+          </span>
+        )}
+        {isWarned && !isDisabled && (
+          <span title="Jugador advertido (tiene tarjeta amarilla)">
+            <AlertTriangle className="h-4 w-4 text-yellow-400" />
+          </span>
+        )}
+        {isDisabled && (
+          <span title="Jugador expulsado o suspendido">
+            <Flag className="h-4 w-4 text-red-400" />
+          </span>
+        )}
       </button>
       <button
         onClick={(e) => {
@@ -65,12 +205,17 @@ const PlayerCard = ({ player, onPlayerClick, match }: { player: Player, onPlayer
           setSelectedPlayer(player);
           setIsPlayerDetailsModalOpen(true);
         }}
-        className="p-1 text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+        className={`p-1 ${
+          isDisabled ? 'text-red-400' :
+          isWarned ? 'text-yellow-400' :
+          'text-gray-400'
+        } hover:text-white transition-colors opacity-0 group-hover:opacity-100`}
         title="Ver detalles del jugador"
+        disabled={isDisabled}
       >
         <Info className="h-4 w-4" />
       </button>
-        {selectedPlayer && match && (
+      {selectedPlayer && match && (
         <PlayerDetailsModal
           player={selectedPlayer}
           tournamentId={match.tournament?.id || ''}
@@ -400,6 +545,8 @@ export default function RefereePage() {
   const [match, setMatch] = useState<MatchWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [suspendedPlayers, setSuspendedPlayers] = useState<string[]>([]);
+  const [potentialSuspensions, setPotentialSuspensions] = useState<any[]>([]);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [activeTeamTab, setActiveTeamTab] = useState<'home' | 'away'>('home');
 
@@ -461,6 +608,40 @@ export default function RefereePage() {
         const data = await db.getMatchWithPlayers(matchId);
         if (!data) throw new Error('Match not found');
         setMatch(data as MatchWithDetails);
+        
+        // Fetch suspended players for this tournament
+        if (data.tournament?.id) {
+          const fetchSuspendedPlayers = async () => {
+            try {
+              const response = await fetch(`/api/tournaments/${data.tournament?.id}/suspensions`);
+              if (response.ok) {
+                const suspensions = await response.json();
+                const suspendedIds = suspensions.map((s: any) => s.player_id);
+                setSuspendedPlayers(suspendedIds);
+              }
+            } catch (err) {
+              console.error('Error fetching suspended players:', err);
+            }
+          };
+          
+          // Fetch potential suspensions for this specific match
+          const fetchPotentialSuspensions = async () => {
+            try {
+              const response = await fetch(`/api/tournaments/${data.tournament?.id}/matches/${matchId}/potential-suspensions`);
+              if (response.ok) {
+                const potentialSuspensions = await response.json();
+                setPotentialSuspensions(potentialSuspensions);
+                // Note: We don't combine with suspendedPlayers here
+                // Potential suspensions are just for warnings, not disabling players
+              }
+            } catch (err) {
+              console.error('Error fetching potential suspended players:', err);
+            }
+          };
+          
+          fetchSuspendedPlayers();
+          fetchPotentialSuspensions();
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
       } finally {
@@ -738,168 +919,6 @@ export default function RefereePage() {
               </div>
             </div>
           </div>
-
-          {/* Events for both teams below the scores */}
-          <div className="w-full mt-3">
-            <div className="grid grid-cols-2 gap-3">
-              {/* Home Team Events */}
-              <div className="bg-gray-800/50 rounded-lg p-2">
-                <h3 className="text-xs font-semibold text-center text-gray-300 mb-1 truncate border-b border-gray-700 pb-1">
-                  {match?.home_team?.name}
-                </h3>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {matchState.events
-                    .filter(event => event.team_id === match?.home_team?.id)
-                    .reverse()
-                    .slice(0, 5)
-                    .map((event) => {
-                      const eventIcons: Record<string, string> = {
-                        goal: '⚽',
-                        yellow_card: '🟨',
-                        red_card: '🟥',
-                        own_goal: '🥅',
-                        assist: '🤝',
-                        save: '🧤',
-                      };
-
-                      // Get player name (first name only)
-                      const allPlayers = [...(match?.home_team?.players || []), ...(match?.away_team?.players || [])];
-                      const player = allPlayers.find(p => p.id === event.player_id);
-                      const playerName = player?.name?.split(' ')[0] || 'Jugador';
-
-                      // Get assist player name if applicable
-                      const assistPlayer = allPlayers.find(p => p.id === event.assist_player_id);
-                      const assistPlayerName = assistPlayer?.name?.split(' ')[0] || '';
-
-                      return (
-                        <div
-                          key={event.id}
-                          className="flex items-center text-xs bg-gray-700/50 p-1.5 rounded"
-                          onContextMenu={(e) => handleContextMenu(e, event.id)}
-                          onTouchStart={(e) => {
-                            // Clear any previous timer
-                            if (longPressTimer.current) {
-                              clearTimeout(longPressTimer.current);
-                            }
-                            // Set a new timer for long press
-                            longPressTimer.current = setTimeout(() => handleContextMenu(e, event.id), 500);
-                          }}
-                          onTouchEnd={() => {
-                            // Clear the timer if touch ends before 500ms
-                            if (longPressTimer.current) {
-                              clearTimeout(longPressTimer.current);
-                              longPressTimer.current = null;
-                            }
-                          }}
-                          onTouchMove={() => {
-                            // Clear the timer if the touch moves
-                            if (longPressTimer.current) {
-                              clearTimeout(longPressTimer.current);
-                              longPressTimer.current = null;
-                            }
-                          }}
-                          onTouchCancel={() => {
-                            // Clear the timer if touch is cancelled
-                            if (longPressTimer.current) {
-                              clearTimeout(longPressTimer.current);
-                              longPressTimer.current = null;
-                            }
-                          }}
-                        >
-                          <span className="mr-1">{eventIcons[event.event_type] || '🔹'}</span>
-                          <span className="font-medium truncate">{playerName}</span>
-                          {event.event_type === 'goal' && event.assist_player_id && (
-                            <span className="ml-1 text-gray-400 truncate">('🤝'{assistPlayerName})</span>
-                          )}
-                          <span className="ml-auto text-gray-400">{event.minute}'</span>
-                        </div>
-                      );
-                    })}
-                  {matchState.events.filter(event => event.team_id === match?.home_team?.id).length === 0 && (
-                    <div className="text-center text-gray-500 text-xs py-2">No hay eventos</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Away Team Events */}
-              <div className="bg-gray-800/50 rounded-lg p-2">
-                <h3 className="text-xs font-semibold text-center text-gray-300 mb-1 truncate border-b border-gray-700 pb-1">
-                  {match?.away_team?.name}
-                </h3>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {matchState.events
-                    .filter(event => event.team_id === match?.away_team?.id)
-                    .reverse()
-                    .slice(0, 5)
-                    .map((event) => {
-                      const eventIcons: Record<string, string> = {
-                        goal: '⚽',
-                        yellow_card: '🟨',
-                        red_card: '🟥',
-                        own_goal: '🥅',
-                        assist: '🤝',
-                        save: '🧤',
-                      };
-
-                      // Get player name (first name only)
-                      const allPlayers = [...(match?.home_team?.players || []), ...(match?.away_team?.players || [])];
-                      const player = allPlayers.find(p => p.id === event.player_id);
-                      const playerName = player?.name?.split(' ')[0] || 'Jugador';
-
-                      // Get assist player name if applicable
-                      const assistPlayer = allPlayers.find(p => p.id === event.assist_player_id);
-                      const assistPlayerName = assistPlayer?.name?.split(' ')[0] || '';
-
-                      return (
-                        <div
-                          key={event.id}
-                          className="flex items-center text-xs bg-gray-700/50 p-1.5 rounded"
-                          onContextMenu={(e) => handleContextMenu(e, event.id)}
-                          onTouchStart={(e) => {
-                            // Clear any previous timer
-                            if (longPressTimer.current) {
-                              clearTimeout(longPressTimer.current);
-                            }
-                            // Set a new timer for long press
-                            longPressTimer.current = setTimeout(() => handleContextMenu(e, event.id), 500);
-                          }}
-                          onTouchEnd={() => {
-                            // Clear the timer if touch ends before 500ms
-                            if (longPressTimer.current) {
-                              clearTimeout(longPressTimer.current);
-                              longPressTimer.current = null;
-                            }
-                          }}
-                          onTouchMove={() => {
-                            // Clear the timer if the touch moves
-                            if (longPressTimer.current) {
-                              clearTimeout(longPressTimer.current);
-                              longPressTimer.current = null;
-                            }
-                          }}
-                          onTouchCancel={() => {
-                            // Clear the timer if touch is cancelled
-                            if (longPressTimer.current) {
-                              clearTimeout(longPressTimer.current);
-                              longPressTimer.current = null;
-                            }
-                          }}
-                        >
-                          <span className="mr-1">{eventIcons[event.event_type] || '🔹'}</span>
-                          <span className="font-medium truncate">{playerName}</span>
-                          {event.event_type === 'goal' && event.assist_player_id && (
-                            <span className="ml-1 text-gray-400 truncate">('🤝'{assistPlayerName})</span>
-                          )}
-                          <span className="ml-auto text-gray-400">{event.minute}'</span>
-                        </div>
-                      );
-                    })}
-                  {matchState.events.filter(event => event.team_id === match?.away_team?.id).length === 0 && (
-                    <div className="text-center text-gray-500 text-xs py-2">No hay eventos</div>
-                  )}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -1040,7 +1059,22 @@ export default function RefereePage() {
             </div>
 
             <div className="space-y-2">
-              {activeTeamTab === 'home' && match?.home_team?.players.map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
+              {activeTeamTab === 'home' && match?.home_team?.players.sort((a, b) => {
+                  if (a.is_captain && !b.is_captain) return -1;
+                  if (!a.is_captain && b.is_captain) return 1;
+                  if (a.position === 'portero' && b.position !== 'portero') return -1;
+                  if (a.position !== 'portero' && b.position === 'portero') return 1;
+                  return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
+                }).map(p => <MobilePlayerCard 
+                  match={match} 
+                  suspendedPlayers={suspendedPlayers} 
+                  events={matchState.events} 
+                  key={p.id} 
+                  player={p} 
+                  onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} 
+                  onEditEvent={handleEditEvent}
+                  onDeleteEvent={handleDeleteEvent}
+                />)}
               {activeTeamTab === 'away' && match?.away_team?.players
                 .sort((a, b) => {
                   if (a.is_captain && !b.is_captain) return -1;
@@ -1049,7 +1083,16 @@ export default function RefereePage() {
                   if (a.position !== 'portero' && b.position === 'portero') return 1;
                   return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
                 })
-                .map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
+                .map(p => <MobilePlayerCard
+                  match={match} 
+                  suspendedPlayers={suspendedPlayers} 
+                  events={matchState.events} 
+                  key={p.id} 
+                  player={p} 
+                  onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} 
+                  onEditEvent={handleEditEvent}
+                  onDeleteEvent={handleDeleteEvent}
+                />)}
             </div>
           </div>
 
@@ -1059,7 +1102,14 @@ export default function RefereePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
                 <div className="space-y-2">
-                  {match?.home_team?.players.map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
+                  {match?.home_team?.players
+                  .sort((a, b) => {
+                      if (a.is_captain && !b.is_captain) return -1;
+                      if (!a.is_captain && b.is_captain) return 1;
+                      if (a.position === 'portero' && b.position !== 'portero') return -1;
+                      if (a.position !== 'portero' && b.position === 'portero') return 1;
+                      return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
+                    }).map(p => <PlayerCard match={match} suspendedPlayers={suspendedPlayers} events={matchState.events} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
                 </div>
               </div>
               <div>
@@ -1072,16 +1122,13 @@ export default function RefereePage() {
                       if (a.position !== 'portero' && b.position === 'portero') return 1;
                       return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
                     })
-                    .map(p => <PlayerCard match={match} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
+                    .map(p => <PlayerCard match={match} suspendedPlayers={suspendedPlayers} events={matchState.events} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-      </div>
-
-    
     </DashboardLayout>
   );
 }
