@@ -11,6 +11,7 @@ import { useMatchState, LiveMatchEvent } from '@/lib/hooks/use-match-state'
 import Image from 'next/image'
 import { PlayerDetailsModal } from '@/components/players/player-details-modal'
 import { MobilePlayerActions } from '@/components/referee/MobilePlayerActions'
+import { MobilePlayerCard } from '@/components/referee/MobilePlayerCard'
 
 
 // --- Helper Components ---
@@ -1082,7 +1083,7 @@ export default function RefereePage() {
                   if (a.position !== 'portero' && b.position === 'portero') return 1;
                   return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
                 })
-                .map(p => <MobilePlayerCard 
+                .map(p => <MobilePlayerCard
                   match={match} 
                   suspendedPlayers={suspendedPlayers} 
                   events={matchState.events} 
