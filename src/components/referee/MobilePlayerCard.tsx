@@ -58,37 +58,47 @@ export function MobilePlayerCard({
   // Overall disabled status (only official suspension or expelled in this match)
   const isDisabled = isOfficiallySuspended || isExpelled
   
-  // Group events by type for this player
-  const playerEvents = events.filter(event => event.player_id === player.id)
+  // Group events by type for this player (both events received and given)
+  const playerEventsReceived = events.filter(event => event.player_id === player.id);
+  const playerEventsGiven = events.filter(event => event.assist_player_id === player.id);
+  
+  // Combine both received and given events
+  const playerEvents = [...playerEventsReceived, ...playerEventsGiven];
   
   // Count events by type
-  const eventCounts: Record<string, number> = {}
-  playerEvents.forEach(event => {
-    eventCounts[event.event_type] = (eventCounts[event.event_type] || 0) + 1
-  })
+  const eventCounts: Record<string, number> = {};
+  playerEventsReceived.forEach(event => {
+    eventCounts[event.event_type] = (eventCounts[event.event_type] || 0) + 1;
+  });
   
-  // Get event icons with counts
-  const eventIcons = []
-  const eventDisplay: Record<string, { icon: React.ReactNode; color: string }> = {
-    goal: { icon: <Flag className="h-4 w-4" />, color: 'text-green-400' },
-    yellow_card: { icon: <AlertTriangle className="h-4 w-4" />, color: 'text-yellow-400' },
-    red_card: { icon: <Flag className="h-4 w-4" />, color: 'text-red-400' },
-    own_goal: { icon: <Flag className="h-4 w-4" />, color: 'text-red-400' },
-    assist: { icon: <Hand className="h-4 w-4" />, color: 'text-blue-400' },
-    save: { icon: <ShieldCheck className="h-4 w-4" />, color: 'text-blue-400' },
+  // Count assists given
+  const assistCount = playerEventsGiven.length;
+  if (assistCount > 0) {
+    eventCounts['assist'] = (eventCounts['assist'] || 0) + assistCount;
   }
   
+  // Get event icons with counts
+  const eventIcons = [] as any[];
+  const eventDisplay: Record<string, { icon: string; color: string }> = {
+    goal: { icon: '⚽', color: 'text-green-400' },
+    yellow_card: { icon: '🟨', color: 'text-yellow-400' },
+    red_card: { icon: '🟥', color: 'text-red-400' },
+    own_goal: { icon: '🥅', color: 'text-red-400' },
+    assist: { icon: '🤝', color: 'text-blue-400' },
+    save: { icon: '🧤', color: 'text-blue-400' },
+  };
+  
   Object.entries(eventCounts).forEach(([eventType, count]) => {
-    const displayInfo = eventDisplay[eventType]
+    const displayInfo = eventDisplay[eventType];
     if (displayInfo && count > 0) {
       eventIcons.push({
         icon: displayInfo.icon,
         color: displayInfo.color,
         count: count,
         type: eventType
-      })
+      });
     }
-  })
+  });
   
   return (
     <div className={`w-full p-3 rounded-lg flex items-center space-x-3 text-left relative group ${
@@ -136,7 +146,7 @@ export function MobilePlayerCard({
           <div className="flex items-center mt-1">
             {player.is_captain && (
               <span title="Capitán" className="mr-2">
-                <ShieldCheck className={`h-4 w-4 ${
+                <ShieldCheck className={`h-5 w-5 ${
                   isDisabled ? 'text-red-400' :
                   isWarned ? 'text-yellow-400' :
                   'text-yellow-400'
@@ -145,7 +155,7 @@ export function MobilePlayerCard({
             )}
             {player.position === 'portero' && (
               <span title="Portero" className="mr-2">
-                <Hand className={`h-4 w-4 ${
+                <Hand className={`h-5 w-5 ${
                   isDisabled ? 'text-red-400' :
                   isWarned ? 'text-yellow-400' :
                   'text-blue-400'
