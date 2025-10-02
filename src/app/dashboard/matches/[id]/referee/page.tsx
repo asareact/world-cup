@@ -9,8 +9,8 @@ import { Loader2, Play, Pause, Flag, Shield, Goal, RectangleVertical, Undo2, Shi
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { useMatchState, LiveMatchEvent } from '@/lib/hooks/use-match-state'
 import Image from 'next/image'
-import { PlayerCard } from '@/components/referee/PlayerCard'
-import { PlayerEventsModal } from '@/components/referee/PlayerEventsModal'
+import { PlayerDetailsModal } from '@/components/players/player-details-modal'
+import { MobilePlayerActions } from '@/components/referee/MobilePlayerActions'
 
 
 // --- Helper Components ---
@@ -1064,7 +1064,16 @@ export default function RefereePage() {
                   if (a.position === 'portero' && b.position !== 'portero') return -1;
                   if (a.position !== 'portero' && b.position === 'portero') return 1;
                   return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
-                }).map(p => <PlayerCard match={match} suspendedPlayers={suspendedPlayers} events={matchState.events} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} />)}
+                }).map(p => <MobilePlayerCard 
+                  match={match} 
+                  suspendedPlayers={suspendedPlayers} 
+                  events={matchState.events} 
+                  key={p.id} 
+                  player={p} 
+                  onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} 
+                  onEditEvent={handleEditEvent}
+                  onDeleteEvent={handleDeleteEvent}
+                />)}
               {activeTeamTab === 'away' && match?.away_team?.players
                 .sort((a, b) => {
                   if (a.is_captain && !b.is_captain) return -1;
@@ -1073,7 +1082,16 @@ export default function RefereePage() {
                   if (a.position !== 'portero' && b.position === 'portero') return 1;
                   return (a.jersey_number ?? 999) - (b.jersey_number ?? 999);
                 })
-                .map(p => <PlayerCard match={match} suspendedPlayers={suspendedPlayers} events={matchState.events} key={p.id} player={p} onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} />)}
+                .map(p => <MobilePlayerCard 
+                  match={match} 
+                  suspendedPlayers={suspendedPlayers} 
+                  events={matchState.events} 
+                  key={p.id} 
+                  player={p} 
+                  onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} 
+                  onEditEvent={handleEditEvent}
+                  onDeleteEvent={handleDeleteEvent}
+                />)}
             </div>
           </div>
 
