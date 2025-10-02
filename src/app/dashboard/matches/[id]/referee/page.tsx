@@ -1069,6 +1069,7 @@ export default function RefereePage() {
                   match={match} 
                   suspendedPlayers={suspendedPlayers} 
                   events={matchState.events} 
+                  players={[...(match.home_team?.players || []), ...(match.away_team?.players || [])]}
                   key={p.id} 
                   player={p} 
                   onPlayerClick={(pl) => handlePlayerClick(pl, match.home_team!)} 
@@ -1087,6 +1088,7 @@ export default function RefereePage() {
                   match={match} 
                   suspendedPlayers={suspendedPlayers} 
                   events={matchState.events} 
+                  players={[...(match.home_team?.players || []), ...(match.away_team?.players || [])]}
                   key={p.id} 
                   player={p} 
                   onPlayerClick={(pl) => handlePlayerClick(pl, match.away_team!)} 

@@ -13,6 +13,7 @@ interface MobilePlayerCardProps {
   match: any | null
   suspendedPlayers?: string[]
   events: LiveMatchEvent[]
+  players: Player[] // All players for assist name lookup
   onEditEvent: (eventId: string) => void
   onDeleteEvent: (eventId: string) => void
 }
@@ -23,6 +24,7 @@ export function MobilePlayerCard({
   match, 
   suspendedPlayers, 
   events,
+  players,
   onEditEvent,
   onDeleteEvent
 }: MobilePlayerCardProps) {
@@ -180,6 +182,7 @@ export function MobilePlayerCard({
       <MobilePlayerActions 
         player={player}
         events={events}
+        players={players}
         onEditEvent={onEditEvent}
         onDeleteEvent={onDeleteEvent}
       />

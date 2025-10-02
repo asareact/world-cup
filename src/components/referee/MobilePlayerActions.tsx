@@ -9,6 +9,7 @@ import type { LiveMatchEvent } from '@/lib/hooks/use-match-state'
 interface MobilePlayerActionsProps {
   player: Player
   events: LiveMatchEvent[]
+  players: Player[] // All players to look up names for assist events
   onEditEvent: (eventId: string) => void
   onDeleteEvent: (eventId: string) => void
 }
@@ -16,6 +17,7 @@ interface MobilePlayerActionsProps {
 export function MobilePlayerActions({ 
   player, 
   events,
+  players,
   onEditEvent,
   onDeleteEvent
 }: MobilePlayerActionsProps) {
@@ -70,6 +72,13 @@ export function MobilePlayerActions({
     e.stopPropagation()
     onDeleteEvent(eventId)
     setIsOpen(false)
+  }
+  
+  // Helper function to get player name by ID
+  const getPlayerNameById = (playerId: string | null) => {
+    if (!playerId) return 'Desconocido';
+    const player = players.find(p => p.id === playerId);
+    return player ? player.name : 'Desconocido';
   }
   
   return (
@@ -132,7 +141,7 @@ export function MobilePlayerActions({
                     </div>
                     {event.assist_player_id && (
                       <div className="text-xs text-gray-500 mt-1 ml-6">
-                        Asistencia: {event.assist_player_id}
+                        Asistencia: {getPlayerNameById(event.assist_player_id)}
                       </div>
                     )}
                   </div>
