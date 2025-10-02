@@ -51,9 +51,9 @@ export function MobilePlayerEvents({
 
   // Check if player is suspended/expelled
   const isPlayerSuspended = (playerId: string) => {
-    const playerEvents = playerEvents[playerId] || []
-    const yellowCards = playerEvents.filter(e => e.event_type === 'yellow_card').length
-    const redCards = playerEvents.filter(e => e.event_type === 'red_card').length
+    const playerEventsList = playerEvents[playerId] || []
+    const yellowCards = playerEventsList.filter(e => e.event_type === 'yellow_card').length
+    const redCards = playerEventsList.filter(e => e.event_type === 'red_card').length
     
     // Player is expelled if they have a red card or 2 yellow cards
     return redCards > 0 || yellowCards >= 2
