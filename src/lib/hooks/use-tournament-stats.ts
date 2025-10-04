@@ -140,6 +140,44 @@ export function useTournamentStats(tournamentId: string) {
           }
         }
 
+        // Fetch player stats from player_stats table for the tournament with player and team information
+        const { data: playerStats, error: playerStatsError } = await supabase
+          .from('player_stats')
+          .select(`
+            id,
+            player_id,
+            goals,
+            assists,
+            yellow_cards,
+            red_cards,
+            saves_made,
+            goals_conceded,
+            clean_sheets,
+            matches_played,
+            minutes_played,
+            players!inner(name, photo_url, team_id, teams!inner(name))
+          `)
+          .eq('tournament_id', tournamentId)
+
+        if (playerStatsError) throw playerStatsError
+
+        // Process player stats from player_stats table
+        playerStats?.forEach(stat => {
+          if (stat.players) {
+            const rawPlayer = Array.isArray(stat.players) ? stat.players[0] : stat.players
+            const rawTeam = Array.isArray(rawPlayer.teams) ? rawPlayer.teams[0] : rawPlayer.teams
+            
+            const playerInfo: PlayerInfo = {
+              player_name: rawPlayer?.name || DEFAULT_PLAYER.player_name,
+              team_name: rawTeam?.name || DEFAULT_PLAYER.team_name,
+              team_id: rawPlayer?.team_id || DEFAULT_PLAYER.team_id,
+              player_photo_url: rawPlayer?.photo_url ?? null,
+            }
+            registerInfo(stat.player_id, playerInfo)
+          }
+        })
+
+        // Process events from match_events table
         events?.forEach(event => {
           if (!event) return
 
@@ -159,6 +197,8 @@ export function useTournamentStats(tournamentId: string) {
             assistIdsToFetch.add(event.assist_player_id)
           }
         })
+
+        // The player info was already registered in the previous step
 
         if (assistIdsToFetch.size > 0) {
           const { data: assistPlayers, error: assistError } = await supabase
@@ -180,6 +220,7 @@ export function useTournamentStats(tournamentId: string) {
           })
         }
 
+        // Initialize accumulators with data from player_stats
         const goalCount: Record<string, { count: number; info: PlayerInfo }> = {}
         const assistCount: Record<string, { count: number; info: PlayerInfo }> = {}
         const cardCount: Record<string, { yellow: number; red: number; info: PlayerInfo }> = {}
@@ -191,121 +232,167 @@ export function useTournamentStats(tournamentId: string) {
         let totalAssists = 0
         let totalYellowCards = 0
         let totalRedCards = 0
-        let totalOwnGoals = 0
+        let totalOwnGoals = 0 // This is calculated from events only
         let totalSaves = 0
 
-        events?.forEach(event => {
-          if (!event) return
-
-          const playerId = event.player_id
-          const info = (playerId ? playerInfoMap.get(playerId) : null) ?? DEFAULT_PLAYER
-
-          const incrementGoal = () => {
-            if (!playerId) return
-            if (!goalCount[playerId]) {
-              goalCount[playerId] = { count: 0, info }
-            }
-            goalCount[playerId].count += 1
+        // Initialize with player_stats data - use values as-is, no incrementing
+        playerStats?.forEach(stat => {
+          const playerInfo = playerInfoMap.get(stat.player_id) ?? DEFAULT_PLAYER
+          
+          // Goals
+          if (stat.goals > 0) {
+            goalCount[stat.player_id] = { count: stat.goals, info: playerInfo }
           }
+          
+          // Assists
+          if (stat.assists > 0) {
+            assistCount[stat.player_id] = { count: stat.assists, info: playerInfo }
+          }
+          
+          // Cards
+          if (stat.yellow_cards > 0 || stat.red_cards > 0) {
+            cardCount[stat.player_id] = { 
+              yellow: stat.yellow_cards || 0, 
+              red: stat.red_cards || 0, 
+              info: playerInfo 
+            }
+          }
+          
+          // Goalkeeper stats  
+          if (stat.saves_made !== undefined || stat.goals_conceded !== undefined) {
+            goalkeeperStats[stat.player_id] = { 
+              saves: stat.saves_made || 0, 
+              goals_conceded: stat.goals_conceded || 0, 
+              info: playerInfo 
+            }
+          }
+        })
 
-          switch (event.event_type) {
-            case 'goal': {
-              totalGoals += 1
-              incrementGoal()
+        // Calculate totals from player_stats
+        totalGoals = playerStats?.reduce((sum, stat) => sum + (stat.goals || 0), 0) || 0
+        totalAssists = playerStats?.reduce((sum, stat) => sum + (stat.assists || 0), 0) || 0
+        totalYellowCards = playerStats?.reduce((sum, stat) => sum + (stat.yellow_cards || 0), 0) || 0
+        totalRedCards = playerStats?.reduce((sum, stat) => sum + (stat.red_cards || 0), 0) || 0
+        totalSaves = playerStats?.reduce((sum, stat) => sum + (stat.saves_made || 0), 0) || 0
+        
 
-              if (event.assist_player_id) {
-                const assistKey = `${event.match_id ?? ''}:${event.minute ?? ''}:${event.assist_player_id}`
+        // Then process events from match_events table (for real-time updates that may not be in player_stats yet)
+        // Only process match_events if there are no player_stats data (fallback behavior)
+        // This maintains compatibility for cases where stats haven't been calculated yet
+        if (!playerStats || playerStats.length === 0) {
+          events?.forEach(event => {
+            if (!event) return
+
+            const playerId = event.player_id
+            const info = (playerId ? playerInfoMap.get(playerId) : null) ?? DEFAULT_PLAYER
+
+            const incrementGoal = (targetCount: Record<string, { count: number; info: PlayerInfo }>) => {
+              if (!playerId) return
+              if (!targetCount[playerId]) {
+                targetCount[playerId] = { count: 0, info }
+              }
+              targetCount[playerId].count += 1
+            }
+
+            switch (event.event_type) {
+              case 'goal': {
+                totalGoals += 1
+                incrementGoal(goalCount)
+
+                if (event.assist_player_id) {
+                  const assistKey = `${event.match_id ?? ''}:${event.minute ?? ''}:${event.assist_player_id}`
+                  if (!processedAssistKeys.has(assistKey)) {
+                    processedAssistKeys.add(assistKey)
+                    const assistInfo = playerInfoMap.get(event.assist_player_id) ?? DEFAULT_PLAYER
+                    if (!assistCount[event.assist_player_id]) {
+                      assistCount[event.assist_player_id] = { count: 0, info: assistInfo }
+                    }
+                    assistCount[event.assist_player_id].count += 1
+                    totalAssists += 1
+                  }
+                }
+                break
+              }
+              case 'own_goal': {
+                totalGoals += 1
+                totalOwnGoals += 1
+                break
+              }
+              case 'assist': {
+                if (!playerId) break
+                const assistKey = `${event.match_id ?? ''}:${event.minute ?? ''}:${playerId}`
                 if (!processedAssistKeys.has(assistKey)) {
                   processedAssistKeys.add(assistKey)
-                  const assistInfo = playerInfoMap.get(event.assist_player_id) ?? DEFAULT_PLAYER
-                  if (!assistCount[event.assist_player_id]) {
-                    assistCount[event.assist_player_id] = { count: 0, info: assistInfo }
+                  if (!assistCount[playerId]) {
+                    assistCount[playerId] = { count: 0, info }
                   }
-                  assistCount[event.assist_player_id].count += 1
+                  assistCount[playerId].count += 1
                   totalAssists += 1
                 }
+                break
               }
-              break
-            }
-            case 'own_goal': {
-              totalGoals += 1
-              totalOwnGoals += 1
-              break
-            }
-            case 'assist': {
-              if (!playerId) break
-              const assistKey = `${event.match_id ?? ''}:${event.minute ?? ''}:${playerId}`
-              if (!processedAssistKeys.has(assistKey)) {
-                processedAssistKeys.add(assistKey)
-                if (!assistCount[playerId]) {
-                  assistCount[playerId] = { count: 0, info }
+              case 'yellow_card': {
+                if (playerId) {
+                  if (!cardCount[playerId]) {
+                    cardCount[playerId] = { yellow: 0, red: 0, info }
+                  }
+                  cardCount[playerId].yellow += 1
                 }
-                assistCount[playerId].count += 1
-                totalAssists += 1
+                totalYellowCards += 1
+                break
               }
-              break
-            }
-            case 'yellow_card': {
-              if (playerId) {
-                if (!cardCount[playerId]) {
-                  cardCount[playerId] = { yellow: 0, red: 0, info }
+              case 'red_card': {
+                if (playerId) {
+                  if (!cardCount[playerId]) {
+                    cardCount[playerId] = { yellow: 0, red: 0, info }
+                  }
+                  cardCount[playerId].red += 1
                 }
-                cardCount[playerId].yellow += 1
+                totalRedCards += 1
+                break
               }
-              totalYellowCards += 1
-              break
-            }
-            case 'red_card': {
-              if (playerId) {
-                if (!cardCount[playerId]) {
-                  cardCount[playerId] = { yellow: 0, red: 0, info }
+              case 'save': {
+                if (!playerId) break
+                if (!goalkeeperStats[playerId]) {
+                  goalkeeperStats[playerId] = { saves: 0, goals_conceded: 0, info }
                 }
-                cardCount[playerId].red += 1
+                goalkeeperStats[playerId].saves += 1
+                totalSaves += 1
+
+                if (event.match_id && event.team_id) {
+                  const key = `${event.match_id}:${event.team_id}`
+                  const keepers = goalkeepersByMatchTeam.get(key) ?? new Set<string>()
+                  keepers.add(playerId)
+                  goalkeepersByMatchTeam.set(key, keepers)
+                }
+                break
               }
-              totalRedCards += 1
-              break
+              default:
+                break
             }
-            case 'save': {
-              if (!playerId) break
-              if (!goalkeeperStats[playerId]) {
-                goalkeeperStats[playerId] = { saves: 0, goals_conceded: 0, info }
-              }
-              goalkeeperStats[playerId].saves += 1
-              totalSaves += 1
-
-              if (event.match_id && event.team_id) {
-                const key = `${event.match_id}:${event.team_id}`
-                const keepers = goalkeepersByMatchTeam.get(key) ?? new Set<string>()
-                keepers.add(playerId)
-                goalkeepersByMatchTeam.set(key, keepers)
-              }
-              break
-            }
-            default:
-              break
-          }
-        })
-
-        goalkeepersByMatchTeam.forEach((keepers, key) => {
-          const [matchId, teamId] = key.split(':')
-          const match = matchScoreMap.get(matchId)
-          if (!match) return
-
-          let goalsConceded = 0
-          if (teamId === (match.home_team_id ?? '')) {
-            goalsConceded = match.away_score ?? 0
-          } else if (teamId === (match.away_team_id ?? '')) {
-            goalsConceded = match.home_score ?? 0
-          } else {
-            goalsConceded = 0
-          }
-
-          keepers.forEach(playerId => {
-            const keeper = goalkeeperStats[playerId]
-            if (!keeper) return
-            keeper.goals_conceded += goalsConceded
           })
-        })
+
+          goalkeepersByMatchTeam.forEach((keepers, key) => {
+            const [matchId, teamId] = key.split(':')
+            const match = matchScoreMap.get(matchId)
+            if (!match) return
+
+            let goalsConceded = 0
+            if (teamId === (match.home_team_id ?? '')) {
+              goalsConceded = match.away_score ?? 0
+            } else if (teamId === (match.away_team_id ?? '')) {
+              goalsConceded = match.home_score ?? 0
+            } else {
+              goalsConceded = 0
+            }
+
+            keepers.forEach(playerId => {
+              const keeper = goalkeeperStats[playerId]
+              if (!keeper) return
+              keeper.goals_conceded += goalsConceded
+            })
+          })
+        }
 
         const topScorers = Object.entries(goalCount)
           .map(([player_id, data]) => ({

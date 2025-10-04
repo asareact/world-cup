@@ -330,6 +330,48 @@ export const PlayerStatsManagement = () => {
 
   const totalPages = Math.ceil(stats.total / stats.limit);
 
+  const saveAllChanges = async () => {
+    setLoading(true);
+    try {
+      // Find all modified stats and update them
+      const updatedStats = await Promise.all(
+        stats.data.map(async (stat) => {
+          try {
+            const result = await adminApi.updatePlayerStats({
+              id: stat.id,
+              goals: stat.goals,
+              assists: stat.assists,
+              yellow_cards: stat.yellow_cards,
+              red_cards: stat.red_cards,
+              matches_played: stat.matches_played,
+              minutes_played: stat.minutes_played,
+              saves_made: stat.saves_made,
+              goals_conceded: stat.goals_conceded,
+              clean_sheets: stat.clean_sheets
+            });
+            return result.data;
+          } catch (error) {
+            console.error(`Error updating stats for player ${stat.player_name}:`, error);
+            return stat; // Return original stat if update failed
+          }
+        })
+      );
+
+      // Update the local state with the updated stats
+      setStats(prev => ({
+        ...prev,
+        data: updatedStats
+      }));
+
+      alert('All changes saved successfully!');
+    } catch (error) {
+      console.error('Error saving all changes:', error);
+      alert('Error saving changes. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-6 bg-gray-800 rounded-lg shadow-md border border-gray-700">
       <h2 className="text-2xl font-bold mb-6 text-white">Player Stats Management</h2>
@@ -593,7 +635,16 @@ export const PlayerStatsManagement = () => {
                     <input
                       type="number"
                       value={stat.goals}
-                      onChange={(e) => handleStatUpdate(stat.id, 'goals', e.target.value)}
+                      onChange={(e) => {
+                        const updates: any = {};
+                        updates['goals'] = parseInt(e.target.value) || 0;
+                        setStats(prev => ({
+                          ...prev,
+                          data: prev.data.map(s => 
+                            s.id === stat.id ? { ...s, goals: parseInt(e.target.value) || 0 } : s
+                          )
+                        }));
+                      }}
                       className="w-20 px-3 py-1 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm text-center bg-gray-700 text-white"
                     />
                   </td>
@@ -601,7 +652,16 @@ export const PlayerStatsManagement = () => {
                     <input
                       type="number"
                       value={stat.assists}
-                      onChange={(e) => handleStatUpdate(stat.id, 'assists', e.target.value)}
+                      onChange={(e) => {
+                        const updates: any = {};
+                        updates['assists'] = parseInt(e.target.value) || 0;
+                        setStats(prev => ({
+                          ...prev,
+                          data: prev.data.map(s => 
+                            s.id === stat.id ? { ...s, assists: parseInt(e.target.value) || 0 } : s
+                          )
+                        }));
+                      }}
                       className="w-20 px-3 py-1 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm text-center bg-gray-700 text-white"
                     />
                   </td>
@@ -609,7 +669,16 @@ export const PlayerStatsManagement = () => {
                     <input
                       type="number"
                       value={stat.yellow_cards}
-                      onChange={(e) => handleStatUpdate(stat.id, 'yellow_cards', e.target.value)}
+                      onChange={(e) => {
+                        const updates: any = {};
+                        updates['yellow_cards'] = parseInt(e.target.value) || 0;
+                        setStats(prev => ({
+                          ...prev,
+                          data: prev.data.map(s => 
+                            s.id === stat.id ? { ...s, yellow_cards: parseInt(e.target.value) || 0 } : s
+                          )
+                        }));
+                      }}
                       className="w-20 px-3 py-1 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm text-center bg-gray-700 text-white"
                     />
                   </td>
@@ -617,7 +686,16 @@ export const PlayerStatsManagement = () => {
                     <input
                       type="number"
                       value={stat.red_cards}
-                      onChange={(e) => handleStatUpdate(stat.id, 'red_cards', e.target.value)}
+                      onChange={(e) => {
+                        const updates: any = {};
+                        updates['red_cards'] = parseInt(e.target.value) || 0;
+                        setStats(prev => ({
+                          ...prev,
+                          data: prev.data.map(s => 
+                            s.id === stat.id ? { ...s, red_cards: parseInt(e.target.value) || 0 } : s
+                          )
+                        }));
+                      }}
                       className="w-20 px-3 py-1 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm text-center bg-gray-700 text-white"
                     />
                   </td>
@@ -625,7 +703,16 @@ export const PlayerStatsManagement = () => {
                     <input
                       type="number"
                       value={stat.matches_played}
-                      onChange={(e) => handleStatUpdate(stat.id, 'matches_played', e.target.value)}
+                      onChange={(e) => {
+                        const updates: any = {};
+                        updates['matches_played'] = parseInt(e.target.value) || 0;
+                        setStats(prev => ({
+                          ...prev,
+                          data: prev.data.map(s => 
+                            s.id === stat.id ? { ...s, matches_played: parseInt(e.target.value) || 0 } : s
+                          )
+                        }));
+                      }}
                       className="w-20 px-3 py-1 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm text-center bg-gray-700 text-white"
                     />
                   </td>
@@ -633,7 +720,16 @@ export const PlayerStatsManagement = () => {
                     <input
                       type="number"
                       value={stat.minutes_played}
-                      onChange={(e) => handleStatUpdate(stat.id, 'minutes_played', e.target.value)}
+                      onChange={(e) => {
+                        const updates: any = {};
+                        updates['minutes_played'] = parseInt(e.target.value) || 0;
+                        setStats(prev => ({
+                          ...prev,
+                          data: prev.data.map(s => 
+                            s.id === stat.id ? { ...s, minutes_played: parseInt(e.target.value) || 0 } : s
+                          )
+                        }));
+                      }}
                       className="w-20 px-3 py-1 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm text-center bg-gray-700 text-white"
                     />
                   </td>
@@ -641,7 +737,16 @@ export const PlayerStatsManagement = () => {
                     <input
                       type="number"
                       value={stat.saves_made}
-                      onChange={(e) => handleStatUpdate(stat.id, 'saves_made', e.target.value)}
+                      onChange={(e) => {
+                        const updates: any = {};
+                        updates['saves_made'] = parseInt(e.target.value) || 0;
+                        setStats(prev => ({
+                          ...prev,
+                          data: prev.data.map(s => 
+                            s.id === stat.id ? { ...s, saves_made: parseInt(e.target.value) || 0 } : s
+                          )
+                        }));
+                      }}
                       className="w-20 px-3 py-1 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm text-center bg-gray-700 text-white"
                     />
                   </td>
@@ -649,7 +754,16 @@ export const PlayerStatsManagement = () => {
                     <input
                       type="number"
                       value={stat.goals_conceded}
-                      onChange={(e) => handleStatUpdate(stat.id, 'goals_conceded', e.target.value)}
+                      onChange={(e) => {
+                        const updates: any = {};
+                        updates['goals_conceded'] = parseInt(e.target.value) || 0;
+                        setStats(prev => ({
+                          ...prev,
+                          data: prev.data.map(s => 
+                            s.id === stat.id ? { ...s, goals_conceded: parseInt(e.target.value) || 0 } : s
+                          )
+                        }));
+                      }}
                       className="w-20 px-3 py-1 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm text-center bg-gray-700 text-white"
                     />
                   </td>
@@ -657,7 +771,16 @@ export const PlayerStatsManagement = () => {
                     <input
                       type="number"
                       value={stat.clean_sheets}
-                      onChange={(e) => handleStatUpdate(stat.id, 'clean_sheets', e.target.value)}
+                      onChange={(e) => {
+                        const updates: any = {};
+                        updates['clean_sheets'] = parseInt(e.target.value) || 0;
+                        setStats(prev => ({
+                          ...prev,
+                          data: prev.data.map(s => 
+                            s.id === stat.id ? { ...s, clean_sheets: parseInt(e.target.value) || 0 } : s
+                          )
+                        }));
+                      }}
                       className="w-20 px-3 py-1 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm text-center bg-gray-700 text-white"
                     />
                   </td>
@@ -667,6 +790,17 @@ export const PlayerStatsManagement = () => {
           </table>
         </div>
       )}
+
+      {/* Save button */}
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={saveAllChanges}
+          disabled={loading}
+          className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Save Changes
+        </button>
+      </div>
 
       {/* Pagination controls */}
       <div className="flex items-center justify-between mt-6 border-t border-gray-700 px-4 py-3 sm:px-6">
