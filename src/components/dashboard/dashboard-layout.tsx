@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -12,6 +12,7 @@ import {
   X, 
   LogOut, 
   User,
+  UserCog,
   Plus,
   Home,
   MessageSquare,
@@ -31,8 +32,9 @@ const sidebarItems = [
   { icon: Calendar, label: 'Partidos', href: '/dashboard/matches', id: 'matches' },
   { icon: BarChart3, label: 'Estadísticas', href: '/dashboard/stats', id: 'stats' },
   { icon: FileText, label: 'Reglas', href: '/dashboard/rules', id: 'rules' },
-  // Visible para superAdmin vía filtrado
+  // Visible para superAdmin v�a filtrado
   { icon: MessageSquare, label: 'Solicitudes', href: '/dashboard/requests', id: 'requests' },
+  { icon: UserCog, label: 'Usuarios', href: '/dashboard/users', id: 'users' },
   { icon: Settings, label: 'Configuración', href: '/dashboard/settings', id: 'settings' },
 ]
 
@@ -90,18 +92,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return sidebarItems.find(item => item.id === activeItem)?.label || 'Torneos'
   }, [role, activeItem])
 
-  // MenÃº por rol (sin flicker durante loading)
+  // Menú por rol (sin flicker durante loading)
   const filteredSidebarItems = !loading ? sidebarItems.filter((item) => {
     if (role === 'superAdmin') return true
     if (role === 'capitan') {
-      // CapitÃ¡n: Mi Equipo, Torneos, Reglas y ConfiguraciÃ³n
+      // Capitán: Mi Equipo, Torneos, Reglas y Configuración
       return ['teams', 'tournaments', 'rules', 'settings'].includes(item.id)
     }
     if (role === 'arbitro') {
-      // Ãrbitro: Partidos, Torneos, Reglas y ConfiguraciÃ³n
+      // Árbitro: Partidos, Torneos, Reglas y Configuración
       return ['matches', 'tournaments', 'rules', 'settings'].includes(item.id)
     }
-    // Invitado: Torneos, Reglas y ConfiguraciÃ³n
+    // Invitado: Torneos, Reglas y Configuración
     return ['tournaments', 'rules', 'settings'].includes(item.id)
   }) : []
 
