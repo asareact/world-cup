@@ -1,9 +1,10 @@
 import { supabase } from '../supabase';
 import { Profile } from '../database';
 
-export interface UserProfile extends Profile {
+export interface UserProfile extends Omit<Profile,'role'> {
   id: string;
   role: 'superAdmin' | 'capitan' | 'invitado' | 'arbitro';
+  email:string
 }
 
 export interface PlayerStats {
@@ -80,7 +81,7 @@ export class AdminService {
 
     // Apply search filter
     if (searchTerm) {
-      query = query.or(`full_name.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`);
+      query = query.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
     }
 
     // Apply pagination
@@ -100,7 +101,7 @@ export class AdminService {
 
       // Apply search filter
       if (searchTerm) {
-        fallbackQuery = fallbackQuery.or(`full_name.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`);
+        fallbackQuery = fallbackQuery.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
       }
 
       // Apply pagination
@@ -506,7 +507,7 @@ export class AdminService {
     const { data, error } = await supabase
       .from('players')
       .select('position')
-      .is('position', 'not', null)
+      .is('position', 'not')
       .order('position', { ascending: true });
 
     if (error) {
