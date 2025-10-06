@@ -697,6 +697,32 @@ export class DatabaseService {
       throw error;
     }
 
+    // After finalizing the match, process suspensions for card events that were added
+    // We need to get the tournament ID to process suspensions correctly
+    try {
+      const { data: match, error: matchError } = await this.client
+        .from('matches')
+        .select('tournament_id')
+        .eq('id', matchId)
+        .single();
+
+      if (matchError || !match) {
+        console.error('Error fetching match to process suspensions:', matchError);
+        // Still return success for match finalization
+        return { message: 'Match finalized successfully' };
+      }
+
+      // Import and use the suspension logic service to process events
+      const { SuspensionLogicService } = await import('@/lib/suspensions/suspension-logic');
+      const suspensionLogic = new SuspensionLogicService();
+      
+      // Process the events to detect and create suspensions
+      await suspensionLogic.processMatchEventsForSuspensions(matchId, match.tournament_id, events as any[]);
+    } catch (suspensionError) {
+      console.error('Error processing suspensions after match finalization:', suspensionError);
+      // Don't fail the match finalization if suspension processing fails
+    }
+
     return { message: 'Match finalized successfully' };
   }
 
