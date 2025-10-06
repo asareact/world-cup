@@ -19,6 +19,7 @@ function normalizeRole(value: unknown): UserRole {
 
   if (normalized === 'superadmin') return 'superAdmin'
   if (normalized === 'capitan') return 'capitan'
+  if (normalized === 'arbitro') return 'arbitro'
   return 'invitado'
 }
 

@@ -34,7 +34,7 @@ export function useMatches() {
   }, [fetchMatches])
 
   // Agrupar los partidos por jornada (round_name)
-  const groupedMatches = matches.reduce((acc, match) => {
+  const matchesGroupedByRound = matches.reduce((acc, match) => {
     const round = match.round_name || 'Sin Jornada'
     if (!acc[round]) {
       acc[round] = []
@@ -43,5 +43,23 @@ export function useMatches() {
     return acc
   }, {} as Record<string, MatchWithTournament[]>)
 
-  return { groupedMatches, isLoading, error, refetch: fetchMatches }
+  const matchesGroupedByDate = matches.reduce((acc, match) => {
+    const date = match.scheduled_at ? new Date(match.scheduled_at) : null
+    const key = date ? date.toLocaleDateString('en-CA') : 'Sin fecha'
+
+    if (!acc[key]) {
+      acc[key] = []
+    }
+
+    acc[key].push(match)
+    return acc
+  }, {} as Record<string, MatchWithTournament[]>)
+
+  return {
+    groupedMatches: matchesGroupedByRound,
+    groupedMatchesByDate: matchesGroupedByDate,
+    isLoading,
+    error,
+    refetch: fetchMatches
+  }
 }
