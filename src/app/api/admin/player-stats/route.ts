@@ -151,7 +151,7 @@ export async function PUT(request: NextRequest) {
     };
 
     // Remove undefined values
-    Object.keys(validUpdates).forEach(key => {
+    (Object.keys(validUpdates) as (keyof typeof validUpdates)[]).forEach(key => {
       if (validUpdates[key] === undefined) {
         delete validUpdates[key];
       }
