@@ -479,7 +479,10 @@ const getEventText = (eventType: string) => {
                 <div className="space-y-1">
                   {suspendedPlayers
                     .filter(suspension => {
-                      return suspension.team_id === (activeTab === 'home' ? match.home_team_id : match.away_team_id)
+                      // El team_id está en el objeto anidado players
+                      const playerTeamId = suspension.players?.team_id;
+                      const targetTeamId = activeTab === 'home' ? match.home_team_id : match.away_team_id;
+                      return playerTeamId && targetTeamId && playerTeamId === targetTeamId;
                     })
                     .map((suspension, idx) => (
                       <div key={suspension.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-red-900/30 border border-red-700/50">
@@ -495,7 +498,9 @@ const getEventText = (eventType: string) => {
                       </div>
                     ))}
                   {suspendedPlayers.filter(suspension => {
-                    return suspension.team_id === (activeTab === 'home' ? match.home_team_id : match.away_team_id)
+                    const playerTeamId = suspension.players?.team_id;
+                    const targetTeamId = activeTab === 'home' ? match.home_team_id : match.away_team_id;
+                    return playerTeamId && targetTeamId && playerTeamId === targetTeamId;
                   }).length === 0 && (
                     <div className="text-gray-500 text-center py-2 italic text-sm">
                       Sin sanciones pendientes
@@ -757,7 +762,11 @@ const getEventText = (eventType: string) => {
                 ) : (
                   <div className="space-y-1">
                     {suspendedPlayers
-                      .filter(suspension => suspension.team_id === match.home_team_id)
+                      .filter(suspension => {
+                        // El team_id está en el objeto anidado players
+                        const playerTeamId = suspension.players?.team_id;
+                        return playerTeamId && match.home_team_id && playerTeamId === match.home_team_id;
+                      })
                       .map((suspension, idx) => (
                         <div key={suspension.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-red-900/30 border border-red-700/50">
                           <div className="flex items-center">
@@ -771,7 +780,10 @@ const getEventText = (eventType: string) => {
                           </div>
                         </div>
                       ))}
-                    {suspendedPlayers.filter(suspension => suspension.team_id === match.home_team_id).length === 0 && (
+                    {suspendedPlayers.filter(suspension => {
+                      const playerTeamId = suspension.players?.team_id;
+                      return playerTeamId && match.home_team_id && playerTeamId === match.home_team_id;
+                    }).length === 0 && (
                       <div className="text-gray-500 text-center py-2 italic text-sm">
                         Sin sanciones pendientes
                       </div>
@@ -877,7 +889,11 @@ const getEventText = (eventType: string) => {
                 ) : (
                   <div className="space-y-1">
                     {suspendedPlayers
-                      .filter(suspension => suspension.team_id === match.away_team_id)
+                      .filter(suspension => {
+                        // El team_id está en el objeto anidado players
+                        const playerTeamId = suspension.players?.team_id;
+                        return playerTeamId && match.away_team_id && playerTeamId === match.away_team_id;
+                      })
                       .map((suspension, idx) => (
                         <div key={suspension.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-red-900/30 border border-red-700/50">
                           <div className="flex items-center">
@@ -891,7 +907,10 @@ const getEventText = (eventType: string) => {
                           </div>
                         </div>
                       ))}
-                    {suspendedPlayers.filter(suspension => suspension.team_id === match.away_team_id).length === 0 && (
+                    {suspendedPlayers.filter(suspension => {
+                      const playerTeamId = suspension.players?.team_id;
+                      return playerTeamId && match.away_team_id && playerTeamId === match.away_team_id;
+                    }).length === 0 && (
                       <div className="text-gray-500 text-center py-2 italic text-sm">
                         Sin sanciones pendientes
                       </div>

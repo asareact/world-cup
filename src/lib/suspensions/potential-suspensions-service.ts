@@ -137,11 +137,18 @@ export class PotentialSuspensionsService {
       // NEW LOGIC: Detect players at risk of suspension
       const potentialSuspensions: PotentialSuspension[] = [];
 
+      const teamPlayersMap = new Map<string, typeof players>();
+      players.forEach(player => {
+        const existing = teamPlayersMap.get(player.team_id) || [];
+        existing.push(player);
+        teamPlayersMap.set(player.team_id, existing);
+      });
+
       // Step 1: Find all yellow card events in the tournament for players
       // First get match IDs for the tournament
       const { data: tournamentMatches, error: tournamentMatchesError } = await supabase
         .from('matches')
-        .select('id')
+        .select('id, scheduled_at, home_team_id, away_team_id')
         .eq('tournament_id', tournamentId);
 
       if (tournamentMatchesError) {
@@ -149,6 +156,29 @@ export class PotentialSuspensionsService {
       }
 
       const tournamentMatchIds = tournamentMatches?.map(m => m.id) || [];
+
+      const teamMatchesMap = new Map<string, { id: string; scheduled_at: string | null }[]>();
+      if (tournamentMatches) {
+        tournamentMatches.forEach(match => {
+          [match.home_team_id, match.away_team_id].forEach(teamId => {
+            if (!teamId) {
+              return;
+            }
+
+            const matchesForTeam = teamMatchesMap.get(teamId) || [];
+            matchesForTeam.push({ id: match.id, scheduled_at: match.scheduled_at });
+            teamMatchesMap.set(teamId, matchesForTeam);
+          });
+        });
+
+        teamMatchesMap.forEach(matchList => {
+          matchList.sort((a, b) => {
+            const aTime = a.scheduled_at ? new Date(a.scheduled_at).getTime() : 0;
+            const bTime = b.scheduled_at ? new Date(b.scheduled_at).getTime() : 0;
+            return aTime - bTime;
+          });
+        });
+      }
 
       const { data: yellowCardEvents, error: yellowError } = await supabase
         .from('match_events')
@@ -199,10 +229,7 @@ export class PotentialSuspensionsService {
       // Step 2: Find players who received yellow cards in recent matches (consecutive yellow risk)
       const { data: recentYellowEvents, error: recentYellowError } = await supabase
         .from('match_events')
-        .select(`
-          player_id,
-          match_id
-        `)
+        .select('player_id, match_id')
         .eq('event_type', 'yellow_card')
         .in('match_id', tournamentMatchIds)
         .in('player_id', players.map(p => p.id));
@@ -210,31 +237,91 @@ export class PotentialSuspensionsService {
       if (recentYellowError) {
         console.error('Error fetching recent yellow events:', recentYellowError);
       } else if (recentYellowEvents) {
-        // For each player with recent yellow, check if they're playing today
-        const playerIdsWithYellows = [...new Set(recentYellowEvents.map(e => e.player_id).filter(Boolean))];
-        for (const playerId of playerIdsWithYellows) {
-          const player = players.find(p => p.id === playerId);
-          if (player) {
-            // Check if this player's team is playing today
-            const isPlayingToday = matches.some(
-              m => m.home_team_id === player.team_id || m.away_team_id === player.team_id
-            );
-            
-            if (isPlayingToday) {
-              // This creates a potential consecutive yellow card situation
-              potentialSuspensions.push({
-                playerId: player.id,
-                playerName: player.name || 'Jugador',
-                teamId: player.team_id,
-                teamName: teamMap.get(player.team_id) || 'Equipo',
-                matchId: matches.find(m => 
-                  m.home_team_id === player.team_id || m.away_team_id === player.team_id
-                )?.id || matches[0]?.id || '',
-                reason: 'Riesgo de suspensión por amarillas consecutivas',
-                suspensionType: 'accumulation_risk',
-                description: `Este jugador recibió amarilla en un partido anterior y está en riesgo de suspensión por recibir otra hoy`,
-                confidence: 'high'
-              });
+        const playerMatchesWithYellow = new Map<string, Set<string>>();
+        recentYellowEvents.forEach(event => {
+          if (event.player_id && event.match_id) {
+            const matchesWithYellow = playerMatchesWithYellow.get(event.player_id) || new Set<string>();
+            matchesWithYellow.add(event.match_id);
+            playerMatchesWithYellow.set(event.player_id, matchesWithYellow);
+          }
+        });
+
+        const findPreviousMatchForTeam = (
+          teamId: string,
+          currentMatchId: string
+        ): { id: string; scheduled_at: string | null } | null => {
+          const matchesForTeam = teamMatchesMap.get(teamId);
+          if (!matchesForTeam || matchesForTeam.length === 0) {
+            return null;
+          }
+
+          const directIndex = matchesForTeam.findIndex(teamMatch => teamMatch.id === currentMatchId);
+          if (directIndex > 0) {
+            return matchesForTeam[directIndex - 1];
+          }
+
+          if (directIndex === -1) {
+            const currentMatch = matches.find(m => m.id === currentMatchId);
+            if (!currentMatch?.scheduled_at) {
+              return null;
+            }
+
+            const currentTime = new Date(currentMatch.scheduled_at).getTime();
+            let candidate: { id: string; scheduled_at: string | null } | null = null;
+            let candidateTime = -Infinity;
+
+            for (const teamMatch of matchesForTeam) {
+              if (!teamMatch.scheduled_at) {
+                continue;
+              }
+
+              const teamMatchTime = new Date(teamMatch.scheduled_at).getTime();
+              if (teamMatchTime < currentTime && teamMatchTime > candidateTime) {
+                candidate = teamMatch;
+                candidateTime = teamMatchTime;
+              }
+            }
+
+            return candidate;
+          }
+
+          return null;
+        };
+
+        for (const match of matches) {
+          const teamsInMatch = [match.home_team_id, match.away_team_id].filter(Boolean) as string[];
+
+          for (const teamId of teamsInMatch) {
+            const previousMatch = findPreviousMatchForTeam(teamId, match.id);
+            if (!previousMatch) {
+              continue;
+            }
+
+            const teamPlayers = teamPlayersMap.get(teamId) || [];
+            for (const player of teamPlayers) {
+              const matchesWithYellow = playerMatchesWithYellow.get(player.id);
+              if (matchesWithYellow?.has(previousMatch.id)) {
+                const alreadyAdded = potentialSuspensions.some(
+                  suspension =>
+                    suspension.playerId === player.id &&
+                    suspension.matchId === match.id &&
+                    suspension.suspensionType === 'accumulation_risk'
+                );
+
+                if (!alreadyAdded) {
+                  potentialSuspensions.push({
+                    playerId: player.id,
+                    playerName: player.name || 'Jugador',
+                    teamId,
+                    teamName: teamMap.get(teamId) || 'Equipo',
+                    matchId: match.id,
+                    reason: 'Riesgo de suspensión por amarillas consecutivas',
+                    suspensionType: 'accumulation_risk',
+                    description: 'Este jugador recibio amarilla en el partido inmediatamente anterior y está en riesgo de suspensión por recibir otra hoy',
+                    confidence: 'high'
+                  });
+                }
+              }
             }
           }
         }
