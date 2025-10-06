@@ -25,6 +25,8 @@ export function MatchPotentialSuspensions({
     isMatchToday ? { matchId } : undefined
   )
 
+  const highRiskSuspensions = suspensions.filter(suspension => suspension.confidence === 'high');
+
   if (!isMatchToday) {
     // Don't show anything for matches not happening today
     return null;
@@ -45,7 +47,7 @@ export function MatchPotentialSuspensions({
   }
 
   // Only show if there are actual suspensions to display
-  if (suspensions.length === 0) {
+  if (highRiskSuspensions.length === 0) {
     return null
   }
 
@@ -53,11 +55,11 @@ export function MatchPotentialSuspensions({
     <div className="mt-2">
       <div className="flex items-center text-xs font-medium text-amber-400 mb-1">
         <AlertTriangle className="h-3 w-3 mr-1" />
-        Posibles sanciones ({suspensions.length})
+        Posibles sanciones ({highRiskSuspensions.length})
       </div>
       
       <div className="space-y-1">
-        {suspensions.map((suspension, index) => (
+        {highRiskSuspensions.map((suspension, index) => (
           <div 
             key={`${suspension.playerId}-${index}`}
             className={`
