@@ -386,7 +386,7 @@ export default function TournamentPublicPage() {
           )}
           
           {section === 'ideal-5' && (
-            <TournamentIdealFiveSection  />
+            <TournamentIdealFiveSection tournamentId={tournamentId} />
           )}
           
           {section === 'rules' && (
