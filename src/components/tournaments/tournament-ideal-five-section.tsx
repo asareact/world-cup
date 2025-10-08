@@ -128,9 +128,14 @@ const PlayerCard = ({
       ? 'grid-cols-2 md:grid-cols-4 xl:grid-cols-5'
       : 'grid-cols-2 md:grid-cols-4'
 
+  const mdGridCols = statGridCols
+    .split(' ')
+    .map((cls) => (cls.startsWith('grid-cols') ? `md:${cls}` : cls))
+    .join(' ')
+
   const statsWrapperClass = isWing
     ? 'flex flex-wrap gap-3 text-sm text-slate-200'
-    : `grid ${statGridCols} gap-3 text-sm text-slate-200`
+    : `flex flex-wrap gap-3 text-sm text-slate-200 md:grid ${mdGridCols}`
 
   const statTiles: Array<{ key: StatKey; value: string }> = [
     { key: 'goals', value: String(stats?.goals ?? 0) },
@@ -323,7 +328,7 @@ export function TournamentIdealFiveSection({ tournamentId }: TournamentIdealFive
         {loading && (
           <div className="flex items-center justify-center gap-3 rounded-2xl border border-slate-800 bg-black/30 p-10 text-slate-300">
             <Loader2 className="h-6 w-6 animate-spin text-emerald-300" />
-            <span>Calculando la jornada ideal???</span>
+            <span>Calculando la jornada ideal…</span>
           </div>
         )}
 
@@ -459,4 +464,3 @@ export function TournamentIdealFiveSection({ tournamentId }: TournamentIdealFive
     </section>
   )
 }
-
