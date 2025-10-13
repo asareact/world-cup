@@ -137,6 +137,46 @@ export class PotentialSuspensionsService {
       // NEW LOGIC: Detect players at risk of suspension
       const potentialSuspensions: PotentialSuspension[] = [];
 
+      // Step 0: Get active suspensions to exclude these players from potential suspension risks
+      // Players who are currently suspended should not appear as potential suspension risks
+      const { data: activeSuspensions, error: suspensionsError } = await supabase
+        .from('player_suspensions')
+        .select(`
+          id,
+          player_id,
+          match_id,
+          reason,
+          suspension_type
+        `)
+        .eq('tournament_id', tournamentId)
+        .eq('served', false)
+        .in('player_id', players.map(p => p.id));
+      
+      // Create a set of suspended player IDs to exclude them from potential suspension risks
+      const suspendedPlayerIds = new Set<string>();
+      if (suspensionsError) {
+        console.error('Error fetching active suspensions:', suspensionsError);
+      } else if (activeSuspensions) {
+        for (const suspension of activeSuspensions) {
+          const player = players.find(p => p.id === suspension.player_id);
+          if (player) {
+            suspendedPlayerIds.add(player.id); // Add to set so we can exclude from potential risks
+            // We still want to show that they are currently suspended
+            potentialSuspensions.push({
+              playerId: player.id,
+              playerName: player.name || 'Jugador',
+              teamId: player.team_id,
+              teamName: teamMap.get(player.team_id) || 'Equipo',
+              matchId: suspension.match_id || matches[0]?.id || '',
+              reason: suspension.reason || 'Jugador suspendido actualmente',
+              suspensionType: suspension.suspension_type as 'yellow_risk' | 'red_risk' | 'accumulation_risk',
+              description: `Este jugador está actualmente suspendido y no puede jugar`,
+              confidence: 'high'
+            });
+          }
+        }
+      }
+
       const teamPlayersMap = new Map<string, typeof players>();
       players.forEach(player => {
         const existing = teamPlayersMap.get(player.team_id) || [];
@@ -207,7 +247,7 @@ export class PotentialSuspensionsService {
         for (const playerId of playersWithYellows) {
           const player = players.find(p => p.id === playerId);
           const yellowCount = yellowCardCounts[playerId] || 0;
-          if (player) {
+          if (player && !suspendedPlayerIds.has(playerId)) { // Exclude players who are already suspended
             // Only show as risk if they have 1 or 2 yellow cards (on the way to 3)
             if (yellowCount < 3) {
               potentialSuspensions.push({
@@ -299,6 +339,8 @@ export class PotentialSuspensionsService {
 
             const teamPlayers = teamPlayersMap.get(teamId) || [];
             for (const player of teamPlayers) {
+              if (suspendedPlayerIds.has(player.id)) continue; // Skip if player is already suspended
+              
               const matchesWithYellow = playerMatchesWithYellow.get(player.id);
               if (matchesWithYellow?.has(previousMatch.id)) {
                 const alreadyAdded = potentialSuspensions.some(
@@ -327,56 +369,28 @@ export class PotentialSuspensionsService {
         }
       }
 
-      // Step 3: Get active suspensions for context (players currently suspended)
-      const { data: activeSuspensions, error: suspensionsError } = await supabase
-        .from('player_suspensions')
-        .select(`
-          id,
-          player_id,
-          match_id,
-          reason,
-          suspension_type
-        `)
-        .eq('tournament_id', tournamentId)
-        .eq('served', false)
-        .in('player_id', players.map(p => p.id));
-      
-      if (suspensionsError) {
-        console.error('Error fetching active suspensions:', suspensionsError);
-      } else if (activeSuspensions) {
-        for (const suspension of activeSuspensions) {
-          const player = players.find(p => p.id === suspension.player_id);
-          if (player) {
-            potentialSuspensions.push({
-              playerId: player.id,
-              playerName: player.name || 'Jugador',
-              teamId: player.team_id,
-              teamName: teamMap.get(player.team_id) || 'Equipo',
-              matchId: suspension.match_id || matches[0]?.id || '',
-              reason: suspension.reason || 'Jugador suspendido actualmente',
-              suspensionType: suspension.suspension_type as 'yellow_risk' | 'red_risk' | 'accumulation_risk',
-              description: `Este jugador está actualmente suspendido y no puede jugar`,
-              confidence: 'high'
-            });
-          }
-        }
-      }
-
-      // Consolidate multiple risks for the same player into a single entry
+      // Consolidate multiple risks for the same player into a single entry (for potential risks only)
+      // Note: We already excluded suspended players from potentialSuspensions during detection
       const playerMap = new Map<string, PotentialSuspension>();
       
       for (const risk of potentialSuspensions) {
-        const existingRisk = playerMap.get(risk.playerId);
-        
-        if (existingRisk) {
-          // Combine descriptions and set the highest risk type and confidence
-          existingRisk.description = `${existingRisk.description} / ${risk.description}`;
-          existingRisk.suspensionType = risk.suspensionType; // Update to the latest risk type detected
-          // Use the higher confidence level
-          existingRisk.confidence = existingRisk.confidence === 'high' || risk.confidence === 'high' ? 'high' : 
-                                   existingRisk.confidence === 'medium' || risk.confidence === 'medium' ? 'medium' : 'low';
-        } else {
+        // Skip if this is an actual suspension being processed again
+        if (suspendedPlayerIds.has(risk.playerId) && risk.reason.includes('Jugador suspendido actualmente')) {
           playerMap.set(risk.playerId, risk);
+        } else if (!suspendedPlayerIds.has(risk.playerId)) {
+          // This is a potential risk for a non-suspended player
+          const existingRisk = playerMap.get(risk.playerId);
+          
+          if (existingRisk) {
+            // Combine descriptions and set the highest risk type and confidence
+            existingRisk.description = `${existingRisk.description} / ${risk.description}`;
+            existingRisk.suspensionType = risk.suspensionType; // Update to the latest risk type detected
+            // Use the higher confidence level
+            existingRisk.confidence = existingRisk.confidence === 'high' || risk.confidence === 'high' ? 'high' : 
+                                     existingRisk.confidence === 'medium' || risk.confidence === 'medium' ? 'medium' : 'low';
+          } else {
+            playerMap.set(risk.playerId, risk);
+          }
         }
       }
       

@@ -718,6 +718,9 @@ export class DatabaseService {
       
       // Process the events to detect and create suspensions
       await suspensionLogic.processMatchEventsForSuspensions(matchId, match.tournament_id, events as any[]);
+      
+      // Update suspension statuses to mark any that have been served
+      await suspensionLogic.updateTournamentSuspensionStatuses(match.tournament_id, matchId);
     } catch (suspensionError) {
       console.error('Error processing suspensions after match finalization:', suspensionError);
       // Don't fail the match finalization if suspension processing fails

@@ -348,4 +348,107 @@ export class SuspensionLogicService {
     // Sum up all remaining matches across all active suspensions
     return activeSuspensions.reduce((total, suspension) => total + suspension.suspension_matches, 0);
   }
+
+  /**
+   * Update all tournament suspension statuses after a match has been completed
+   * This method should be called after a match is finished to update suspension status
+   */
+  async updateTournamentSuspensionStatuses(tournamentId: string, matchId: string) {
+    try {
+      // Get all matches in the tournament ordered by date to process them chronologically
+      const { data: tournamentMatches, error: allMatchesError } = await supabase
+        .from('matches')
+        .select('id, scheduled_at')
+        .eq('tournament_id', tournamentId)
+        .order('scheduled_at', { ascending: true });
+
+      if (allMatchesError) {
+        console.error('Error fetching all tournament matches:', allMatchesError);
+        return;
+      }
+
+      // Sort matches by date to track suspension progress
+      const sortedMatches = tournamentMatches.sort((a, b) => 
+        new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+      );
+
+      // Find the current match index to understand which matches have been played so far
+      const currentMatchIndex = sortedMatches.findIndex(m => m.id === matchId);
+
+      if (currentMatchIndex === -1) {
+        // This might happen if the match hasn't been scheduled yet
+        return;
+      }
+
+      // Get all active suspensions in the tournament
+      const { data: allActiveSuspensions, error: suspensionsError } = await this.suspensionService.getTournamentActiveSuspensions(tournamentId);
+
+      if (suspensionsError) {
+        console.error('Error fetching active suspensions:', suspensionsError);
+        return;
+      }
+
+      if (!allActiveSuspensions || allActiveSuspensions.length === 0) {
+        return; // No active suspensions to update
+      }
+
+      // For each active suspension, calculate how many matches have passed since it was issued
+      for (const suspension of allActiveSuspensions) {
+        const suspensionIssuedMatch = suspension.match_id;
+        const suspensionMatchIndex = sortedMatches.findIndex(m => m.id === suspensionIssuedMatch);
+        
+        if (suspensionMatchIndex !== -1) {
+          // Count how many matches have occurred since the suspension was issued
+          const matchesSinceSuspension = sortedMatches.slice(suspensionMatchIndex + 1, currentMatchIndex + 1);
+          
+          // Check if the suspended player would have played in those matches
+          // by checking if the matches were played by the team they belonged to
+          
+          // Get the player's team at the time of suspension
+          const { data: playerData, error: playerError } = await supabase
+            .from('players')
+            .select('team_id')
+            .eq('id', suspension.player_id)
+            .single();
+
+          if (playerError) {
+            console.error('Error fetching player data:', playerError);
+            continue;
+          }
+
+          // Count how many matches the player's team has played since the suspension
+          let missedMatches = 0;
+          for (const match of matchesSinceSuspension) {
+            const { data: matchDetails, error: matchDetailError } = await supabase
+              .from('matches')
+              .select(`
+                home_team_id,
+                away_team_id
+              `)
+              .eq('id', match.id)
+              .single();
+
+            if (matchDetailError) {
+              console.error('Error fetching match details:', matchDetailError);
+              continue;
+            }
+
+            // If the player's team played this match, increment the missed count
+            if (matchDetails && 
+                (matchDetails.home_team_id === playerData?.team_id || 
+                 matchDetails.away_team_id === playerData?.team_id)) {
+              missedMatches++;
+            }
+          }
+
+          // If the player has missed enough matches due to suspension, mark it as served
+          if (missedMatches >= suspension.suspension_matches) {
+            await this.suspensionService.serveSuspension(suspension.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error updating tournament suspension statuses:', error);
+    }
+  }
 }
