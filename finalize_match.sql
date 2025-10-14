@@ -255,6 +255,18 @@ BEGIN
     JOIN public.matches m ON m.id = me.match_id
     WHERE m.tournament_id = v_match.tournament_id
   ),
+  -- Count yellow cards per player per match to detect double yellow (doble amarilla)
+  yellow_card_counts AS (
+    SELECT
+      me.player_id,
+      me.match_id,
+      COUNT(*) AS yellow_count
+    FROM tournament_events me
+    WHERE me.event_type = 'yellow_card'
+    GROUP BY me.player_id, me.match_id
+    HAVING COUNT(*) >= 2  -- Players with 2 or more yellow cards in the same match
+  ),
+  -- Calculate base statistics
   player_event_totals AS (
     SELECT
       me.player_id,
@@ -264,6 +276,23 @@ BEGIN
       COUNT(*) FILTER (WHERE me.event_type = 'save') AS saves_made
     FROM tournament_events me
     GROUP BY me.player_id
+  ),
+  -- Add red cards for players who received double yellow (2 yellows in same match)
+  player_event_totals_with_double_yellow AS (
+    SELECT
+      pet.player_id,
+      pet.goals,
+      pet.yellow_cards,
+      pet.red_cards + COALESCE(double_yellow.red_card_adjustment, 0) AS red_cards,
+      pet.saves_made
+    FROM player_event_totals pet
+    LEFT JOIN (
+      SELECT
+        ycc.player_id,
+        COUNT(*) AS red_card_adjustment  -- Add 1 red card for each match where player had 2+ yellows
+      FROM yellow_card_counts ycc
+      GROUP BY ycc.player_id
+    ) double_yellow ON pet.player_id = double_yellow.player_id
   ),
   assist_from_goals AS (
     SELECT
@@ -335,7 +364,7 @@ BEGIN
       COALESCE(kt.clean_sheets, 0) AS clean_sheets,
       COALESCE(mpt.matches_played, 0) AS matches_played
     FROM target_players tp
-    LEFT JOIN player_event_totals pet ON pet.player_id = tp.player_id
+    LEFT JOIN player_event_totals_with_double_yellow pet ON pet.player_id = tp.player_id
     LEFT JOIN assist_totals ast ON ast.player_id = tp.player_id
     LEFT JOIN keeper_totals kt ON kt.player_id = tp.player_id
     LEFT JOIN matches_played_totals mpt ON mpt.player_id = tp.player_id

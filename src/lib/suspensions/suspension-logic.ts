@@ -93,13 +93,13 @@ export class SuspensionLogicService {
     );
 
     if (yellowCardsInMatch.length >= 2) {
-      // Two yellows in same match result in red card = 2 match suspension
+      // Two yellows in same match result in red card = 1 match suspension (doble amarilla)
       await this.createSuspensionIfNotExists(
         playerId, 
         tournamentId, 
         matchId, 
         'red_two_yellow', 
-        2, 
+        1, 
         'Acumulación de dos tarjetas amarillas en el mismo partido que resulta en roja'
       );
     } else if (yellowCardsInMatch.length === 1) {
