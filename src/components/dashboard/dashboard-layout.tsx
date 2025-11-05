@@ -16,7 +16,8 @@ import {
   Plus,
   Home,
   MessageSquare,
-  FileText
+  FileText,
+  Shield
 } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
@@ -32,8 +33,8 @@ const sidebarItems = [
   { icon: Calendar, label: 'Partidos', href: '/dashboard/matches', id: 'matches' },
   { icon: BarChart3, label: 'Estadísticas', href: '/dashboard/stats', id: 'stats' },
   { icon: FileText, label: 'Reglas', href: '/dashboard/rules', id: 'rules' },
-  // Visible para superAdmin v�a filtrado
   { icon: MessageSquare, label: 'Solicitudes', href: '/dashboard/requests', id: 'requests' },
+  { icon: Shield, label: 'Suspensiones', href: '/dashboard/suspensions', id: 'suspensions' },
   { icon: UserCog, label: 'Usuarios', href: '/dashboard/users', id: 'users' },
   { icon: Settings, label: 'Configuración', href: '/dashboard/settings', id: 'settings' },
 ]
@@ -342,9 +343,3 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     </div>
   )
 }
-
-
-
-
-
-

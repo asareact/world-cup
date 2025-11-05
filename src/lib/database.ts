@@ -107,7 +107,7 @@ export interface Profile {
   full_name: string | null
   avatar_url: string | null
   phone: string | null
-  role: 'superAdmin' | 'capitan' | 'invitado'
+  role: 'superAdmin' | 'capitan' | 'invitado' | 'arbitro'
   created_at: string
   updated_at: string
 }

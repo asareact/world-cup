@@ -255,17 +255,7 @@ BEGIN
     JOIN public.matches m ON m.id = me.match_id
     WHERE m.tournament_id = v_match.tournament_id
   ),
-  -- Count yellow cards per player per match to detect double yellow (doble amarilla)
-  yellow_card_counts AS (
-    SELECT
-      me.player_id,
-      me.match_id,
-      COUNT(*) AS yellow_count
-    FROM tournament_events me
-    WHERE me.event_type = 'yellow_card'
-    GROUP BY me.player_id, me.match_id
-    HAVING COUNT(*) >= 2  -- Players with 2 or more yellow cards in the same match
-  ),
+ 
   -- Calculate base statistics
   player_event_totals AS (
     SELECT
