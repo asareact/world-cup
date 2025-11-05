@@ -333,16 +333,90 @@ export default function RemoveTeamPage() {
                         <div className="flex justify-between items-center">
                           <span className="font-medium text-white">{stat.players.name} ({stat.teams.name})</span>
                           <span className="text-sm text-gray-300">
-                            {stat.goals > 0 && <span className="mr-3">{stat.goals} goles</span>}
-                            {stat.assists > 0 && <span className="mr-3">{stat.assists} asistencias</span>}
-                            {stat.yellow_cards > 0 && <span className="mr-3">{stat.yellow_cards} TA</span>}
-                            {stat.red_cards > 0 && <span className="mr-3">{stat.red_cards} TR</span>}
-                            <span>{stat.matches_played} partidos</span>
+                            <span className="mr-2">G:{stat.goals}</span>
+                            <span className="mr-2">A:{stat.assists}</span>
+                            <span className="mr-2">TA:{stat.yellow_cards}</span>
+                            <span className="mr-2">TR:{stat.red_cards}</span>
+                            <span>P:{stat.matches_played}</span>
                           </span>
                         </div>
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Adjustments to be Made */}
+              {previewData.adjustments && (
+                <div className="p-4 bg-purple-900/20 border border-purple-700 rounded-lg">
+                  <h4 className="text-sm font-medium text-purple-200 mb-3 text-center">Ajustes a realizar a otros equipos y jugadores:</h4>
+                  
+                  {/* Team Adjustments */}
+                  {Object.keys(previewData.adjustments.teams).length > 0 && (
+                    <div className="mb-4">
+                      <h5 className="text-xs text-purple-300 uppercase tracking-wide mb-2">Ajustes a equipos:</h5>
+                      <ul className="space-y-1 text-sm text-gray-300">
+                        {Object.entries(previewData.adjustments.teams).map(([teamId, adjustments]: [string, any]) => (
+                          <li key={teamId} className="flex justify-between px-2 py-1">
+                            <span className="font-medium">{previewData.adjustments.teamNames?.[teamId] || `Equipo ${teamId.substring(0,8)}...`}</span>
+                            <span>
+                              {adjustments.points !== 0 && <span className="mx-1">P:{adjustments.points}</span>}
+                              {adjustments.goals_scored !== 0 && <span className="mx-1">GF:{adjustments.goals_scored}</span>}
+                              {adjustments.goals_conceded !== 0 && <span className="mx-1">GC:{adjustments.goals_conceded}</span>}
+                              {adjustments.matches_played !== 0 && <span className="mx-1">PJ:{adjustments.matches_played}</span>}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Player Adjustments */}
+                  {Object.keys(previewData.adjustments.players).length > 0 && (
+                    <div>
+                      <h5 className="text-xs text-purple-300 uppercase tracking-wide mb-2">Ajustes a jugadores:</h5>
+                      <ul className="space-y-1 text-sm text-gray-300 max-h-40 overflow-y-auto">
+                        {Object.entries(previewData.adjustments.players).map(([playerId, adjustments]: [string, any]) => {
+                          // Buscar el nombre del jugador en los detalles ya disponibles
+                          let playerName = null;
+                          
+                          // Buscar en los detalles de jugadores del equipo eliminado
+                          if (previewData.teamPlayerStatsDetails) {
+                            const playerStat = previewData.teamPlayerStatsDetails.find((stat: any) => stat.player_id === playerId);
+                            if (playerStat && playerStat.players?.name) {
+                              playerName = playerStat.players.name;
+                            }
+                          }
+                          
+                          // Si no lo encontramos allí, buscar en otros equipos
+                          if (!playerName && previewData.otherTeamPlayerStatsDetails) {
+                            const playerStat = previewData.otherTeamPlayerStatsDetails.find((stat: any) => stat.player_id === playerId);
+                            if (playerStat && playerStat.players?.name) {
+                              playerName = playerStat.players.name;
+                            }
+                          }
+                          
+                          // Si tampoco lo encontramos allí, intentar con el nombre disponible en adjustments
+                          if (!playerName && previewData.adjustments.playerNames) {
+                            playerName = previewData.adjustments.playerNames[playerId] || null;
+                          }
+                          
+                          return (
+                            <li key={playerId} className="flex justify-between px-2 py-1">
+                              <span className="font-medium">{playerName || `Jugador ${playerId.substring(0,8)}...`}</span>
+                              <span>
+                                {adjustments.goals !== 0 && <span className="mx-1">G:{adjustments.goals}</span>}
+                                {adjustments.assists !== 0 && <span className="mx-1">A:{adjustments.assists}</span>}
+                                {adjustments.yellows !== 0 && <span className="mx-1">TA:{adjustments.yellows}</span>}
+                                {adjustments.reds !== 0 && <span className="mx-1">TR:{adjustments.reds}</span>}
+                                {adjustments.matches !== 0 && <span className="mx-1">PJ:{adjustments.matches}</span>}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
