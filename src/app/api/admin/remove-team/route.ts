@@ -169,20 +169,26 @@ async function previewRemoval(request: NextRequest, team_id: string, tournament_
       throw new Error('Error fetching player stats for team');
     }
 
-    // Get matches for events
+    // Get matches for events - matches where the team participated (either home or away)
     const { data: matchesForEvents, error: matchesForEventsError } = await supabase
       .from('matches')
       .select('id')
-      .or(`home_team_id.eq.${team_id},away_team_id.eq.${team_id}`)
-      .eq('tournament_id', tournament_id);
+      .eq('tournament_id', tournament_id)
+      .or(`home_team_id.eq.${team_id},away_team_id.eq.${team_id}`);
 
     if (matchesForEventsError) {
+      console.error('DEBUG_PREVIEW_REMOVAL - Error fetching matches for events:', matchesForEventsError);
       throw new Error('Error fetching matches for events');
     }
+    
+    console.log('DEBUG_PREVIEW_REMOVAL - MATCHES_FOR_EVENTS_FOUND:', matchesForEvents?.length || 0);
+    console.log('DEBUG_PREVIEW_REMOVAL - MATCHES_FOR_EVENTS_SAMPLE:', matchesForEvents?.slice(0, 3) || []);
 
     // Get match events for matches involving the team
     let matchEvents: any[] = [];
-    if (matchesForEvents.length > 0) {
+    console.log('DEBUG_PREVIEW_REMOVAL - ABOUT_TO_FETCH_EVENTS_FOR_MATCHES:', matchesForEvents?.length || 0);
+    
+    if (matchesForEvents && matchesForEvents.length > 0) {
       const { data, error: eventsError } = await supabase
         .from('match_events')
         .select(`
@@ -190,35 +196,56 @@ async function previewRemoval(request: NextRequest, team_id: string, tournament_
           match_id,
           player_id,
           team_id,
-          event_type,
-          players!inner (name)
+          event_type
         `)
         .in('match_id', matchesForEvents.map(match => match.id));
 
       if (eventsError) {
+        console.error('DEBUG_PREVIEW_REMOVAL - Error fetching match events:', eventsError);
         // If there are no events for the matches, that's fine - return empty array
         matchEvents = [];
       } else {
         matchEvents = data || [];
+        console.log('DEBUG_PREVIEW_REMOVAL - EVENTS_FETCHED_SUCCESSFULLY:', matchEvents.length);
+        console.log('DEBUG_PREVIEW_REMOVAL - EVENTS_SAMPLE:', matchEvents?.slice(0, 3) || []);
       }
     } else {
+      console.log('DEBUG_PREVIEW_REMOVAL - NO_MATCHES_TO_GET_EVENTS_FOR');
       matchEvents = [];
     }
 
-    // Get player stats for other teams that played against the removed team
+    // DEBUG LOGS: Get player stats for players from other teams (oponents) based on the events
+    console.log('DEBUG_PREVIEW_REMOVAL - TEAM_TO_REMOVE:', team_id);
+    console.log('DEBUG_PREVIEW_REMOVAL - MATCH_EVENTS_COUNT:', matchEvents.length);
+    console.log('DEBUG_PREVIEW_REMOVAL - MATCH_EVENTS_SAMPLE:', matchEvents.slice(0, 3)); // Show first 3 events
+    console.log('DEBUG_PREVIEW_REMOVAL - TOURNAMENT_ID:', tournament_id);
+
     let otherTeamPlayerStats: any[] = [];
     let otherTeamPlayerStatsDetails: any[] = [];
-    if (otherTeamIds.size > 0) {
-      // First get the player IDs for other teams
-      const { data: otherTeamPlayers, error: otherTeamPlayersError } = await supabase
-        .from('players')
-        .select('id')
-        .in('team_id', Array.from(otherTeamIds));
+    
+    // Get unique opponent player IDs from match events
+    const filteredEvents = matchEvents.filter(event => {
+      const isOpponentTeam = event.team_id && event.team_id !== team_id;
+      console.log('DEBUG_PREVIEW_REMOVAL - EVENT:', { 
+        eventId: event.id, 
+        eventTeamId: event.team_id, 
+        isOpponentTeam: isOpponentTeam 
+      });
+      return isOpponentTeam;
+    });
+    
+    console.log('DEBUG_PREVIEW_REMOVAL - FILTERED_EVENTS_COUNT:', filteredEvents.length);
 
-      if (otherTeamPlayersError) {
-        throw new Error('Error fetching other team players');
-      }
+    const opponentPlayerIds = [...new Set(
+      filteredEvents
+        .map(event => event.player_id)
+        .filter(id => id) // Filter out any undefined/null IDs
+    )];
 
+    console.log('DEBUG_PREVIEW_REMOVAL - OPPONENT_PLAYER_IDS:', opponentPlayerIds);
+    console.log('DEBUG_PREVIEW_REMOVAL - OPPONENT_PLAYER_IDS_COUNT:', opponentPlayerIds.length);
+
+    if (opponentPlayerIds.length > 0) {
       const { data, error: otherTeamStatsError } = await supabase
         .from('player_stats')
         .select(`
@@ -233,18 +260,24 @@ async function previewRemoval(request: NextRequest, team_id: string, tournament_
           matches_played
         `)
         .eq('tournament_id', tournament_id)
-        .in('player_id', otherTeamPlayers.map(player => player.id));
+        .in('player_id', opponentPlayerIds);
+
+      console.log('DEBUG_PREVIEW_REMOVAL - PLAYER_STATS_QUERY_RESULT:', { data, otherTeamStatsError });
 
       if (!otherTeamStatsError) {
         otherTeamPlayerStats = data || [];
         otherTeamPlayerStatsDetails = data || [];
+        console.log('DEBUG_PREVIEW_REMOVAL - OTHER_TEAM_PLAYER_STATS_LOADED:', otherTeamPlayerStats.length);
+      } else {
+        console.log('DEBUG_PREVIEW_REMOVAL - PLAYER_STATS_QUERY_ERROR:', otherTeamStatsError);
       }
+    } else {
+      console.log('DEBUG_PREVIEW_REMOVAL - NO OPPONENT PLAYERS TO FETCH STATS FOR');
     }
 
-    // Get other teams' match results that will be affected
+    // Get matches where other teams played against the team to be removed (the matches that will be affected)
     let otherTeamMatches: any[] = [];
     if (otherTeamIds.size > 0) {
-      const teamIdsArray = Array.from(otherTeamIds);
       const { data, error: otherTeamMatchesError } = await supabase
         .from('matches')
         .select(`
@@ -254,13 +287,8 @@ async function previewRemoval(request: NextRequest, team_id: string, tournament_
           home_score,
           away_score
         `)
-        .or(
-          teamIdsArray.map(id => `home_team_id.eq.${id}`).join(',')
-        )
-        .or(
-          teamIdsArray.map(id => `away_team_id.eq.${id}`).join(',')
-        )
-        .eq('tournament_id', tournament_id);
+        .eq('tournament_id', tournament_id)
+        .or(`home_team_id.eq.${team_id},away_team_id.eq.${team_id}`); // Only matches where the removed team was involved
 
       if (!otherTeamMatchesError) {
         otherTeamMatches = data || [];
@@ -312,15 +340,41 @@ async function previewRemoval(request: NextRequest, team_id: string, tournament_
       allPlayerNames[player.id] = player.name;
     });
 
-    // Calculate adjustments that will be made to other teams and players
-    const adjustments = {
-      players: {} as Record<string, { goals: number; assists: number; yellows: number; reds: number; matches: number; }>,
-      teams: {} as Record<string, { points: number; goals_scored: number; goals_conceded: number; matches_played: number; }>,
-      teamNames: allTeamNames,  // Include team names in adjustments
-      playerNames: allPlayerNames  // Include player names in adjustments
+    // Define the type for player adjustments
+    type PlayerAdjustment = {
+      goals: number;
+      assists: number;
+      yellows: number;
+      reds: number;
+      matches: number;
+      saves: number;
+      own_goals: number;
     };
 
-    // Calculate adjustments based on match events - only for completed matches
+    // Define the type for team adjustments
+    type TeamAdjustment = {
+      points: number;
+      goals_scored: number;
+      goals_conceded: number;
+      matches_played: number;
+    };
+
+    // Calculate adjustments that will be made to other teams and players
+    const adjustments: {
+      players: Record<string, PlayerAdjustment>;
+      teams: Record<string, TeamAdjustment>;
+      teamNames: Record<string, string>;
+      playerNames: Record<string, string>;
+    } = {
+      players: {},
+      teams: {},
+      teamNames: allTeamNames,
+      playerNames: allPlayerNames
+    };
+
+    // Calculate adjustments based on match events - only for completed matches (with debug logging)
+    console.log('DEBUG_PREVIEW_REMOVAL - ADJUSTMENTS_CALCULATION_START, TOTAL_MATCH_EVENTS:', matchEvents.length);
+
     for (const event of matchEvents) {
       // Don't process events for players from the removed team
       if (event.team_id === team_id) continue;
@@ -330,29 +384,61 @@ async function previewRemoval(request: NextRequest, team_id: string, tournament_
       
       // Only process events from matches that were completed (these actually happened)
       if (!relatedMatch || relatedMatch.status !== 'completed') {
+        console.log('DEBUG_PREVIEW_REMOVAL - SKIPPING_EVENT_FROM_UNCOMPLETED_MATCH:', { 
+          eventId: event.id, 
+          matchId: event.match_id, 
+          matchStatus: relatedMatch?.status 
+        });
         continue; // Skip events from matches that weren't completed
       }
 
+      console.log('DEBUG_PREVIEW_REMOVAL - PROCESSING_EVENT:', { 
+        eventId: event.id, 
+        playerId: event.player_id, 
+        eventType: event.event_type, 
+        teamId: event.team_id 
+      });
+
       const playerId = event.player_id;
       if (!adjustments.players[playerId]) {
-        adjustments.players[playerId] = { goals: 0, assists: 0, yellows: 0, reds: 0, matches: 0 };
+        adjustments.players[playerId] = { goals: 0, assists: 0, yellows: 0, reds: 0, matches: 0, saves: 0, own_goals: 0 };
       }
 
       switch (event.event_type) {
         case 'goal':
           adjustments.players[playerId].goals += 1;
+          console.log('DEBUG_PREVIEW_REMOVAL - ADDED_GOAL_TO_PLAYER:', { playerId, newGoals: adjustments.players[playerId].goals });
           break;
         case 'assist':
           adjustments.players[playerId].assists += 1;
+          console.log('DEBUG_PREVIEW_REMOVAL - ADDED_ASSIST_TO_PLAYER:', { playerId, newAssists: adjustments.players[playerId].assists });
           break;
         case 'yellow_card':
           adjustments.players[playerId].yellows += 1;
+          console.log('DEBUG_PREVIEW_REMOVAL - ADDED_YELLOW_CARD_TO_PLAYER:', { playerId, newYellows: adjustments.players[playerId].yellows });
           break;
         case 'red_card':
           adjustments.players[playerId].reds += 1;
+          console.log('DEBUG_PREVIEW_REMOVAL - ADDED_RED_CARD_TO_PLAYER:', { playerId, newReds: adjustments.players[playerId].reds });
+          break;
+        case 'save':
+          if (!adjustments.players[playerId].saves) {
+            adjustments.players[playerId].saves = 0;
+          }
+          adjustments.players[playerId].saves += 1;
+          console.log('DEBUG_PREVIEW_REMOVAL - ADDED_SAVE_TO_PLAYER:', { playerId, newSaves: adjustments.players[playerId].saves });
+          break;
+        case 'own_goal':
+          if (!adjustments.players[playerId].own_goals) {
+            adjustments.players[playerId].own_goals = 0;
+          }
+          adjustments.players[playerId].own_goals += 1;
+          console.log('DEBUG_PREVIEW_REMOVAL - ADDED_OWN_GOAL_TO_PLAYER:', { playerId, newOwnGoals: adjustments.players[playerId].own_goals });
           break;
       }
     }
+    
+    console.log('DEBUG_PREVIEW_REMOVAL - FINAL_ADJUSTMENTS_PLAYERS_COUNT:', Object.keys(adjustments.players).length);
 
     // First get all players from other teams
     const { data: allOtherTeamPlayers, error: allOtherTeamPlayersError } = await supabase
@@ -406,7 +492,7 @@ async function previewRemoval(request: NextRequest, team_id: string, tournament_
       const opposingTeamPlayers = allOtherTeamPlayers.filter(p => p.team_id === opposingTeamId);
       for (const player of opposingTeamPlayers) {
         if (!adjustments.players[player.id]) {
-          adjustments.players[player.id] = { goals: 0, assists: 0, yellows: 0, reds: 0, matches: 0 };
+          adjustments.players[player.id] = { goals: 0, assists: 0, yellows: 0, reds: 0, matches: 0, saves: 0, own_goals: 0 };
         }
         adjustments.players[player.id].matches += matchesPlayedToRemove; // Only add if match was completed
       }
@@ -521,7 +607,7 @@ async function performRemoval(request: NextRequest, team_id: string, tournament_
   }
 
     // Calculate adjustments for player statistics
-    const playerAdjustments: Record<string, { goals: number; assists: number; yellows: number; reds: number; matches: number; }> = {};
+    const playerAdjustments: Record<string, { goals: number; assists: number; yellows: number; reds: number; matches: number; saves: number; own_goals: number; }> = {};
 
     for (const event of matchEventsForAdjustments) {
       // Don't process events for players from the removed team
@@ -529,7 +615,7 @@ async function performRemoval(request: NextRequest, team_id: string, tournament_
 
       const playerId = event.player_id;
       if (!playerAdjustments[playerId]) {
-        playerAdjustments[playerId] = { goals: 0, assists: 0, yellows: 0, reds: 0, matches: 0 };
+        playerAdjustments[playerId] = { goals: 0, assists: 0, yellows: 0, reds: 0, matches: 0, saves: 0, own_goals: 0 };
       }
 
       switch (event.event_type) {
@@ -544,6 +630,12 @@ async function performRemoval(request: NextRequest, team_id: string, tournament_
           break;
         case 'red_card':
           playerAdjustments[playerId].reds += 1;
+          break;
+        case 'save':
+          playerAdjustments[playerId].saves += 1;
+          break;
+        case 'own_goal':
+          playerAdjustments[playerId].own_goals += 1;
           break;
       }
     }
@@ -561,7 +653,7 @@ async function performRemoval(request: NextRequest, team_id: string, tournament_
       if (!playersError && playersInMatch) {
         for (const player of playersInMatch) {
           if (!playerAdjustments[player.id]) {
-            playerAdjustments[player.id] = { goals: 0, assists: 0, yellows: 0, reds: 0, matches: 0 };
+            playerAdjustments[player.id] = { goals: 0, assists: 0, yellows: 0, reds: 0, matches: 0, saves: 0, own_goals: 0 };
           }
           playerAdjustments[player.id].matches += 1;
         }

@@ -376,44 +376,60 @@ export default function RemoveTeamPage() {
                     <div>
                       <h5 className="text-xs text-purple-300 uppercase tracking-wide mb-2">Ajustes a jugadores:</h5>
                       <ul className="space-y-1 text-sm text-gray-300 max-h-40 overflow-y-auto">
-                        {Object.entries(previewData.adjustments.players).map(([playerId, adjustments]: [string, any]) => {
-                          // Buscar el nombre del jugador en los detalles ya disponibles
-                          let playerName = null;
-                          
-                          // Buscar en los detalles de jugadores del equipo eliminado
-                          if (previewData.teamPlayerStatsDetails) {
-                            const playerStat = previewData.teamPlayerStatsDetails.find((stat: any) => stat.player_id === playerId);
-                            if (playerStat && playerStat.players?.name) {
-                              playerName = playerStat.players.name;
+                        {Object.entries(previewData.adjustments.players)
+                          .filter(([playerId, adjustments]: [string, any]) => {
+                            // Only show players who have actual statistics to adjust (not just matches played)
+                            // Exclude players that only have matches played with no events (meaning they might be from non-completed matches)
+                            return (
+                              adjustments.goals !== 0 || 
+                              adjustments.assists !== 0 || 
+                              adjustments.yellows !== 0 || 
+                              adjustments.reds !== 0 ||
+                              adjustments.saves !== 0 ||
+                              adjustments.own_goals !== 0
+                              // Not including adjustments.matches !== 0 by itself to avoid showing players with only scheduled matches
+                            );
+                          })
+                          .map(([playerId, adjustments]: [string, any]) => {
+                            // Buscar el nombre del jugador en los detalles ya disponibles
+                            let playerName = null;
+                            
+                            // Buscar en los detalles de jugadores del equipo eliminado
+                            if (previewData.teamPlayerStatsDetails) {
+                              const playerStat = previewData.teamPlayerStatsDetails.find((stat: any) => stat.player_id === playerId);
+                              if (playerStat && playerStat.players?.name) {
+                                playerName = playerStat.players.name;
+                              }
                             }
-                          }
-                          
-                          // Si no lo encontramos allí, buscar en otros equipos
-                          if (!playerName && previewData.otherTeamPlayerStatsDetails) {
-                            const playerStat = previewData.otherTeamPlayerStatsDetails.find((stat: any) => stat.player_id === playerId);
-                            if (playerStat && playerStat.players?.name) {
-                              playerName = playerStat.players.name;
+                            
+                            // Si no lo encontramos allí, buscar en otros equipos
+                            if (!playerName && previewData.otherTeamPlayerStatsDetails) {
+                              const playerStat = previewData.otherTeamPlayerStatsDetails.find((stat: any) => stat.player_id === playerId);
+                              if (playerStat && playerStat.players?.name) {
+                                playerName = playerStat.players.name;
+                              }
                             }
-                          }
-                          
-                          // Si tampoco lo encontramos allí, intentar con el nombre disponible en adjustments
-                          if (!playerName && previewData.adjustments.playerNames) {
-                            playerName = previewData.adjustments.playerNames[playerId] || null;
-                          }
-                          
-                          return (
-                            <li key={playerId} className="flex justify-between px-2 py-1">
-                              <span className="font-medium">{playerName || `Jugador ${playerId.substring(0,8)}...`}</span>
-                              <span>
-                                {adjustments.goals !== 0 && <span className="mx-1">G:{adjustments.goals}</span>}
-                                {adjustments.assists !== 0 && <span className="mx-1">A:{adjustments.assists}</span>}
-                                {adjustments.yellows !== 0 && <span className="mx-1">TA:{adjustments.yellows}</span>}
-                                {adjustments.reds !== 0 && <span className="mx-1">TR:{adjustments.reds}</span>}
-                                {adjustments.matches !== 0 && <span className="mx-1">PJ:{adjustments.matches}</span>}
-                              </span>
-                            </li>
-                          );
-                        })}
+                            
+                            // Si tampoco lo encontramos allí, intentar con el nombre disponible en adjustments
+                            if (!playerName && previewData.adjustments.playerNames) {
+                              playerName = previewData.adjustments.playerNames[playerId] || null;
+                            }
+                            
+                            return (
+                              <li key={playerId} className="flex justify-between px-2 py-1">
+                                <span className="font-medium">{playerName || `Jugador ${playerId.substring(0,8)}...`}</span>
+                                <span>
+                                  {adjustments.goals !== 0 && <span className="mx-1">G:-{adjustments.goals}</span>}
+                                  {adjustments.assists !== 0 && <span className="mx-1">A:-{adjustments.assists}</span>}
+                                  {adjustments.yellows !== 0 && <span className="mx-1">TA:-{adjustments.yellows}</span>}
+                                  {adjustments.reds !== 0 && <span className="mx-1">TR:-{adjustments.reds}</span>}
+                                  {adjustments.saves !== 0 && <span className="mx-1">AT:-{adjustments.saves}</span>} {/* Atajadas */}
+                                  {adjustments.own_goals !== 0 && <span className="mx-1">GP:-{adjustments.own_goals}</span>} {/* Goles en propia */}
+                                  {adjustments.matches !== 0 && <span className="mx-1">PJ:-{adjustments.matches}</span>}
+                                </span>
+                              </li>
+                            );
+                          })}
                       </ul>
                     </div>
                   )}
