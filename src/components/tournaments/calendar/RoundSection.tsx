@@ -45,14 +45,14 @@ export function RoundSection({
   return (
     <div className="bg-gray-800/40 rounded-2xl overflow-hidden shadow-lg border border-gray-700/50">
       <button
-        className={`w-full p-4 flex justify-between items-center bg-gradient-to-r from-gray-800/60 to-gray-900/60 hover:from-gray-700/60 hover:to-gray-800/60 transition-all ${
+        className={`w-full p-4 flex justify-between items-center bg-gray-800/60 hover:bg-gray-700/60 transition-colors ${
           isExpanded ? 'border-b border-gray-700/50' : ''
         }`}
         onClick={() => onToggle(roundName)}
       >
         <div className="flex items-center">
           <div className="mr-3">
-            <div className="w-2 h-2 rounded-full bg-gradient-to-r from-green-400 to-emerald-500"></div>
+            <div className="w-2 h-2 rounded-full bg-green-400"></div>
           </div>
           <div>
             <h3 className="text-lg font-bold text-white">

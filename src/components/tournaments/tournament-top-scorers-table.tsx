@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { TopScorerRow } from '@/lib/hooks/use-tournament';
+import { ExportPDFButton } from '@/components/ui/export-pdf-button';
 
 interface TournamentTopScorersTableProps {
   tournamentId: string;
@@ -146,11 +147,18 @@ export function TournamentTopScorersTable({ tournamentId }: TournamentTopScorers
   }
 
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-4 md:p-6">
+    <div id="tournament-top-scorers-table" className="bg-gray-900/50 border border-gray-800 rounded-2xl p-4 md:p-6">
       <div className="mb-6">
-        <h2 className="text-2xl md:text-3xl font-bold text-white">
-          Tabla de Goleadores
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-2xl md:text-3xl font-bold text-white">
+            Tabla de Goleadores
+          </h2>
+          <ExportPDFButton 
+            targetElementId="tournament-top-scorers-table" 
+            fileName="tabla-goleadores" 
+            title="Exportar PDF"
+          />
+        </div>
         <p className="text-gray-400 mt-2">
           Ranking de anotadores del torneo
         </p>

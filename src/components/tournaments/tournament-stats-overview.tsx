@@ -3,6 +3,7 @@
 
 import { BarChart3, Target, Award, Square, Shield } from 'lucide-react'
 import { useTournamentStats } from '@/lib/hooks/use-tournament-stats'
+import { ExportPDFButton } from '@/components/ui/export-pdf-button'
 
 interface TournamentStatsOverviewProps {
   tournamentId: string
@@ -71,12 +72,19 @@ export function TournamentStatsOverview({ tournamentId }: TournamentStatsOvervie
   ]
 
   return (
-    <div className="space-y-6">
+    <div id="tournament-stats-overview" className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-white mb-4 flex items-center">
-          <BarChart3 className="h-5 w-5 mr-2 text-green-400" />
-          Estadisticas del Torneo
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-white flex items-center">
+            <BarChart3 className="h-5 w-5 mr-2 text-green-400" />
+            Estadisticas del Torneo
+          </h2>
+          <ExportPDFButton 
+            targetElementId="tournament-stats-overview" 
+            fileName="estadisticas-torneo" 
+            title="Exportar PDF"
+          />
+        </div>
         
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {statCards.map((stat, index) => {

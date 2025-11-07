@@ -5,6 +5,7 @@ import { Match, Team } from '@/lib/database'
 import { Calendar as CalendarIcon, Edit3, Save, X } from 'lucide-react'
 import { RoundSection } from './RoundSection'
 import { MatchDetailsModal } from './MatchDetailsModal'
+import { ExportPDFButton } from '@/components/ui/export-pdf-button'
 
 interface TournamentRoundCalendarProps {
   tournamentId: string
@@ -197,10 +198,10 @@ export function TournamentRoundCalendar({
   }
 
   return (
-    <div className="bg-gray-900/40 border border-gray-800/50 rounded-2xl p-4 sm:p-5 backdrop-blur-sm">
+    <div id={`tournament-calendar-${tournamentId}`} className="bg-gray-900/40 border border-gray-800/50 rounded-2xl p-4 sm:p-5 backdrop-blur-sm">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-3">
         <div className="flex items-center">
-          <div className="mr-3 p-2 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl">
+          <div className="mr-3 p-2 bg-green-600 rounded-xl">
             <CalendarIcon className="h-6 w-6 text-white" />
           </div>
           <h2 className="text-xl font-bold text-white">
@@ -208,97 +209,107 @@ export function TournamentRoundCalendar({
           </h2>
         </div>
         
-        {isAdmin && (
-          <div className="flex flex-wrap sm:flex-nowrap gap-2">
-            {isEditing ? (
-              <>
+        <div className="flex flex-wrap sm:flex-nowrap gap-2">
+          {isAdmin && (
+            <div className="flex flex-wrap sm:flex-nowrap gap-2">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={saveSchedule}
+                    disabled={isLoading}
+                    className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    <span className="text-sm">Guardar</span>
+                  </button>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    <span className="text-sm">Cancelar</span>
+                  </button>
+                </>
+              ) : (
                 <button
-                  onClick={saveSchedule}
-                  disabled={isLoading}
-                  className="flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  <span className="text-sm">Guardar</span>
-                </button>
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="flex items-center px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all"
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  <span className="text-sm">Cancelar</span>
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={async () => {
-                  // Generate schedule automatically when clicking Generate
-                  if (teams && teams.length > 0) {
-                    // Prepare the schedule data for API to generate the schedule
-                    const scheduleData = {
-                      teams: teams || [],
-                      startDate,
-                      leagueTimeZone: leagueTimeZone || 'America/Havana'
-                    };
-                    
-                    setIsLoading(true);
-                    try {
-                      const response = await fetch(`/api/tournaments/${tournamentId}/schedule`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(scheduleData)
-                      });
+                  onClick={async () => {
+                    // Generate schedule automatically when clicking Generate
+                    if (teams && teams.length > 0) {
+                      // Prepare the schedule data for API to generate the schedule
+                      const scheduleData = {
+                        teams: teams || [],
+                        startDate,
+                        leagueTimeZone: leagueTimeZone || 'America/Havana'
+                      };
                       
-                      if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'Failed to generate schedule');
-                      }
-                      
-                      const result = await response.json();
-                      console.log('Schedule generated successfully:', result);
-                      
-                      // Since we can't directly update initialMatches prop, we need to reload data
-                      // This will be handled by the parent component updating its state
-                      // For now, we'll just show a success message
-                      
-                      // Fetch updated matches after generation
-                      const matchesResponse = await fetch(`/api/tournaments/${tournamentId}/matches`);
-                      if (matchesResponse.ok) {
-                        const updatedMatches = await matchesResponse.json();
-                        setLocalMatches(updatedMatches);
+                      setIsLoading(true);
+                      try {
+                        const response = await fetch(`/api/tournaments/${tournamentId}/schedule`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(scheduleData)
+                        });
                         
-                        // Call the callback if provided
-                        if (onScheduleGenerated) {
-                          onScheduleGenerated(updatedMatches);
+                        if (!response.ok) {
+                          const errorData = await response.json();
+                          throw new Error(errorData.error || 'Failed to generate schedule');
                         }
                         
-                        console.log('Calendario actualizado con éxito');
-                      } else {
-                        // If we can't fetch updated matches, reload the page
-                        window.location.reload();
+                        const result = await response.json();
+                        console.log('Schedule generated successfully:', result);
+                        
+                        // Since we can't directly update initialMatches prop, we need to reload data
+                        // This will be handled by the parent component updating its state
+                        // For now, we'll just show a success message
+                        
+                        // Fetch updated matches after generation
+                        const matchesResponse = await fetch(`/api/tournaments/${tournamentId}/matches`);
+                        if (matchesResponse.ok) {
+                          const updatedMatches = await matchesResponse.json();
+                          setLocalMatches(updatedMatches);
+                          
+                          // Call the callback if provided
+                          if (onScheduleGenerated) {
+                            onScheduleGenerated(updatedMatches);
+                          }
+                          
+                          console.log('Calendario actualizado con éxito');
+                        } else {
+                          // If we can't fetch updated matches, reload the page
+                          window.location.reload();
+                        }
+                      } catch (error: any) {
+                        console.error('Error generating schedule:', error);
+                        alert('Error generando el calendario: ' + error.message);
+                      } finally {
+                        setIsLoading(false);
                       }
-                    } catch (error: any) {
-                      console.error('Error generating schedule:', error);
-                      alert('Error generando el calendario: ' + error.message);
-                    } finally {
-                      setIsLoading(false);
+                    } else {
+                      alert('No hay equipos registrados para generar el calendario');
                     }
-                  } else {
-                    alert('No hay equipos registrados para generar el calendario');
-                  }
-                }}
-                className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all"
-              >
-                <Edit3 className="h-4 w-4 mr-2" />
-                <span className="text-sm">Generar</span>
-              </button>
-            )}
-          </div>
-        )}
+                  }}
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Edit3 className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Generar</span>
+                </button>
+              )}
+            </div>
+          )}
+          {/* Botón de exportación a PDF */}
+          <ExportPDFButton 
+            targetElementId={`tournament-calendar-${tournamentId}`} 
+            fileName="Calendario-Mundialito-UCI" 
+            title="Exportar PDF"
+            initialData={currentMatches || initialMatches}
+            section="calendar"
+          />
+        </div>
       </div>
       
       {rounds.length === 0 ? (
         <div className="text-center py-10">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center mb-4">
+          <div className="mx-auto w-16 h-16 bg-green-600 rounded-2xl flex items-center justify-center mb-4">
             <CalendarIcon className="h-8 w-8 text-white" />
           </div>
           <h3 className="text-lg font-bold text-white mb-2">No hay partidos programados</h3>

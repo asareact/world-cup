@@ -316,7 +316,7 @@ const getEventText = (eventType: string) => {
         <div className="overflow-y-auto p-4 flex-1">
           {/* Header con botón de cierre */}
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-300 bg-clip-text text-transparent">
+            <h3 className="text-xl font-bold text-green-400">
               Detalles del Partido
             </h3>
             <button 
@@ -608,7 +608,7 @@ const getEventText = (eventType: string) => {
         <div className="overflow-y-auto flex-grow p-6">
           {/* Header con botón de cierre */}
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-300 bg-clip-text text-transparent">
+            <h3 className="text-2xl font-bold text-green-400">
               Detalles del Partido
             </h3>
             <button 
