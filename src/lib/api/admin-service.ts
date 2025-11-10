@@ -518,4 +518,80 @@ export class AdminService {
     const positions = Array.from(new Set(data.map(item => item.position).filter(Boolean))) as string[];
     return positions;
   }
+
+  /**
+   * Remove a team from a tournament and all related data
+   */
+  async removeTeamFromTournament(teamId: string, tournamentId: string): Promise<{ success: boolean; message: string }> {
+    const response = await fetch('/api/admin/remove-team', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        team_id: teamId, 
+        tournament_id: tournamentId,
+        action: 'remove'
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Error removing team from tournament');
+    }
+
+    return result;
+  }
+
+  /**
+   * Get a preview of what will be affected when removing a team from a tournament
+   */
+  async previewTeamRemoval(teamId: string, tournamentId: string): Promise<{ success: boolean; summary: any }> {
+    const response = await fetch('/api/admin/remove-team', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        team_id: teamId, 
+        tournament_id: tournamentId,
+        action: 'preview'
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Error previewing team removal');
+    }
+
+    return result;
+  }
+
+  /**
+   * Get teams that are part of a specific tournament
+   */
+  async getTeamsInTournament(tournamentId: string): Promise<{ id: string; name: string }[]> {
+    const { data, error } = await supabase
+      .from('tournament_teams')
+      .select(`
+        id,
+        team_id,
+        team:teams!tournament_teams_team_id_fkey (id, name)
+      `)
+      .eq('tournament_id', tournamentId);
+
+    if (error) {
+      throw new Error(`Error fetching teams in tournament: ${error.message}`);
+    }
+
+    return data?.map(item => {
+      const teamData = Array.isArray(item.team) ? item.team[0] : item.team;
+      return {
+        id: item.team_id,
+        name: teamData?.name || `Team ${item.team_id}`
+      };
+    }) || [];
+  }
 }

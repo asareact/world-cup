@@ -37,6 +37,7 @@ const sidebarItems = [
   { icon: Shield, label: 'Suspensiones', href: '/dashboard/suspensions', id: 'suspensions' },
   { icon: UserCog, label: 'Usuarios', href: '/dashboard/users', id: 'users' },
   { icon: Settings, label: 'Configuración', href: '/dashboard/settings', id: 'settings' },
+  { icon: Shield, label: 'Eliminar Equipo', href: '/dashboard/remove-team', id: 'remove-team' },
 ]
 
 interface DashboardLayoutProps {
@@ -95,7 +96,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Menú por rol (sin flicker durante loading)
   const filteredSidebarItems = !loading ? sidebarItems.filter((item) => {
-    if (role === 'superAdmin') return true
+    if (role === 'superAdmin') {
+      // SuperAdmin tiene acceso a todo, incluyendo 'Eliminar Equipo'
+      return true
+    }
     if (role === 'capitan') {
       // Capitán: Mi Equipo, Torneos, Reglas y Configuración
       return ['teams', 'tournaments', 'rules', 'settings'].includes(item.id)
@@ -104,7 +108,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       // Árbitro: Partidos, Torneos, Reglas y Configuración
       return ['matches', 'tournaments', 'rules', 'settings'].includes(item.id)
     }
-    // Invitado: Torneos, Reglas y Configuración
+    if (role === 'invitado') {
+      // Invitado: Torneos, Reglas y Configuración
+      return ['tournaments', 'rules', 'settings'].includes(item.id)
+    }
+    // Otros roles: Torneos, Reglas y Configuración
     return ['tournaments', 'rules', 'settings'].includes(item.id)
   }) : []
 
