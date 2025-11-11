@@ -153,11 +153,11 @@ export function TournamentTopScorersTable({ tournamentId }: TournamentTopScorers
           <h2 className="text-2xl md:text-3xl font-bold text-white">
             Tabla de Goleadores
           </h2>
-          <ExportPDFButton 
-            targetElementId="tournament-top-scorers-table" 
-            fileName="tabla-goleadores" 
-            title="Exportar PDF"
-          />
+          {/*<ExportPDFButton */}
+          {/*  targetElementId="tournament-top-scorers-table" */}
+          {/*  fileName="tabla-goleadores" */}
+          {/*  title="Exportar PDF"*/}
+          {/*/>*/}
         </div>
         <p className="text-gray-400 mt-2">
           Ranking de anotadores del torneo

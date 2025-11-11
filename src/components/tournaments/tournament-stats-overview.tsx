@@ -79,11 +79,11 @@ export function TournamentStatsOverview({ tournamentId }: TournamentStatsOvervie
             <BarChart3 className="h-5 w-5 mr-2 text-green-400" />
             Estadisticas del Torneo
           </h2>
-          <ExportPDFButton 
-            targetElementId="tournament-stats-overview" 
-            fileName="estadisticas-torneo" 
-            title="Exportar PDF"
-          />
+          {/*<ExportPDFButton */}
+          {/*  targetElementId="tournament-stats-overview" */}
+          {/*  fileName="estadisticas-torneo" */}
+          {/*  title="Exportar PDF"*/}
+          {/*/>*/}
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

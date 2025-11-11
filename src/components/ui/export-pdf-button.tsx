@@ -342,7 +342,7 @@ export function ExportPDFButton({
               pdf.setTextColor(255, 255, 255);
               pdf.setDrawColor(100, 116, 139);
               pdf.roundedRect(210, matchYPosition + 2, 35, 6, 1.5, 1.5, 'FD'); // Filled and outlined rectangle más pequeño
-              pdf.text(resultStr.substring(0, 10), 212, matchYPosition + 4); // Limitar texto
+              pdf.text(resultStr.substring(0, 10), 212, matchYPosition + 5.5); // Limitar texto - centrado verticalmente en el recuadro
 
               matchYPosition += 18; // Espaciado entre partidos reducido
             }
