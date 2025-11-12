@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { Trophy, Users, Calendar, Shuffle, Target, Award, BarChart3, Square } from 'lucide-react';
 import { Team, Match } from '@/lib/database';
+import { ExportPDFButton } from '@/components/ui/export-pdf-button';
 
 interface StandingsEntry {
   position: number
@@ -40,10 +41,10 @@ const getTeamPlaceholderColor = (teamId: string | undefined | null) => {
 const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] => {
   // Initialize standings for all teams
   const standingsMap: Record<string, StandingsEntry> = {};
-  
+
   teams.forEach(team => {
     if (!team?.id) return; // Skip if team id is undefined
-    
+
     standingsMap[team.id] = {
       position: 0, // Will be calculated later
       team,
@@ -63,10 +64,10 @@ const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] =
     .filter(match => match?.status === 'completed' && match?.home_score !== null && match?.away_score !== null)
     .forEach(match => {
       if (!match?.home_team || !match?.away_team) return;
-      
+
       const homeTeamId = match.home_team.id;
       const awayTeamId = match.away_team.id;
-      
+
       // Ensure both teams exist in standings
       if (!standingsMap[homeTeamId]) {
         // Find the full team object from the teams array to ensure all required Team properties
@@ -95,7 +96,7 @@ const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] =
           goalDifference: 0
         };
       }
-      
+
       if (!standingsMap[awayTeamId]) {
         // Find the full team object from the teams array to ensure all required Team properties
         const fullAwayTeam = teams.find(t => t.id === match.away_team?.id);
@@ -123,23 +124,23 @@ const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] =
           goalDifference: 0
         };
       }
-      
+
       // Update match counts
       standingsMap[homeTeamId].played += 1;
       standingsMap[awayTeamId].played += 1;
-      
+
       // Update goals
       const homeGoals = match.home_score || 0;
       const awayGoals = match.away_score || 0;
-      
+
       standingsMap[homeTeamId].goalsFor += homeGoals;
       standingsMap[homeTeamId].goalsAgainst += awayGoals;
       standingsMap[homeTeamId].goalDifference = standingsMap[homeTeamId].goalsFor - standingsMap[homeTeamId].goalsAgainst;
-      
+
       standingsMap[awayTeamId].goalsFor += awayGoals;
       standingsMap[awayTeamId].goalsAgainst += homeGoals;
       standingsMap[awayTeamId].goalDifference = standingsMap[awayTeamId].goalsFor - standingsMap[awayTeamId].goalsAgainst;
-      
+
       // Update points (3 for win, 1 for draw, 0 for loss) and match results
       if (homeGoals > awayGoals) {
         standingsMap[homeTeamId].points += 3; // Home win
@@ -159,7 +160,7 @@ const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] =
 
   // Convert to array and sort by points, then by goal difference, then by goals scored
   const standingsArray = Object.values(standingsMap).filter(entry => entry !== undefined) as StandingsEntry[];
-  
+
   standingsArray.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points; // Higher points first
     if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference; // Higher goal difference first
@@ -174,7 +175,7 @@ const calculateStandings = (teams: Team[], matches: Match[]): StandingsEntry[] =
   return standingsArray;
 };
 
-export function TournamentStandings({ 
+export function TournamentStandings({
   tournament,
   teams,
   matches,
@@ -212,7 +213,18 @@ export function TournamentStandings({
         <p className="text-gray-400 mt-2">
           Sigue la clasificación de los equipos en tiempo real
         </p>
-        
+
+        <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-4">
+          {/* Botón de exportación a PDF */}
+          <ExportPDFButton
+            targetElementId={`tournament-standings-${tournament?.id || 'default'}`}
+            fileName="Tabla-Posiciones-Mundialito-UCI"
+            title="Exportar PDF"
+            initialData={overallStandings}
+            section="standings"
+          />
+        </div>
+
         {/* Legend for classification indicators */}
         <div className="flex flex-wrap gap-4 mt-3">
           <div className="flex items-center">
@@ -229,7 +241,7 @@ export function TournamentStandings({
           </div>
         </div>
       </div>
-      
+
       {/* Standings Table */}
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -251,12 +263,12 @@ export function TournamentStandings({
             {overallStandings.map((entry) => {
               const classificationStatus = getClassificationStatus(entry.position, overallStandings.length);
               const classificationColor = getClassificationColor(classificationStatus);
-              
+
               return (
-              <tr 
-                key={entry.team.id} 
-                className={`border-b border-gray-800 hover:bg-gray-800/30 transition-colors cursor-pointer ${classificationStatus === 'qualified' ? 'bg-green-900/10' : 
-                 classificationStatus === 'repechaje' ? 'bg-yellow-900/10' : 
+              <tr
+                key={entry.team.id}
+                className={`border-b border-gray-800 hover:bg-gray-800/30 transition-colors cursor-pointer ${classificationStatus === 'qualified' ? 'bg-green-900/10' :
+                 classificationStatus === 'repechaje' ? 'bg-yellow-900/10' :
                  classificationStatus === 'eliminated' ? 'bg-red-900/10' : ''}`}
                 onClick={() => onTeamClick(entry.team.id)}
               >
@@ -269,10 +281,10 @@ export function TournamentStandings({
                     <div className="w-8 h-8 rounded-full overflow-hidden mr-3">
                       {entry.team.logo_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img 
-                          src={entry.team.logo_url} 
-                          alt={entry.team.name} 
-                          className="w-full h-full object-cover" 
+                        <img
+                          src={entry.team.logo_url}
+                          alt={entry.team.name}
+                          className="w-full h-full object-cover"
                         />
                       ) : (
                         <div className={`w-full h-full flex items-center justify-center ${getTeamPlaceholderColor(entry.team.id)}`}>
@@ -300,7 +312,7 @@ export function TournamentStandings({
           </tbody>
         </table>
       </div>
-      
+
       {/* Empty State */}
       {overallStandings.length === 0 && (
         <div className="text-center py-12">

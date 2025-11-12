@@ -9,7 +9,7 @@ interface ExportPDFButtonProps {
   fileName?: string;
   title?: string;
   className?: string;
-  section?: 'calendar' | 'matches' | 'stats' | 'results'; // tipo de sección a exportar
+  section?: 'calendar' | 'matches' | 'stats' | 'results' | 'standings'; // tipo de sección a exportar
   initialData?: any; // Datos directamente pasados al componente para evitar llamadas API
 }
 
@@ -43,6 +43,9 @@ export function ExportPDFButton({
             break;
           case 'stats':
             pdfTitle = 'Estadísticas del Torneo';
+            break;
+          case 'standings':
+            pdfTitle = 'Tabla de Posiciones';
             break;
           default:
             pdfTitle = 'Datos del Torneo';
@@ -93,6 +96,160 @@ export function ExportPDFButton({
             } catch (error) {
               console.error('Error al obtener los resultados:', error);
               alert('No se pudieron obtener los resultados. Detalles: ' + (error as Error).message);
+              return;
+            }
+            break;
+          case 'standings':
+            try {
+              // Obtener partidos y equipos para calcular la tabla de posiciones
+              const [matchesResponse, teamsResponse] = await Promise.all([
+                fetch(`/api/tournaments/${tournamentId}/matches`),
+                fetch(`/api/tournaments/${tournamentId}/teams`)
+              ]);
+              
+              if (!matchesResponse.ok) throw new Error('Error al obtener los partidos para la tabla de posiciones');
+              if (!teamsResponse.ok) throw new Error('Error al obtener los equipos para la tabla de posiciones');
+              
+              const matches = await matchesResponse.json();
+              const teams = await teamsResponse.json();
+              
+              // Calcular la tabla de posiciones (similar a la función calculateStandings en tournament-standings.tsx)
+              const standingsMap: Record<string, any> = {};
+              
+              // Inicializar tabla para todos los equipos
+              teams.forEach((team: any) => {
+                if (!team?.id) return;
+                
+                standingsMap[team.id] = {
+                  position: 0, // Se calculará más adelante
+                  team,
+                  played: 0,
+                  wins: 0,
+                  draws: 0,
+                  losses: 0,
+                  points: 0,
+                  goalsFor: 0,
+                  goalsAgainst: 0,
+                  goalDifference: 0
+                };
+              });
+
+              // Procesar partidos completados para actualizar estadísticas
+              matches
+                .filter((match: any) => match?.status === 'completed' && match?.home_score !== null && match?.away_score !== null)
+                .forEach((match: any) => {
+                  if (!match?.home_team || !match?.away_team) return;
+
+                  const homeTeamId = match.home_team.id;
+                  const awayTeamId = match.away_team.id;
+
+                  // Asegurar que ambos equipos existan en la tabla
+                  if (!standingsMap[homeTeamId]) {
+                    const fullHomeTeam = teams.find((t: any) => t.id === match.home_team?.id);
+                    standingsMap[homeTeamId] = {
+                      position: 0,
+                      team: fullHomeTeam || {
+                        id: match.home_team?.id || '',
+                        name: match.home_team?.name || 'Equipo desconocido',
+                        logo_url: match.home_team?.logo_url || null,
+                        description: null,
+                        captain_id: null,
+                        created_by: '',
+                        contact_email: null,
+                        contact_phone: null,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                      },
+                      played: 0,
+                      wins: 0,
+                      draws: 0,
+                      losses: 0,
+                      points: 0,
+                      goalsFor: 0,
+                      goalsAgainst: 0,
+                      goalDifference: 0
+                    };
+                  }
+
+                  if (!standingsMap[awayTeamId]) {
+                    const fullAwayTeam = teams.find((t: any) => t.id === match.away_team?.id);
+                    standingsMap[awayTeamId] = {
+                      position: 0,
+                      team: fullAwayTeam || {
+                        id: match.away_team?.id || '',
+                        name: match.away_team?.name || 'Equipo desconocido',
+                        logo_url: match.away_team?.logo_url || null,
+                        description: null,
+                        captain_id: null,
+                        created_by: '',
+                        contact_email: null,
+                        contact_phone: null,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                      },
+                      played: 0,
+                      wins: 0,
+                      draws: 0,
+                      losses: 0,
+                      points: 0,
+                      goalsFor: 0,
+                      goalsAgainst: 0,
+                      goalDifference: 0
+                    };
+                  }
+
+                  // Actualizar contadores de partidos
+                  standingsMap[homeTeamId].played += 1;
+                  standingsMap[awayTeamId].played += 1;
+
+                  // Actualizar goles
+                  const homeGoals = match.home_score || 0;
+                  const awayGoals = match.away_score || 0;
+
+                  standingsMap[homeTeamId].goalsFor += homeGoals;
+                  standingsMap[homeTeamId].goalsAgainst += awayGoals;
+                  standingsMap[homeTeamId].goalDifference = standingsMap[homeTeamId].goalsFor - standingsMap[homeTeamId].goalsAgainst;
+
+                  standingsMap[awayTeamId].goalsFor += awayGoals;
+                  standingsMap[awayTeamId].goalsAgainst += homeGoals;
+                  standingsMap[awayTeamId].goalDifference = standingsMap[awayTeamId].goalsFor - standingsMap[awayTeamId].goalsAgainst;
+
+                  // Actualizar puntos y resultados
+                  if (homeGoals > awayGoals) {
+                    standingsMap[homeTeamId].points += 3; // Victoria local
+                    standingsMap[homeTeamId].wins += 1;
+                    standingsMap[awayTeamId].losses += 1;
+                  } else if (homeGoals < awayGoals) {
+                    standingsMap[awayTeamId].points += 3; // Victoria visitante
+                    standingsMap[awayTeamId].wins += 1;
+                    standingsMap[homeTeamId].losses += 1;
+                  } else {
+                    standingsMap[homeTeamId].points += 1; // Empate
+                    standingsMap[awayTeamId].points += 1; // Empate
+                    standingsMap[homeTeamId].draws += 1;
+                    standingsMap[awayTeamId].draws += 1;
+                  }
+                });
+
+              // Convertir a array y ordenar por puntos, diferencia de goles y goles a favor
+              const standingsArray = Object.values(standingsMap).filter((entry: any) => entry !== undefined);
+
+              standingsArray.sort((a: any, b: any) => {
+                if (b.points !== a.points) return b.points - a.points; // Más puntos primero
+                if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference; // Diferencia mayor primero
+                return b.goalsFor - a.goalsFor; // Más goles a favor primero
+              });
+
+              // Asignar posiciones
+              standingsArray.forEach((entry: any, index: number) => {
+                entry.position = index + 1;
+              });
+
+              data = standingsArray;
+              pdfTitle = 'Tabla de Posiciones';
+            } catch (error) {
+              console.error('Error al obtener la tabla de posiciones:', error);
+              alert('No se pudo obtener la tabla de posiciones. Detalles: ' + (error as Error).message);
               return;
             }
             break;
@@ -362,6 +519,155 @@ export function ExportPDFButton({
         pdf.setFontSize(12);
         pdf.setTextColor(75, 85, 99);
         pdf.text('No hay datos de partidos disponibles para exportar.', 20, yPosition);
+        yPosition += 10;
+      }
+    } else if (section === 'standings') {
+      // Procesar tabla de posiciones
+      pdf.setFontSize(14);
+      pdf.setTextColor(31, 41, 55);
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        // Dibujar encabezado de la tabla de posiciones
+        if (yPosition > 180) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+        
+        // Encabezado de la tabla
+        pdf.setFontSize(10);
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFillColor(15, 23, 42); // #0f172a - Fondo oscuro para encabezado
+        pdf.rect(15, yPosition, 260, 10, 'F'); // Fondo del encabezado
+        pdf.setDrawColor(55, 65, 81);
+        pdf.rect(15, yPosition, 260, 10); // Borde del encabezado
+        
+        // Textos del encabezado
+        pdf.text('Pos', 20, yPosition + 6.5); // Posición
+        pdf.text('Equipo', 40, yPosition + 6.5); // Equipo
+        pdf.text('Pts', 115, yPosition + 6.5); // Puntos
+        pdf.text('PJ', 135, yPosition + 6.5); // Partidos Jugados
+        pdf.text('G', 155, yPosition + 6.5); // Ganados
+        pdf.text('E', 170, yPosition + 6.5); // Empatados
+        pdf.text('P', 185, yPosition + 6.5); // Perdidos
+        pdf.text('GF', 205, yPosition + 6.5); // Goles a favor
+        pdf.text('GC', 225, yPosition + 6.5); // Goles en contra
+        pdf.text('DG', 245, yPosition + 6.5); // Diferencia de goles
+        
+        yPosition += 12; // Espacio debajo del encabezado
+        
+        // Dibujar filas de la tabla de posiciones
+        for (const entry of data) {
+          if (yPosition > 180) { // Cambiar de página si es necesario
+            pdf.addPage();
+            yPosition = 20;
+            
+            // Volver a dibujar el encabezado en la nueva página
+            pdf.setFontSize(10);
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFillColor(15, 23, 42); // #0f172a - Fondo oscuro para encabezado
+            pdf.rect(15, yPosition, 260, 10, 'F'); // Fondo del encabezado
+            pdf.setDrawColor(55, 65, 81);
+            pdf.rect(15, yPosition, 260, 10); // Borde del encabezado
+            
+            // Textos del encabezado
+            pdf.text('Pos', 20, yPosition + 6.5); // Posición
+            pdf.text('Equipo', 40, yPosition + 6.5); // Equipo
+            pdf.text('Pts', 115, yPosition + 6.5); // Puntos
+            pdf.text('PJ', 135, yPosition + 6.5); // Partidos Jugados
+            pdf.text('G', 155, yPosition + 6.5); // Ganados
+            pdf.text('E', 170, yPosition + 6.5); // Empatados
+            pdf.text('P', 185, yPosition + 6.5); // Perdidos
+            pdf.text('GF', 205, yPosition + 6.5); // Goles a favor
+            pdf.text('GC', 225, yPosition + 6.5); // Goles en contra
+            pdf.text('DG', 245, yPosition + 6.5); // Diferencia de goles
+            
+            yPosition += 12; // Espacio debajo del encabezado
+          }
+          
+          // Determinar el color de fondo según la posición
+          let bgColor = [30, 41, 59]; // Fondo por defecto
+          if (entry.position <= 6) {
+            bgColor = [34, 197, 94]; // Verde para clasificados directos (posición 1-6)
+          } else if (entry.position <= 10) {
+            bgColor = [234, 179, 8]; // Amarillo para repechaje (posición 7-10)
+          } else if (entry.position >= data.length - 2) {
+            bgColor = [239, 68, 68]; // Rojo para eliminados (últimas 3 posiciones)
+          }
+          
+          // Dibujar fondo de la fila
+          // @ts-ignore
+            pdf.setFillColor(...bgColor);
+          pdf.rect(15, yPosition, 260, 8, 'F'); // Fondo de la fila
+          pdf.setDrawColor(55, 65, 81);
+          pdf.rect(15, yPosition, 260, 8); // Borde de la fila
+          
+          // Colores de texto
+          pdf.setFontSize(9);
+          pdf.setTextColor(255, 255, 255); // Texto blanco
+          
+          // Dibujar datos de la fila
+          pdf.text(entry.position.toString(), 20, yPosition + 5.5); // Posición
+          
+          // Nombre del equipo (limpiar caracteres especiales y limitar longitud si es necesario)
+          let teamName = entry.team?.name ? cleanText(entry.team.name) : 'Equipo';
+          if (teamName.length > 20) {
+            teamName = teamName.substring(0, 17) + '...';
+          }
+          pdf.text(teamName, 40, yPosition + 5.5); // Equipo
+          
+          pdf.text(entry.points?.toString() || '0', 115, yPosition + 5.5); // Puntos
+          pdf.text(entry.played?.toString() || '0', 135, yPosition + 5.5); // Partidos Jugados
+          pdf.text(entry.wins?.toString() || '0', 155, yPosition + 5.5); // Ganados
+          pdf.text(entry.draws?.toString() || '0', 170, yPosition + 5.5); // Empatados
+          pdf.text(entry.losses?.toString() || '0', 185, yPosition + 5.5); // Perdidos
+          pdf.text(entry.goalsFor?.toString() || '0', 205, yPosition + 5.5); // Goles a favor
+          pdf.text(entry.goalsAgainst?.toString() || '0', 225, yPosition + 5.5); // Goles en contra
+          
+          // Diferencia de goles con signo
+          const goalDiff = entry.goalDifference >= 0 ? `+${entry.goalDifference}` : entry.goalDifference.toString();
+          pdf.text(goalDiff, 245, yPosition + 5.5); // Diferencia de goles
+          
+          yPosition += 9; // Espacio entre filas
+        }
+        
+        // Añadir leyenda de clasificación
+        if (yPosition > 170) { // Cambiar de página si no hay espacio suficiente
+          pdf.addPage();
+          yPosition = 20;
+        }
+        
+        // Dibujar recuadro para la leyenda
+        pdf.setFillColor(30, 41, 59); // Fondo similar al encabezado de la tabla
+        pdf.rect(15, yPosition, 260, 25, 'F'); // Fondo del recuadro de leyenda
+        pdf.setDrawColor(55, 65, 81);
+        pdf.rect(15, yPosition, 260, 25); // Borde del recuadro de leyenda
+        
+        // Título de la leyenda
+        pdf.setFontSize(10);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text('Leyenda de Clasificación:', 20, yPosition + 5);
+        
+        // Clasificados directos (verde)
+        pdf.setFillColor(34, 197, 94); // Verde
+        pdf.rect(20, yPosition + 8, 5, 5, 'F');
+        pdf.setTextColor(255, 255, 255);
+        pdf.text('Clasificados directos (Posiciones 1-6)', 30, yPosition + 11.5);
+        
+        // Repechaje (amarillo)
+        pdf.setFillColor(234, 179, 8); // Amarillo
+        pdf.rect(20, yPosition + 14, 5, 5, 'F');
+        pdf.text('Repechaje (Posiciones 7-10)', 30, yPosition + 17.5);
+        
+        // Eliminados (rojo)
+        pdf.setFillColor(239, 68, 68); // Rojo
+        pdf.rect(20, yPosition + 20, 5, 5, 'F');
+        pdf.text('Eliminados ', 30, yPosition + 23.5);
+        
+        yPosition += 30; // Espacio después de la leyenda
+      } else {
+        pdf.setFontSize(12);
+        pdf.setTextColor(75, 85, 99);
+        pdf.text('No hay datos de posiciones disponibles para exportar.', 20, yPosition);
         yPosition += 10;
       }
     } else if (section === 'stats') {
